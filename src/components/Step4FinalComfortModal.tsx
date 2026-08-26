@@ -27,21 +27,21 @@ export const Step4FinalComfortModal: React.FC<Step4FinalComfortModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-white rounded-lg max-w-lg w-full p-4 sm:p-5 shadow-xl border border-slate-300 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-fadeIn">
+      <div className="bg-slate-900 rounded-lg max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-slate-700 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-3.5">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3.5">
           <div className="flex items-center gap-2.5">
             <BetaLogo size="sm" className="shadow-xs shrink-0" />
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold uppercase text-orange-600 tracking-wider">
+                <span className="text-[10px] font-bold uppercase text-orange-400 tracking-wider">
                   ADIM 4 / 4
                 </span>
-                <span className="text-slate-300">•</span>
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Son Onay</span>
+                <span className="text-slate-600">•</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Son Onay</span>
               </div>
-              <h2 className="text-sm sm:text-base font-bold text-slate-900">
+              <h2 className="text-sm sm:text-base font-bold text-slate-100">
                 Denetimi Bitir & Konfor Kontrolü
               </h2>
             </div>
@@ -49,22 +49,22 @@ export const Step4FinalComfortModal: React.FC<Step4FinalComfortModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Audit Status Overview */}
-        <div className="mb-3.5 p-3 rounded bg-slate-50 border border-slate-300 flex items-center justify-between">
+        <div className="mb-3.5 p-3 rounded bg-slate-950 border border-slate-800 flex items-center justify-between">
           <div>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Tespit Edilen Hatalar:</span>
-            <span className={`text-xs sm:text-sm font-extrabold ${totalUDCount > 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Tespit Edilen Hatalar:</span>
+            <span className={`text-xs sm:text-sm font-extrabold ${totalUDCount > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
               {totalUDCount > 0 ? `${totalUDCount} Adet Uygunsuzluk (UD)` : 'Kusursuz / Hata Tespit Edilmedi'}
             </span>
           </div>
           <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-            totalUDCount > 0 ? 'bg-red-50 text-red-800 border-red-300' : 'bg-emerald-50 text-emerald-800 border-emerald-300'
+            totalUDCount > 0 ? 'bg-red-500/20 text-red-300 border-red-400/40' : 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
           }`}>
             {totalUDCount > 0 ? 'Hatalı Maddeler Raporlanacak' : 'Temiz Rapor'}
           </div>
@@ -73,15 +73,15 @@ export const Step4FinalComfortModal: React.FC<Step4FinalComfortModalProps> = ({
         {/* Mandatory Final Ride Comfort Check Item */}
         <div className={`rounded p-3 border transition-all ${
           rideComfortNonCompliant
-            ? 'bg-red-50/70 border-red-300 ring-1 ring-red-300'
-            : 'bg-white border-slate-300'
+            ? 'bg-slate-950 border-red-500 shadow-md ring-2 ring-red-500/60'
+            : 'bg-slate-950 border-slate-800'
         }`}>
           <div className="flex items-start justify-between gap-2.5">
             <div className="flex-1">
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+              <h3 className="text-xs sm:text-sm font-bold text-slate-100">
                 Asansör Seyir ve Konfor Uygunsuzluğu
               </h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-[11px] text-slate-400 mt-0.5">
                 Kabin seyir esnasında sarsıntı, gürültü, rezonans, ani duruş veya kalkış hissi var mı?
               </p>
             </div>
@@ -91,16 +91,16 @@ export const Step4FinalComfortModal: React.FC<Step4FinalComfortModalProps> = ({
               type="button"
               id="btn-ud-comfort"
               onClick={onToggleRideComfortUD}
-              className={`px-2.5 py-1.5 rounded font-bold text-xs uppercase tracking-wider transition-all shadow-xs shrink-0 flex items-center gap-1 border ${
+              className={`min-h-[42px] px-3.5 py-2 rounded font-black text-xs sm:text-sm tracking-wider uppercase transition-all shadow-md active:scale-95 shrink-0 flex items-center gap-1.5 border-2 ${
                 rideComfortNonCompliant
-                  ? 'bg-red-600 text-white border-red-700 ring-1 ring-red-300'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-300'
+                  ? 'bg-red-600 hover:bg-red-500 text-white border-red-400 shadow-red-900/50 ring-2 ring-red-400'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-600'
               }`}
             >
               {rideComfortNonCompliant ? (
                 <>
-                  <AlertTriangle className="w-3.5 h-3.5 text-white" />
-                  <span>UD (Uygun Değil)</span>
+                  <AlertTriangle className="w-4 h-4 text-white fill-red-800" />
+                  <span className="font-black text-white">UD (HATALI)</span>
                 </>
               ) : (
                 <span>[ UD ]</span>
@@ -110,8 +110,8 @@ export const Step4FinalComfortModal: React.FC<Step4FinalComfortModalProps> = ({
 
           {/* If Comfort UD is selected: Textarea */}
           {rideComfortNonCompliant && (
-            <div className="mt-2.5 pt-2.5 border-t border-red-200 space-y-1 animate-fadeIn">
-              <label htmlFor="desc-ride-comfort" className="block text-[10px] font-bold text-red-900 uppercase tracking-wider">
+            <div className="mt-3 pt-3 border-t border-red-500/30 space-y-1.5 animate-fadeIn">
+              <label htmlFor="desc-ride-comfort" className="block text-[10px] font-bold text-red-300 uppercase tracking-wider">
                 Konfor Şikayetleri ve Sarsıntı Detayı:
               </label>
               <SmartTextInput
@@ -133,7 +133,7 @@ export const Step4FinalComfortModal: React.FC<Step4FinalComfortModalProps> = ({
             type="button"
             id="btn-generate-report"
             onClick={onGenerateReport}
-            className="w-full py-3 px-4 rounded font-bold text-xs uppercase tracking-wider text-white bg-[#0A2647] hover:bg-[#081f3a] active:scale-[0.99] transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3 px-4 rounded font-bold text-xs sm:text-sm uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-500 active:scale-[0.99] transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
           >
             <FileText className="w-4 h-4" />
             <span>[ FORMU OLUŞTUR VE RAPORLA ]</span>
@@ -142,7 +142,7 @@ export const Step4FinalComfortModal: React.FC<Step4FinalComfortModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-2 px-3 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
+            className="w-full py-2 px-3 text-xs font-bold text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
           >
             Denetime Devam Et (Geri Dön)
           </button>

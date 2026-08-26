@@ -35,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, [startTimestamp, currentStep]);
 
   return (
-    <header className="sticky top-0 z-40 bg-[#0A2647] text-white shadow-md border-b-2 border-orange-500">
+    <header className="sticky top-0 z-40 bg-slate-900 text-white shadow-md border-b-2 border-slate-800">
       <div className="max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between">
         {/* Brand & Logo */}
         <div className="flex items-center gap-2 sm:gap-2.5">
@@ -46,10 +46,10 @@ export const Header: React.FC<HeaderProps> = ({
                 BETA ASANSÖR
               </h1>
               <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-orange-500/20 text-orange-300 rounded border border-orange-500/40">
-                PRO
+                QC v2.0
               </span>
             </div>
-            <p className="text-[10px] uppercase tracking-widest text-orange-200 mt-0.5">
+            <p className="text-[10px] uppercase tracking-widest text-slate-400 mt-0.5">
               Kalite Kontrol Denetim Sistemi
             </p>
           </div>

@@ -379,7 +379,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F1F3F5] text-slate-800 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
       {/* App Header */}
       <Header
         currentStep={formData.currentStep}

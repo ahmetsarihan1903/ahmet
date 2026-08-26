@@ -53,9 +53,9 @@ export const SmartTextInput: React.FC<SmartTextInputProps> = ({
     <div className={`w-full ${className}`}>
       {label && (
         <div className="flex items-center justify-between mb-1">
-          <label htmlFor={id} className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+          <label htmlFor={id} className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
             {label}
-            {required && <span className="text-red-500 ml-1 font-bold">*</span>}
+            {required && <span className="text-red-400 ml-1 font-bold">*</span>}
           </label>
         </div>
       )}
@@ -70,10 +70,10 @@ export const SmartTextInput: React.FC<SmartTextInputProps> = ({
             onChange={(e) => onChange(e.target.value)}
             onBlur={handleBlur}
             placeholder={placeholder}
-            className={`w-full pr-10 p-2 sm:p-2.5 text-xs text-slate-900 bg-white rounded border transition-colors outline-none break-words whitespace-pre-wrap ${
+            className={`w-full pr-10 p-2.5 text-xs sm:text-sm text-slate-100 bg-slate-950 rounded border transition-colors outline-none break-words whitespace-pre-wrap ${
               disabled
-                ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed'
-                : 'border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-200'
+                ? 'bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed'
+                : 'border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 placeholder:text-slate-500'
             }`}
           />
         ) : (
@@ -85,10 +85,10 @@ export const SmartTextInput: React.FC<SmartTextInputProps> = ({
             onChange={(e) => onChange(e.target.value)}
             onBlur={handleBlur}
             placeholder={placeholder}
-            className={`w-full pr-10 p-2 sm:p-2.5 text-xs text-slate-900 bg-white rounded border transition-colors outline-none break-words ${
+            className={`w-full pr-10 p-2.5 text-xs sm:text-sm text-slate-100 bg-slate-950 rounded border transition-colors outline-none break-words ${
               disabled
-                ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed'
-                : 'border-slate-300 focus:border-blue-600 focus:ring-1 focus:ring-blue-200'
+                ? 'bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed'
+                : 'border-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 placeholder:text-slate-500'
             }`}
           />
         )}
@@ -101,7 +101,7 @@ export const SmartTextInput: React.FC<SmartTextInputProps> = ({
       </div>
 
       {helperText && (
-        <p className="mt-1 text-[11px] text-slate-500 leading-tight">{helperText}</p>
+        <p className="mt-1 text-[11px] text-slate-400 leading-tight">{helperText}</p>
       )}
     </div>
   );

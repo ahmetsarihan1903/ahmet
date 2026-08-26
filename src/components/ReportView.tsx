@@ -89,17 +89,15 @@ export const ReportView: React.FC<ReportViewProps> = ({
     });
   }
 
-  // Generate standardized filename using Serial Number and Project Name
+  // Generate standardized filename using Serial Number
   const getStandardizedFileName = (): string => {
     const cleanSerial = cleanTr(data.serialNumber || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    if (cleanSerial) {
+      return `${cleanSerial}.pdf`;
+    }
     const cleanProject = cleanTr(data.clientProjectName || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-
-    if (cleanSerial && cleanProject) {
-      return `BETA_KK_${cleanSerial}_${cleanProject}.pdf`;
-    } else if (cleanSerial) {
-      return `BETA_KK_${cleanSerial}.pdf`;
-    } else if (cleanProject) {
-      return `BETA_KK_${cleanProject}.pdf`;
+    if (cleanProject) {
+      return `${cleanProject}.pdf`;
     }
     return 'BETA_KK_Raporu.pdf';
   };
@@ -440,7 +438,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
     return doc;
   };
 
-  // Direct PDF Download and Android BETA_KALITE_KONTROL Folder Storage Handler
+  // Direct PDF Download and Android BETAKALİTE Folder Storage Handler
   const handleDownloadPDF = async () => {
     if (isDownloading) return;
     setIsDownloading(true);
@@ -448,53 +446,68 @@ export const ReportView: React.FC<ReportViewProps> = ({
     try {
       const doc = buildJsPdfDocument();
       const fileName = getStandardizedFileName();
-      const folderName = 'BETA_KALITE_KONTROL';
-      const relativePath = `${folderName}/${fileName}`;
+      const folderName = 'BETAKALİTE';
+      let savedPath = '';
 
       // 1. Check if running inside Capacitor Android native environment
       if (Capacitor.isNativePlatform()) {
         try {
-          // Ensure BETA_KALITE_KONTROL folder exists in Documents
-          await Filesystem.mkdir({
-            path: folderName,
-            directory: Directory.Documents,
-            recursive: true,
-          }).catch(() => {
+          // Request filesystem permissions if available
+          try {
+            await Filesystem.requestPermissions();
+          } catch {
+            // Permission API might not be available or needed
+          }
+
+          // Ensure BETAKALİTE folder exists in Documents
+          try {
+            await Filesystem.mkdir({
+              path: folderName,
+              directory: Directory.Documents,
+              recursive: true,
+            });
+          } catch {
             // Directory might already exist
-          });
+          }
 
           const base64Data = doc.output('datauristring').split(',')[1];
           await Filesystem.writeFile({
-            path: relativePath,
+            path: `${folderName}/${fileName}`,
             data: base64Data,
             directory: Directory.Documents,
             recursive: true,
           });
 
-          setDownloadedFilePath(`Belgeler/${relativePath}`);
+          savedPath = `Dahili Hafıza / Documents / ${folderName} / ${fileName}`;
         } catch (nativeErr) {
           console.warn('Native Filesystem save failed, falling back to browser download', nativeErr);
         }
       }
 
-      // 2. Standard direct blob download (works on Web, Android Chrome, and Desktop)
+      // 2. Standard direct blob download (works on Web, Android Chrome, and Mobile WebView)
       const pdfBlob = doc.output('blob');
       const blobUrl = URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = fileName;
+      link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();
+      
       setTimeout(() => {
         if (document.body.contains(link)) {
           document.body.removeChild(link);
         }
         URL.revokeObjectURL(blobUrl);
-      }, 1500);
+      }, 3000);
 
-      setDownloadedFilePath(relativePath);
+      if (!savedPath) {
+        savedPath = `Dahili Hafıza / ${folderName} / ${fileName}`;
+      }
+
+      setDownloadedFilePath(savedPath);
       setDownloadSuccess(true);
-      setTimeout(() => setDownloadSuccess(false), 5000);
+      setTimeout(() => setDownloadSuccess(false), 6000);
     } catch (error) {
       console.error('PDF indirme hatası:', error);
     } finally {
@@ -590,7 +603,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
               className={`px-3.5 py-2.5 bg-[#0088CE] hover:bg-[#0072b2] active:scale-95 text-white rounded text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer ${
                 isDownloading ? 'opacity-80 cursor-wait' : ''
               }`}
-              title="PDF Raporunu BETA_KALITE_KONTROL klasörüne indir"
+              title="PDF Raporunu BETAKALİTE klasörüne indir"
             >
               {isDownloading ? (
                 <>
@@ -681,7 +694,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
               <span className="font-bold text-white">PDF Cihaza Kaydedildi: </span>
               <span className="font-mono text-emerald-300">{downloadedFilePath}</span>
               <span className="text-[11px] text-slate-300 block">
-                (Tüm proje raporları aynı <strong>BETA_KALITE_KONTROL</strong> arşivi altında toplanmaktadır.)
+                (Tüm raporlar dahili hafızadaki <strong>BETAKALİTE</strong> klasöründe seri numarası ile arşivlenmektedir.)
               </span>
             </div>
           </div>
