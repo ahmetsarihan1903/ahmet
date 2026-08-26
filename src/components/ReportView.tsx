@@ -16,6 +16,7 @@ import {
   Download,
   Printer,
   FolderCheck,
+  FileText,
 } from 'lucide-react';
 import { AuditFormData, InspectionItem } from '../types';
 import { BetaLogo } from './BetaLogo';
@@ -447,19 +448,18 @@ export const ReportView: React.FC<ReportViewProps> = ({
       const doc = buildJsPdfDocument();
       const fileName = getStandardizedFileName();
       const folderName = 'BETAKALİTE';
-      let savedPath = '';
+      let savedLocation = '';
 
       // 1. Check if running inside Capacitor Android native environment
       if (Capacitor.isNativePlatform()) {
         try {
-          // Request filesystem permissions if available
           try {
             await Filesystem.requestPermissions();
           } catch {
-            // Permission API might not be available or needed
+            // Permission might already be granted
           }
 
-          // Ensure BETAKALİTE folder exists in Documents
+          // Create BETAKALİTE folder in Documents
           try {
             await Filesystem.mkdir({
               path: folderName,
@@ -467,7 +467,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
               recursive: true,
             });
           } catch {
-            // Directory might already exist
+            // Directory might exist
           }
 
           const base64Data = doc.output('datauristring').split(',')[1];
@@ -478,13 +478,13 @@ export const ReportView: React.FC<ReportViewProps> = ({
             recursive: true,
           });
 
-          savedPath = `Dahili Hafıza / Documents / ${folderName} / ${fileName}`;
+          savedLocation = `Documents / ${folderName} / ${fileName}`;
         } catch (nativeErr) {
-          console.warn('Native Filesystem save failed, falling back to browser download', nativeErr);
+          console.warn('Native Filesystem save fallback to browser download', nativeErr);
         }
       }
 
-      // 2. Standard direct blob download (works on Web, Android Chrome, and Mobile WebView)
+      // 2. Standard direct binary blob download (Android Chrome, Tablet WebView, PC)
       const pdfBlob = doc.output('blob');
       const blobUrl = URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
@@ -501,13 +501,13 @@ export const ReportView: React.FC<ReportViewProps> = ({
         URL.revokeObjectURL(blobUrl);
       }, 3000);
 
-      if (!savedPath) {
-        savedPath = `Dahili Hafıza / ${folderName} / ${fileName}`;
+      if (!savedLocation) {
+        savedLocation = `İndirilenler (Download) / ${fileName}`;
       }
 
-      setDownloadedFilePath(savedPath);
+      setDownloadedFilePath(savedLocation);
       setDownloadSuccess(true);
-      setTimeout(() => setDownloadSuccess(false), 6000);
+      setTimeout(() => setDownloadSuccess(false), 8000);
     } catch (error) {
       console.error('PDF indirme hatası:', error);
     } finally {
@@ -515,7 +515,19 @@ export const ReportView: React.FC<ReportViewProps> = ({
     }
   };
 
-  // Direct PDF Sharing Handler for WhatsApp & System Share
+  // Direct PDF Preview in New Tab / In-App Viewer
+  const handlePreviewPDF = () => {
+    try {
+      const doc = buildJsPdfDocument();
+      const pdfBlob = doc.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      window.open(blobUrl, '_blank');
+    } catch (err) {
+      console.error('PDF önizleme hatası:', err);
+    }
+  };
+
+  // Direct PDF Sharing Handler for WhatsApp & System Share (Sends actual PDF File, not text)
   const handleSharePDF = async () => {
     if (isGeneratingPDF) return;
     setIsGeneratingPDF(true);
@@ -523,21 +535,19 @@ export const ReportView: React.FC<ReportViewProps> = ({
     try {
       const doc = buildJsPdfDocument();
       const fileName = getStandardizedFileName();
-
       const pdfBlob = doc.output('blob');
       const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-      // 1. If Web Share API with files is supported (Android Chrome / Webview / Modern Mobile Browsers)
+      // 1. Web Share API with actual PDF file attachment (No text param to force WhatsApp to attach as Document)
       if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
         await navigator.share({
           files: [pdfFile],
-          title: `Beta Asansör Kalite Raporu - ${data.clientProjectName || 'Proje'}`,
-          text: `Beta Asansör Kalite Kontrol Raporu (${data.clientProjectName || '-'} - Seri No: ${data.serialNumber || '-'}) ektedir.`,
+          title: `Beta Asansör Raporu - ${data.serialNumber || 'QC'}`,
         });
         setShareSuccess(true);
-        setTimeout(() => setShareSuccess(false), 3000);
+        setTimeout(() => setShareSuccess(false), 4000);
       } else {
-        // 2. Fallback: Automatically trigger PDF download and open WhatsApp with inspection message
+        // 2. Fallback for older browsers / webview: Download PDF file first so user can attach it in WhatsApp
         const blobUrl = URL.createObjectURL(pdfBlob);
         const link = document.createElement('a');
         link.href = blobUrl;
@@ -551,22 +561,20 @@ export const ReportView: React.FC<ReportViewProps> = ({
           URL.revokeObjectURL(blobUrl);
         }, 1500);
 
-        const waText = encodeURIComponent(
-          `*BETA ASANSÖR - KALİTE KONTROL RAPORU*\n\n` +
-          `*Proje:* ${data.clientProjectName || '-'}\n` +
-          `*Seri No:* ${data.serialNumber || '-'}\n` +
-          `*Kontrol Eden:* ${data.inspectorName || '-'}\n` +
-          `*Tarih:* ${data.dateDisplay || '-'}\n` +
-          `*Durum:* ${allUDItems.length === 0 ? '✓ Uygun (0 Hata)' : `⚠️ ${allUDItems.length} Uygunsuzluk Tespit Edildi`}\n\n` +
-          `PDF rapor belgesi (${fileName}) cihazınıza aktarılmıştır.`
+        // Notify user about PDF document download
+        alert(
+          `📄 PDF RAPORU İNDİRİLDİ!\n\n` +
+          `Dosya Adı: ${fileName}\n\n` +
+          `WhatsApp'ta belge olarak paylaşmak için sohbetteki (+) veya Ataş (Ek) butonuna basıp 'Belge' seçeneğinden indirilen bu PDF dosyasını seçiniz.`
         );
-        window.open(`https://api.whatsapp.com/send?text=${waText}`, '_blank');
 
         setShareSuccess(true);
-        setTimeout(() => setShareSuccess(false), 3000);
+        setTimeout(() => setShareSuccess(false), 4000);
       }
-    } catch (error) {
-      console.error('PDF paylaşma hatası:', error);
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error('PDF paylaşma hatası:', error);
+      }
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -578,32 +586,32 @@ export const ReportView: React.FC<ReportViewProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto py-4 px-3 sm:px-4 pb-16">
-      {/* Top Action Bar (İndir, Paylaş, Yazdır) */}
-      <div className="bg-[#0A2647] text-white rounded p-3 sm:p-3.5 mb-4 shadow flex flex-col gap-2.5 print:hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
+      {/* Top Action Bar (İndir, Paylaş, Önizle, Yazdır) */}
+      <div className="bg-[#0A2647] text-white rounded-lg p-3 sm:p-4 mb-4 shadow-md border-2 border-slate-700 flex flex-col gap-3 print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-1.5">
-              <span className="px-1.5 py-0.5 text-[10px] font-black bg-emerald-600/30 text-emerald-300 rounded border border-emerald-500/40 uppercase tracking-wider">
-                Resmi Rapor
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 text-[10px] font-black bg-emerald-500 text-slate-950 rounded uppercase tracking-wider">
+                Resmi Rapor Hazır
               </span>
-              <h1 className="text-sm sm:text-base font-bold tracking-tight">Kalite Kontrol Özeti</h1>
+              <h1 className="text-sm sm:text-base font-bold tracking-tight text-white">Kalite Kontrol Özeti</h1>
             </div>
-            <p className="text-[11px] text-slate-300">
-              {data.clientProjectName || 'Proje'} &bull; Seri: {data.serialNumber || 'BETA-QC'} &bull; {data.dateDisplay}
+            <p className="text-[11px] text-slate-300 mt-0.5">
+              {data.clientProjectName || 'Proje'} &bull; Seri: <strong>{data.serialNumber || 'BETA-QC'}</strong> &bull; {data.dateDisplay}
             </p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* 1. PDF İNDİR BUTONU (BETA_KALITE_KONTROL Klasörü & Seri No/Proje Adı) */}
+            {/* 1. PDF İNDİR BUTONU (Büyük & Belirgin Mavi Buton) */}
             <button
               type="button"
               id="btn-download-pdf"
               disabled={isDownloading}
               onClick={handleDownloadPDF}
-              className={`px-3.5 py-2.5 bg-[#0088CE] hover:bg-[#0072b2] active:scale-95 text-white rounded text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer ${
+              className={`min-h-[42px] px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded font-black text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 shadow-md border-2 border-blue-400 transition-all cursor-pointer ${
                 isDownloading ? 'opacity-80 cursor-wait' : ''
               }`}
-              title="PDF Raporunu BETAKALİTE klasörüne indir"
+              title="PDF Raporunu Cihaza İndir"
             >
               {isDownloading ? (
                 <>
@@ -623,16 +631,16 @@ export const ReportView: React.FC<ReportViewProps> = ({
               )}
             </button>
 
-            {/* 2. WhatsApp PDF Paylaş Butonu */}
+            {/* 2. WhatsApp PDF Belgesi Paylaş Butonu (Yeşil & Belirgin) */}
             <button
               type="button"
               id="btn-share-whatsapp-pdf"
               disabled={isGeneratingPDF}
               onClick={handleSharePDF}
-              className={`px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer ${
+              className={`min-h-[42px] px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded font-black text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 shadow-md border-2 border-emerald-400 transition-all cursor-pointer ${
                 isGeneratingPDF ? 'opacity-80 cursor-wait' : ''
               }`}
-              title="PDF Raporunu Doğrudan WhatsApp'tan Paylaş"
+              title="PDF Dosyasını WhatsApp veya Sistemden Belge Olarak Paylaş"
             >
               {isGeneratingPDF ? (
                 <>
@@ -642,59 +650,71 @@ export const ReportView: React.FC<ReportViewProps> = ({
               ) : shareSuccess ? (
                 <>
                   <Check className="w-4 h-4 text-white" />
-                  <span>Paylaşıldı!</span>
+                  <span>Gönderildi!</span>
                 </>
               ) : (
                 <>
                   <MessageCircle className="w-4 h-4 text-white fill-white" />
-                  <span>WhatsApp Paylaş</span>
+                  <span>WhatsApp PDF Paylaş</span>
                 </>
               )}
             </button>
 
-            {/* 3. Yazdır */}
+            {/* 3. PDF Aç / Önizle */}
+            <button
+              type="button"
+              id="btn-preview-pdf"
+              onClick={handlePreviewPDF}
+              className="min-h-[42px] px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border-2 border-slate-600 cursor-pointer"
+              title="PDF Belgesini Tarayıcıda Aç"
+            >
+              <FileText className="w-3.5 h-3.5 text-blue-400" />
+              <span>PDF Aç</span>
+            </button>
+
+            {/* 4. Yazdır */}
             <button
               type="button"
               id="btn-print-report"
               onClick={handlePrint}
-              className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border border-slate-600 cursor-pointer"
-              title="Sayfayı Yazdır veya PDF Kaydet"
+              className="min-h-[42px] px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border-2 border-slate-600 cursor-pointer"
+              title="Sayfayı Yazdır"
             >
-              <Printer className="w-3.5 h-3.5" />
+              <Printer className="w-3.5 h-3.5 text-slate-300" />
               <span>Yazdır</span>
             </button>
 
-            {/* 4. Düzenle */}
+            {/* 5. Düzenle */}
             <button
               type="button"
               onClick={onEditAudit}
-              className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border border-slate-600 cursor-pointer"
+              className="min-h-[42px] px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border-2 border-slate-600 cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
               <span>Düzenle</span>
             </button>
 
-            {/* 5. Yeni Form */}
+            {/* 6. Yeni Form */}
             <button
               type="button"
               onClick={onNewInspection}
-              className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border border-slate-600 cursor-pointer"
+              className="min-h-[42px] px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border-2 border-slate-600 cursor-pointer"
             >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>Yeni</span>
+              <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Yeni Denetim</span>
             </button>
           </div>
         </div>
 
         {/* İndirme Başarı Bilgilendirme Notu */}
         {downloadSuccess && downloadedFilePath && (
-          <div className="bg-emerald-950/70 border border-emerald-500/50 rounded px-3 py-2 text-xs flex items-center gap-2 text-emerald-200 animate-fadeIn">
-            <FolderCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+          <div className="bg-emerald-900 border-2 border-emerald-400 rounded-lg p-3 text-xs flex items-start gap-2.5 text-white animate-fadeIn">
+            <FolderCheck className="w-5 h-5 text-emerald-300 shrink-0 mt-0.5" />
             <div>
-              <span className="font-bold text-white">PDF Cihaza Kaydedildi: </span>
-              <span className="font-mono text-emerald-300">{downloadedFilePath}</span>
-              <span className="text-[11px] text-slate-300 block">
-                (Tüm raporlar dahili hafızadaki <strong>BETAKALİTE</strong> klasöründe seri numarası ile arşivlenmektedir.)
+              <span className="font-black text-sm text-emerald-200 block">PDF Cihaza Kaydedildi:</span>
+              <span className="font-mono text-white text-xs font-bold">{downloadedFilePath}</span>
+              <span className="text-[11px] text-emerald-100 block mt-0.5">
+                Android tablet ve telefonunuzda <strong>Dosyalarım &gt; İndirilenler (Download)</strong> veya <strong>Documents/BETAKALİTE</strong> klasöründen PDF dosyanıza anında ulaşabilirsiniz.
               </span>
             </div>
           </div>
@@ -704,64 +724,64 @@ export const ReportView: React.FC<ReportViewProps> = ({
       {/* THE OFFICIAL REPORT SHEET */}
       <div
         id="official-report-sheet"
-        className="bg-white rounded shadow border border-slate-300 p-4 sm:p-6 text-slate-900"
+        className="bg-white rounded-lg shadow-md border-2 border-slate-300 p-4 sm:p-6 text-slate-900"
       >
         {/* Corporate Header */}
         <div className="border-b-2 border-slate-900 pb-3.5 mb-4 header-box">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+          <div className="flex flex-col sm:row sm:items-center justify-between gap-3 w-full">
             <div className="flex items-center gap-2.5">
               <BetaLogo size="lg" className="shadow-xs shrink-0" />
               <div>
                 <h1 className="text-base sm:text-xl font-black text-slate-950 tracking-tight leading-tight">
                   BETA ASANSÖR
                 </h1>
-                <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                   Kalite Kontrol &amp; Saha Son Muayene Raporu
                 </p>
               </div>
             </div>
-            <div className="text-left sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-200">
-              <span className="inline-block px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded border border-slate-300">
+            <div className="text-left sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-300">
+              <span className="inline-block px-2.5 py-1 bg-slate-100 text-slate-900 text-xs font-black rounded border-2 border-slate-400">
                 RAPOR NO: {data.serialNumber || 'BETA-QC'}
               </span>
-              <p className="text-[11px] font-semibold text-slate-500 mt-0.5">Tarih: {data.dateDisplay}</p>
+              <p className="text-[11px] font-bold text-slate-700 mt-1">Tarih: {data.dateDisplay}</p>
             </div>
           </div>
         </div>
 
         {/* Technical & Audit Metadata Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 p-3 bg-slate-50 rounded border border-slate-300 text-xs mb-4 grid-meta">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 p-3.5 bg-slate-100 rounded-lg border-2 border-slate-300 text-xs mb-4 grid-meta">
           <div>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Kontrolü Yapan:</span>
-            <span className="text-xs font-bold text-slate-900">{data.inspectorName}</span>
+            <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Kontrolü Yapan:</span>
+            <span className="text-xs font-black text-slate-950">{data.inspectorName}</span>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Müşteri / Proje:</span>
-            <span className="text-xs font-bold text-slate-900">{data.clientProjectName}</span>
+            <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Müşteri / Proje:</span>
+            <span className="text-xs font-black text-slate-950">{data.clientProjectName}</span>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Asansör Tipi:</span>
-            <span className="text-xs font-bold text-slate-900">{data.elevatorType}</span>
+            <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Asansör Tipi:</span>
+            <span className="text-xs font-black text-slate-950">{data.elevatorType}</span>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Seri / Takip No:</span>
-            <span className="text-xs font-bold text-slate-900">{data.serialNumber}</span>
+            <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Seri / Takip No:</span>
+            <span className="text-xs font-black text-slate-950">{data.serialNumber}</span>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Kapasite:</span>
-            <span className="text-xs font-bold text-slate-900">{data.capacityKg} KG</span>
+            <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Kapasite:</span>
+            <span className="text-xs font-black text-slate-950">{data.capacityKg} KG</span>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Durak Sayısı:</span>
-            <span className="text-xs font-bold text-slate-900">{data.stopCount} Durak (Baş: {data.floorStart})</span>
+            <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Durak Sayısı:</span>
+            <span className="text-xs font-black text-slate-950">{data.stopCount} Durak (Baş: {data.floorStart})</span>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Denetim Zamanı:</span>
-            <span className="text-xs font-bold text-slate-900">{data.startTime || '-'} - {data.endTime || '-'}</span>
+            <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Denetim Zamanı:</span>
+            <span className="text-xs font-black text-slate-950">{data.startTime || '-'} - {data.endTime || '-'}</span>
           </div>
           <div>
-            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Toplam Süre:</span>
-            <span className="text-xs font-bold text-slate-900">{data.totalDurationFormatted || '-'}</span>
+            <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Toplam Süre:</span>
+            <span className="text-xs font-black text-slate-950">{data.totalDurationFormatted || '-'}</span>
           </div>
         </div>
 
@@ -775,8 +795,8 @@ export const ReportView: React.FC<ReportViewProps> = ({
               </h2>
             </div>
             <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                allUDItems.length === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+              className={`text-xs font-black px-2.5 py-1 rounded border-2 ${
+                allUDItems.length === 0 ? 'bg-emerald-100 text-emerald-900 border-emerald-500' : 'bg-red-100 text-red-900 border-red-500'
               }`}
             >
               Toplam {allUDItems.length} Hata / Eksik
@@ -784,19 +804,19 @@ export const ReportView: React.FC<ReportViewProps> = ({
           </div>
 
           {allUDItems.length === 0 ? (
-            <div className="p-4 bg-emerald-50 rounded border border-emerald-200 text-center space-y-1 badge-clean">
+            <div className="p-4 bg-emerald-50 rounded-lg border-2 border-emerald-300 text-center space-y-1 badge-clean">
               <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto" />
-              <h3 className="text-xs font-bold text-emerald-900 uppercase tracking-wider">
+              <h3 className="text-xs font-black text-emerald-950 uppercase tracking-wider">
                 Tüm Kontroller Başarıyla Geçti
               </h3>
-              <p className="text-[11px] text-emerald-700">
+              <p className="text-[11px] font-bold text-emerald-800">
                 Bu asansörde herhangi bir hata veya uygunsuzluk kaydı bulunmamaktadır.
               </p>
             </div>
           ) : (
-            <div className="border border-slate-300 rounded overflow-hidden">
+            <div className="border-2 border-slate-300 rounded-lg overflow-hidden">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-100 border-b border-slate-300 text-slate-700 font-bold uppercase text-[10px]">
+                <thead className="bg-slate-200 border-b-2 border-slate-300 text-slate-900 font-black uppercase text-[10px]">
                   <tr>
                     <th className="p-2 border-r border-slate-300 w-10 text-center">#</th>
                     <th className="p-2 border-r border-slate-300 w-36">Bölüm / Kategori</th>
@@ -805,24 +825,24 @@ export const ReportView: React.FC<ReportViewProps> = ({
                     <th className="p-2">Hata / Açıklama</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-slate-300">
                   {allUDItems.map((entry, index) => (
-                    <tr key={index} className="bg-red-50/40 hover:bg-red-50">
-                      <td className="p-2 border-r border-slate-300 text-center font-bold text-red-600">
+                    <tr key={index} className="bg-red-50/70 hover:bg-red-100/60">
+                      <td className="p-2 border-r border-slate-300 text-center font-black text-red-600">
                         {index + 1}
                       </td>
-                      <td className="p-2 border-r border-slate-300 font-bold text-slate-800 text-[11px]">
+                      <td className="p-2 border-r border-slate-300 font-black text-slate-950 text-[11px]">
                         {entry.category}
                       </td>
-                      <td className="p-2 border-r border-slate-300 text-slate-900">
+                      <td className="p-2 border-r border-slate-300 font-bold text-slate-950">
                         {entry.item.title}
                       </td>
-                      <td className="p-2 border-r border-slate-300 text-center font-semibold text-slate-700 text-[11px]">
+                      <td className="p-2 border-r border-slate-300 text-center font-black text-slate-800 text-[11px]">
                         {entry.item.floorLabel || '-'}
                       </td>
-                      <td className="p-2 text-red-700 text-xs font-medium">
+                      <td className="p-2 text-red-950 text-xs font-bold">
                         {entry.item.description || (
-                          <span className="italic text-slate-400">Açıklama girilmedi</span>
+                          <span className="italic text-slate-500">Açıklama girilmedi</span>
                         )}
                       </td>
                     </tr>
@@ -842,9 +862,9 @@ export const ReportView: React.FC<ReportViewProps> = ({
                 SAHA ÖLÇÜ KONTROLLERİ
               </h2>
             </div>
-            <div className="border border-slate-300 rounded overflow-hidden">
+            <div className="border-2 border-slate-300 rounded-lg overflow-hidden">
               <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-100 border-b border-slate-300 text-slate-700 font-bold uppercase text-[10px]">
+                <thead className="bg-slate-200 border-b-2 border-slate-300 text-slate-900 font-black uppercase text-[10px]">
                   <tr>
                     <th className="p-2 border-r border-slate-300 w-10 text-center">#</th>
                     <th className="p-2 border-r border-slate-300">Ölçü Tanımı</th>
@@ -852,19 +872,19 @@ export const ReportView: React.FC<ReportViewProps> = ({
                     <th className="p-2">Açıklama / Notlar</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-slate-300">
                   {data.measures.map((measure, index) => (
-                    <tr key={index} className="hover:bg-slate-50">
-                      <td className="p-2 border-r border-slate-300 text-center font-bold text-slate-500">
+                    <tr key={index} className="hover:bg-slate-100">
+                      <td className="p-2 border-r border-slate-300 text-center font-bold text-slate-700">
                         {index + 1}
                       </td>
-                      <td className="p-2 border-r border-slate-300 font-semibold text-slate-800">
+                      <td className="p-2 border-r border-slate-300 font-bold text-slate-950">
                         {measure.name}
                       </td>
-                      <td className="p-2 border-r border-slate-300 text-center font-bold text-[#0A2647]">
+                      <td className="p-2 border-r border-slate-300 text-center font-black text-blue-900">
                         {measure.value || '-'}
                       </td>
-                      <td className="p-2 text-slate-600 text-xs">
+                      <td className="p-2 text-slate-800 text-xs font-medium">
                         {measure.notes || '-'}
                       </td>
                     </tr>
@@ -876,7 +896,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
         )}
 
         {/* Footer Note */}
-        <div className="mt-6 pt-3 border-t border-slate-200 text-center text-[10px] text-slate-400 footer-text">
+        <div className="mt-6 pt-3 border-t-2 border-slate-300 text-center text-[11px] font-bold text-slate-600 footer-text">
           Beta Asansör Kalite Kontrol Sistemi tarafından otomatik olarak derlenmiştir. Bu belge resmi denetim kaydıdır.
         </div>
       </div>
