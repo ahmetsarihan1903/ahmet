@@ -1,0 +1,873 @@
+import React, { useState } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
+import {
+  Share2,
+  Check,
+  RotateCcw,
+  PlusCircle,
+  Ruler,
+  CheckCircle2,
+  ShieldAlert,
+  Loader2,
+  MessageCircle,
+  Download,
+  Printer,
+  FolderCheck,
+} from 'lucide-react';
+import { AuditFormData, InspectionItem } from '../types';
+import { BetaLogo } from './BetaLogo';
+import { getBetaLogoDataUrl } from '../utils/logoUtils';
+
+interface ReportViewProps {
+  data: AuditFormData;
+  onEditAudit: () => void;
+  onNewInspection: () => void;
+}
+
+// Convert special Turkish characters for standard jsPDF Latin fonts to prevent corrupted glyphs
+const cleanTr = (val: string | number | undefined | null): string => {
+  if (val === undefined || val === null || val === '') return '';
+  const str = String(val);
+  return str
+    .replace(/İ/g, 'I')
+    .replace(/ı/g, 'i')
+    .replace(/Ğ/g, 'G')
+    .replace(/ğ/g, 'g')
+    .replace(/Ş/g, 'S')
+    .replace(/ş/g, 's')
+    .replace(/Ç/g, 'C')
+    .replace(/ç/g, 'c')
+    .replace(/Ö/g, 'O')
+    .replace(/ö/g, 'o')
+    .replace(/Ü/g, 'U')
+    .replace(/ü/g, 'u');
+};
+
+export const ReportView: React.FC<ReportViewProps> = ({
+  data,
+  onEditAudit,
+  onNewInspection,
+}) => {
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadSuccess, setDownloadSuccess] = useState(false);
+  const [shareSuccess, setShareSuccess] = useState(false);
+  const [downloadedFilePath, setDownloadedFilePath] = useState<string | null>(null);
+
+  // Collect all UD items across all pages
+  const allUDItems: { category: string; item: InspectionItem }[] = [];
+
+  const collectUD = (categoryName: string, items: InspectionItem[]) => {
+    items?.forEach((it) => {
+      if (it.isNonCompliant) {
+        allUDItems.push({ category: categoryName, item: it });
+      }
+    });
+  };
+
+  collectUD('Kumanda Panosu', data.controlPanelItems);
+  collectUD(`Motor / Şase (${data.elevatorType})`, data.motorChassisItems);
+  collectUD('Kabin Üstü Kontrolleri', data.cabinTopItems);
+  collectUD('Ağırlık Karkası Kontrolleri', data.counterweightItems);
+  collectUD('Kuyu İçerisi ve Kuyu Dibi', data.shaftAndPitItems);
+  collectUD('Kabin İçi ve Kat Butonları', data.cabinAndFloorButtonsItems);
+  collectUD('Kabin ve Kat Kapısı Montajları', data.doorsItems);
+
+  if (data.rideComfortNonCompliant) {
+    allUDItems.push({
+      category: 'Seyir ve Konfor',
+      item: {
+        id: 'ride_comfort_report',
+        title: 'Asansör Seyir ve Konfor Uygunsuzluğu',
+        isNonCompliant: true,
+        description: data.rideComfortNotes || 'Konfor problemi tespit edildi.',
+        category: 'Seyir ve Konfor',
+      },
+    });
+  }
+
+  // Generate standardized filename using Serial Number and Project Name
+  const getStandardizedFileName = (): string => {
+    const cleanSerial = cleanTr(data.serialNumber || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    const cleanProject = cleanTr(data.clientProjectName || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    if (cleanSerial && cleanProject) {
+      return `BETA_KK_${cleanSerial}_${cleanProject}.pdf`;
+    } else if (cleanSerial) {
+      return `BETA_KK_${cleanSerial}.pdf`;
+    } else if (cleanProject) {
+      return `BETA_KK_${cleanProject}.pdf`;
+    }
+    return 'BETA_KK_Raporu.pdf';
+  };
+
+  // Generate Reusable Full jsPDF Document
+  const buildJsPdfDocument = (): jsPDF => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 12;
+
+    // 1. TOP HEADER BANNER (Navy #0A2647)
+    doc.setFillColor(10, 38, 71); // #0A2647
+    doc.rect(margin, margin, pageWidth - margin * 2, 22, 'F');
+
+    // Official Beta Asansör Logo
+    const logoDataUrl = getBetaLogoDataUrl();
+    if (logoDataUrl) {
+      try {
+        doc.addImage(logoDataUrl, 'PNG', margin + 3, margin + 2.5, 12, 14.4);
+      } catch {
+        doc.setFillColor(0, 136, 206);
+        doc.rect(margin + 3, margin + 2.5, 12, 14.4, 'F');
+      }
+    }
+
+    // Header Text
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text('BETA ASANSOR - KALITE KONTROL RAPORU', margin + 18, margin + 9);
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(203, 213, 225); // Slate 300
+    doc.text(
+      'Resmi Son Muayene ve Saha Uygunluk Belgesi | Kalite Guvence Birimi',
+      margin + 18,
+      margin + 16
+    );
+
+    // 2. METADATA TABLE (2 Column Grid)
+    const metaRows = [
+      [
+        {
+          content: 'KONTROLU YAPAN:',
+          styles: {
+            fontStyle: 'bold' as const,
+            fillColor: [241, 245, 249] as [number, number, number],
+            textColor: [15, 23, 42] as [number, number, number],
+          },
+        },
+        cleanTr(data.inspectorName) || '-',
+        {
+          content: 'MUSTERI / PROJE:',
+          styles: {
+            fontStyle: 'bold' as const,
+            fillColor: [241, 245, 249] as [number, number, number],
+            textColor: [15, 23, 42] as [number, number, number],
+          },
+        },
+        cleanTr(data.clientProjectName) || '-',
+      ],
+      [
+        {
+          content: 'ASANSOR TIPI:',
+          styles: {
+            fontStyle: 'bold' as const,
+            fillColor: [241, 245, 249] as [number, number, number],
+            textColor: [15, 23, 42] as [number, number, number],
+          },
+        },
+        cleanTr(data.elevatorType) || '-',
+        {
+          content: 'SERI / TAKIP NO:',
+          styles: {
+            fontStyle: 'bold' as const,
+            fillColor: [241, 245, 249] as [number, number, number],
+            textColor: [15, 23, 42] as [number, number, number],
+          },
+        },
+        cleanTr(data.serialNumber) || '-',
+      ],
+      [
+        {
+          content: 'KAPASITE (KG):',
+          styles: {
+            fontStyle: 'bold' as const,
+            fillColor: [241, 245, 249] as [number, number, number],
+            textColor: [15, 23, 42] as [number, number, number],
+          },
+        },
+        `${data.capacityKg || '-'} KG`,
+        {
+          content: 'DURAK SAYISI:',
+          styles: {
+            fontStyle: 'bold' as const,
+            fillColor: [241, 245, 249] as [number, number, number],
+            textColor: [15, 23, 42] as [number, number, number],
+          },
+        },
+        `${data.stopCount || '-'} Durak (Baslangic: ${cleanTr(data.floorStart) || '0'})`,
+      ],
+      [
+        {
+          content: 'DENETIM TARIHI:',
+          styles: {
+            fontStyle: 'bold' as const,
+            fillColor: [241, 245, 249] as [number, number, number],
+            textColor: [15, 23, 42] as [number, number, number],
+          },
+        },
+        cleanTr(data.dateDisplay) || '-',
+        {
+          content: 'CALISMA SURESI:',
+          styles: {
+            fontStyle: 'bold' as const,
+            fillColor: [241, 245, 249] as [number, number, number],
+            textColor: [15, 23, 42] as [number, number, number],
+          },
+        },
+        `${data.startTime || '-'} - ${data.endTime || '-'} (${cleanTr(data.totalDurationFormatted) || '-'})`,
+      ],
+      [
+        {
+          content: 'DURUM ONAYI:',
+          styles: {
+            fontStyle: 'bold' as const,
+            fillColor: [241, 245, 249] as [number, number, number],
+            textColor: [15, 23, 42] as [number, number, number],
+          },
+        },
+        allUDItems.length === 0 ? 'UYGUN (0 HATA)' : `${allUDItems.length} UYGUNSUZLUK MEVCUT`,
+        {
+          content: 'RAPOR NO:',
+          styles: {
+            fontStyle: 'bold' as const,
+            fillColor: [241, 245, 249] as [number, number, number],
+            textColor: [15, 23, 42] as [number, number, number],
+          },
+        },
+        cleanTr(data.serialNumber || 'BETA-QC'),
+      ],
+    ];
+
+    autoTable(doc, {
+      startY: margin + 25,
+      margin: { left: margin, right: margin },
+      body: metaRows,
+      theme: 'grid',
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+        lineColor: [203, 213, 225],
+        lineWidth: 0.2,
+        textColor: [15, 23, 42],
+      },
+      columnStyles: {
+        0: { cellWidth: 35 },
+        1: { cellWidth: 55 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 61 },
+      },
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let lastY = (doc as any).lastAutoTable.finalY + 6;
+
+    // 3. SECTION: UYGUNSUZLUKLAR (UD LISTESI)
+    if (allUDItems.length === 0) {
+      autoTable(doc, {
+        startY: lastY,
+        margin: { left: margin, right: margin },
+        head: [
+          [
+            {
+              content: 'TESPIT EDILEN UYGUNSUZLUKLAR (UD LISTESI) - 0 HATA',
+              styles: {
+                fillColor: [16, 185, 129],
+                textColor: [255, 255, 255],
+                fontStyle: 'bold' as const,
+              },
+            },
+          ],
+        ],
+        body: [
+          [
+            {
+              content:
+                'TEBRIKLER: Bu asansor denetiminde hicbir uygunsuzluk veya montaj hatasi tespit edilmemistir. Tum kontroller sartnameye uygundur.',
+              styles: {
+                textColor: [6, 95, 70],
+                fillColor: [236, 253, 245],
+                fontStyle: 'bold' as const,
+                halign: 'center' as const,
+                cellPadding: 5,
+              },
+            },
+          ],
+        ],
+        theme: 'grid',
+        styles: { fontSize: 8.5 },
+      });
+    } else {
+      const udTableRows = allUDItems.map((entry, index) => [
+        (index + 1).toString(),
+        cleanTr(entry.category),
+        cleanTr(entry.item.title),
+        cleanTr(entry.item.floorLabel) || '-',
+        cleanTr(entry.item.description) || 'Aciklama girilmedi',
+      ]);
+
+      autoTable(doc, {
+        startY: lastY,
+        margin: { left: margin, right: margin },
+        head: [
+          [
+            { content: '#', styles: { halign: 'center' as const, cellWidth: 8 } },
+            { content: 'BOLUM / KATEGORI', styles: { cellWidth: 38 } },
+            { content: 'KONTROL MADDESI', styles: { cellWidth: 46 } },
+            { content: 'DURAK', styles: { halign: 'center' as const, cellWidth: 16 } },
+            { content: 'UYGUNSUZLUK / HATA ACIKLAMASI', styles: { cellWidth: 78 } },
+          ],
+        ],
+        body: udTableRows,
+        theme: 'striped',
+        headStyles: {
+          fillColor: [220, 38, 38], // Red #DC2626
+          textColor: [255, 255, 255],
+          fontStyle: 'bold' as const,
+          fontSize: 7.5,
+          cellPadding: 2.5,
+        },
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 2,
+          lineColor: [226, 232, 240],
+          lineWidth: 0.2,
+          textColor: [15, 23, 42],
+          valign: 'middle' as const,
+        },
+        alternateRowStyles: {
+          fillColor: [254, 242, 242], // Light Red Tint
+        },
+        columnStyles: {
+          0: { halign: 'center' as const, fontStyle: 'bold' as const, textColor: [185, 28, 28] },
+          1: { fontStyle: 'bold' as const },
+          3: { halign: 'center' as const },
+          4: { textColor: [153, 27, 27] },
+        },
+      });
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    lastY = (doc as any).lastAutoTable.finalY + 6;
+
+    // 4. SECTION: SAHA ÖLÇÜ KONTROLLERİ
+    if (data.measures && data.measures.length > 0) {
+      if (lastY > pageHeight - 40) {
+        doc.addPage();
+        lastY = margin + 5;
+      }
+
+      const measureTableRows = data.measures.map((m, index) => [
+        (index + 1).toString(),
+        cleanTr(m.name),
+        cleanTr(m.value) || '-',
+        cleanTr(m.notes) || '-',
+      ]);
+
+      autoTable(doc, {
+        startY: lastY,
+        margin: { left: margin, right: margin },
+        head: [
+          [
+            { content: '#', styles: { halign: 'center' as const, cellWidth: 8 } },
+            { content: 'OLCU TANIMI', styles: { cellWidth: 80 } },
+            { content: 'OLCULEN DEGER', styles: { halign: 'center' as const, cellWidth: 40 } },
+            { content: 'ACIKLAMA / NOTLAR', styles: { cellWidth: 58 } },
+          ],
+        ],
+        body: measureTableRows,
+        theme: 'striped',
+        headStyles: {
+          fillColor: [10, 38, 71], // Navy #0A2647
+          textColor: [255, 255, 255],
+          fontStyle: 'bold' as const,
+          fontSize: 7.5,
+          cellPadding: 2.5,
+        },
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 2,
+          lineColor: [226, 232, 240],
+          lineWidth: 0.2,
+          textColor: [15, 23, 42],
+          valign: 'middle' as const,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+        columnStyles: {
+          0: { halign: 'center' as const, fontStyle: 'bold' as const },
+          1: { fontStyle: 'bold' as const },
+          2: { halign: 'center' as const, fontStyle: 'bold' as const, textColor: [10, 38, 71] },
+        },
+      });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      lastY = (doc as any).lastAutoTable.finalY + 6;
+    }
+
+    // Add page numbers and official footer note to all pages
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.3);
+      doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
+
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184); // Slate 400
+      doc.setFont('helvetica', 'normal');
+      doc.text(
+        'Beta Asansor Kalite Kontrol Sistemi tarafindan otomatik olarak derlenmistir. Bu belge resmi denetim kaydidir.',
+        margin,
+        pageHeight - 8
+      );
+      doc.text(`Sayfa ${i} / ${totalPages}`, pageWidth - margin - 15, pageHeight - 8);
+    }
+
+    return doc;
+  };
+
+  // Direct PDF Download and Android BETA_KALITE_KONTROL Folder Storage Handler
+  const handleDownloadPDF = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+
+    try {
+      const doc = buildJsPdfDocument();
+      const fileName = getStandardizedFileName();
+      const folderName = 'BETA_KALITE_KONTROL';
+      const relativePath = `${folderName}/${fileName}`;
+
+      // 1. Check if running inside Capacitor Android native environment
+      if (Capacitor.isNativePlatform()) {
+        try {
+          // Ensure BETA_KALITE_KONTROL folder exists in Documents
+          await Filesystem.mkdir({
+            path: folderName,
+            directory: Directory.Documents,
+            recursive: true,
+          }).catch(() => {
+            // Directory might already exist
+          });
+
+          const base64Data = doc.output('datauristring').split(',')[1];
+          await Filesystem.writeFile({
+            path: relativePath,
+            data: base64Data,
+            directory: Directory.Documents,
+            recursive: true,
+          });
+
+          setDownloadedFilePath(`Belgeler/${relativePath}`);
+        } catch (nativeErr) {
+          console.warn('Native Filesystem save failed, falling back to browser download', nativeErr);
+        }
+      }
+
+      // 2. Standard direct blob download (works on Web, Android Chrome, and Desktop)
+      const pdfBlob = doc.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        if (document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
+        URL.revokeObjectURL(blobUrl);
+      }, 1500);
+
+      setDownloadedFilePath(relativePath);
+      setDownloadSuccess(true);
+      setTimeout(() => setDownloadSuccess(false), 5000);
+    } catch (error) {
+      console.error('PDF indirme hatası:', error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Direct PDF Sharing Handler for WhatsApp & System Share
+  const handleSharePDF = async () => {
+    if (isGeneratingPDF) return;
+    setIsGeneratingPDF(true);
+
+    try {
+      const doc = buildJsPdfDocument();
+      const fileName = getStandardizedFileName();
+
+      const pdfBlob = doc.output('blob');
+      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+      // 1. If Web Share API with files is supported (Android Chrome / Webview / Modern Mobile Browsers)
+      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          files: [pdfFile],
+          title: `Beta Asansör Kalite Raporu - ${data.clientProjectName || 'Proje'}`,
+          text: `Beta Asansör Kalite Kontrol Raporu (${data.clientProjectName || '-'} - Seri No: ${data.serialNumber || '-'}) ektedir.`,
+        });
+        setShareSuccess(true);
+        setTimeout(() => setShareSuccess(false), 3000);
+      } else {
+        // 2. Fallback: Automatically trigger PDF download and open WhatsApp with inspection message
+        const blobUrl = URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          if (document.body.contains(link)) {
+            document.body.removeChild(link);
+          }
+          URL.revokeObjectURL(blobUrl);
+        }, 1500);
+
+        const waText = encodeURIComponent(
+          `*BETA ASANSÖR - KALİTE KONTROL RAPORU*\n\n` +
+          `*Proje:* ${data.clientProjectName || '-'}\n` +
+          `*Seri No:* ${data.serialNumber || '-'}\n` +
+          `*Kontrol Eden:* ${data.inspectorName || '-'}\n` +
+          `*Tarih:* ${data.dateDisplay || '-'}\n` +
+          `*Durum:* ${allUDItems.length === 0 ? '✓ Uygun (0 Hata)' : `⚠️ ${allUDItems.length} Uygunsuzluk Tespit Edildi`}\n\n` +
+          `PDF rapor belgesi (${fileName}) cihazınıza aktarılmıştır.`
+        );
+        window.open(`https://api.whatsapp.com/send?text=${waText}`, '_blank');
+
+        setShareSuccess(true);
+        setTimeout(() => setShareSuccess(false), 3000);
+      }
+    } catch (error) {
+      console.error('PDF paylaşma hatası:', error);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto py-4 px-3 sm:px-4 pb-16">
+      {/* Top Action Bar (İndir, Paylaş, Yazdır) */}
+      <div className="bg-[#0A2647] text-white rounded p-3 sm:p-3.5 mb-4 shadow flex flex-col gap-2.5 print:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="px-1.5 py-0.5 text-[10px] font-black bg-emerald-600/30 text-emerald-300 rounded border border-emerald-500/40 uppercase tracking-wider">
+                Resmi Rapor
+              </span>
+              <h1 className="text-sm sm:text-base font-bold tracking-tight">Kalite Kontrol Özeti</h1>
+            </div>
+            <p className="text-[11px] text-slate-300">
+              {data.clientProjectName || 'Proje'} &bull; Seri: {data.serialNumber || 'BETA-QC'} &bull; {data.dateDisplay}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* 1. PDF İNDİR BUTONU (BETA_KALITE_KONTROL Klasörü & Seri No/Proje Adı) */}
+            <button
+              type="button"
+              id="btn-download-pdf"
+              disabled={isDownloading}
+              onClick={handleDownloadPDF}
+              className={`px-3.5 py-2.5 bg-[#0088CE] hover:bg-[#0072b2] active:scale-95 text-white rounded text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer ${
+                isDownloading ? 'opacity-80 cursor-wait' : ''
+              }`}
+              title="PDF Raporunu BETA_KALITE_KONTROL klasörüne indir"
+            >
+              {isDownloading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>İndiriliyor...</span>
+                </>
+              ) : downloadSuccess ? (
+                <>
+                  <FolderCheck className="w-4 h-4 text-emerald-300" />
+                  <span>İndirildi!</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 text-white" />
+                  <span>PDF İndir</span>
+                </>
+              )}
+            </button>
+
+            {/* 2. WhatsApp PDF Paylaş Butonu */}
+            <button
+              type="button"
+              id="btn-share-whatsapp-pdf"
+              disabled={isGeneratingPDF}
+              onClick={handleSharePDF}
+              className={`px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer ${
+                isGeneratingPDF ? 'opacity-80 cursor-wait' : ''
+              }`}
+              title="PDF Raporunu Doğrudan WhatsApp'tan Paylaş"
+            >
+              {isGeneratingPDF ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Hazırlanıyor...</span>
+                </>
+              ) : shareSuccess ? (
+                <>
+                  <Check className="w-4 h-4 text-white" />
+                  <span>Paylaşıldı!</span>
+                </>
+              ) : (
+                <>
+                  <MessageCircle className="w-4 h-4 text-white fill-white" />
+                  <span>WhatsApp Paylaş</span>
+                </>
+              )}
+            </button>
+
+            {/* 3. Yazdır */}
+            <button
+              type="button"
+              id="btn-print-report"
+              onClick={handlePrint}
+              className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border border-slate-600 cursor-pointer"
+              title="Sayfayı Yazdır veya PDF Kaydet"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Yazdır</span>
+            </button>
+
+            {/* 4. Düzenle */}
+            <button
+              type="button"
+              onClick={onEditAudit}
+              className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border border-slate-600 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Düzenle</span>
+            </button>
+
+            {/* 5. Yeni Form */}
+            <button
+              type="button"
+              onClick={onNewInspection}
+              className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border border-slate-600 cursor-pointer"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>Yeni</span>
+            </button>
+          </div>
+        </div>
+
+        {/* İndirme Başarı Bilgilendirme Notu */}
+        {downloadSuccess && downloadedFilePath && (
+          <div className="bg-emerald-950/70 border border-emerald-500/50 rounded px-3 py-2 text-xs flex items-center gap-2 text-emerald-200 animate-fadeIn">
+            <FolderCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+            <div>
+              <span className="font-bold text-white">PDF Cihaza Kaydedildi: </span>
+              <span className="font-mono text-emerald-300">{downloadedFilePath}</span>
+              <span className="text-[11px] text-slate-300 block">
+                (Tüm proje raporları aynı <strong>BETA_KALITE_KONTROL</strong> arşivi altında toplanmaktadır.)
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* THE OFFICIAL REPORT SHEET */}
+      <div
+        id="official-report-sheet"
+        className="bg-white rounded shadow border border-slate-300 p-4 sm:p-6 text-slate-900"
+      >
+        {/* Corporate Header */}
+        <div className="border-b-2 border-slate-900 pb-3.5 mb-4 header-box">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+            <div className="flex items-center gap-2.5">
+              <BetaLogo size="lg" className="shadow-xs shrink-0" />
+              <div>
+                <h1 className="text-base sm:text-xl font-black text-slate-950 tracking-tight leading-tight">
+                  BETA ASANSÖR
+                </h1>
+                <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                  Kalite Kontrol &amp; Saha Son Muayene Raporu
+                </p>
+              </div>
+            </div>
+            <div className="text-left sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-200">
+              <span className="inline-block px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold rounded border border-slate-300">
+                RAPOR NO: {data.serialNumber || 'BETA-QC'}
+              </span>
+              <p className="text-[11px] font-semibold text-slate-500 mt-0.5">Tarih: {data.dateDisplay}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Technical & Audit Metadata Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 p-3 bg-slate-50 rounded border border-slate-300 text-xs mb-4 grid-meta">
+          <div>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Kontrolü Yapan:</span>
+            <span className="text-xs font-bold text-slate-900">{data.inspectorName}</span>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Müşteri / Proje:</span>
+            <span className="text-xs font-bold text-slate-900">{data.clientProjectName}</span>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Asansör Tipi:</span>
+            <span className="text-xs font-bold text-slate-900">{data.elevatorType}</span>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Seri / Takip No:</span>
+            <span className="text-xs font-bold text-slate-900">{data.serialNumber}</span>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Kapasite:</span>
+            <span className="text-xs font-bold text-slate-900">{data.capacityKg} KG</span>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Durak Sayısı:</span>
+            <span className="text-xs font-bold text-slate-900">{data.stopCount} Durak (Baş: {data.floorStart})</span>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Denetim Zamanı:</span>
+            <span className="text-xs font-bold text-slate-900">{data.startTime || '-'} - {data.endTime || '-'}</span>
+          </div>
+          <div>
+            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Toplam Süre:</span>
+            <span className="text-xs font-bold text-slate-900">{data.totalDurationFormatted || '-'}</span>
+          </div>
+        </div>
+
+        {/* Section: UD LISTESI (Hatalar ve Uygunsuzluklar) */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between pb-1.5 mb-2.5 border-b-2 border-red-600 section-title">
+            <div className="flex items-center gap-1.5">
+              <ShieldAlert className="w-4 h-4 text-red-600" />
+              <h2 className="text-xs sm:text-sm font-bold uppercase text-slate-900 tracking-wider">
+                TESPİT EDİLEN UYGUNSUZLUKLAR (UD LİSTESİ)
+              </h2>
+            </div>
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                allUDItems.length === 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+              }`}
+            >
+              Toplam {allUDItems.length} Hata / Eksik
+            </span>
+          </div>
+
+          {allUDItems.length === 0 ? (
+            <div className="p-4 bg-emerald-50 rounded border border-emerald-200 text-center space-y-1 badge-clean">
+              <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto" />
+              <h3 className="text-xs font-bold text-emerald-900 uppercase tracking-wider">
+                Tüm Kontroller Başarıyla Geçti
+              </h3>
+              <p className="text-[11px] text-emerald-700">
+                Bu asansörde herhangi bir hata veya uygunsuzluk kaydı bulunmamaktadır.
+              </p>
+            </div>
+          ) : (
+            <div className="border border-slate-300 rounded overflow-hidden">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-100 border-b border-slate-300 text-slate-700 font-bold uppercase text-[10px]">
+                  <tr>
+                    <th className="p-2 border-r border-slate-300 w-10 text-center">#</th>
+                    <th className="p-2 border-r border-slate-300 w-36">Bölüm / Kategori</th>
+                    <th className="p-2 border-r border-slate-300">Kontrol Maddesi</th>
+                    <th className="p-2 border-r border-slate-300 w-20 text-center">Durak</th>
+                    <th className="p-2">Hata / Açıklama</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {allUDItems.map((entry, index) => (
+                    <tr key={index} className="bg-red-50/40 hover:bg-red-50">
+                      <td className="p-2 border-r border-slate-300 text-center font-bold text-red-600">
+                        {index + 1}
+                      </td>
+                      <td className="p-2 border-r border-slate-300 font-bold text-slate-800 text-[11px]">
+                        {entry.category}
+                      </td>
+                      <td className="p-2 border-r border-slate-300 text-slate-900">
+                        {entry.item.title}
+                      </td>
+                      <td className="p-2 border-r border-slate-300 text-center font-semibold text-slate-700 text-[11px]">
+                        {entry.item.floorLabel || '-'}
+                      </td>
+                      <td className="p-2 text-red-700 text-xs font-medium">
+                        {entry.item.description || (
+                          <span className="italic text-slate-400">Açıklama girilmedi</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Section: ÖLÇÜ KONTROLLERİ (Measures Table) */}
+        {data.measures && data.measures.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-1.5 pb-1.5 mb-2.5 border-b-2 border-blue-700 section-title section-title-blue">
+              <Ruler className="w-4 h-4 text-blue-700" />
+              <h2 className="text-xs sm:text-sm font-bold uppercase text-slate-900 tracking-wider">
+                SAHA ÖLÇÜ KONTROLLERİ
+              </h2>
+            </div>
+            <div className="border border-slate-300 rounded overflow-hidden">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-100 border-b border-slate-300 text-slate-700 font-bold uppercase text-[10px]">
+                  <tr>
+                    <th className="p-2 border-r border-slate-300 w-10 text-center">#</th>
+                    <th className="p-2 border-r border-slate-300">Ölçü Tanımı</th>
+                    <th className="p-2 border-r border-slate-300 w-44 text-center">Ölçülen Değer</th>
+                    <th className="p-2">Açıklama / Notlar</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {data.measures.map((measure, index) => (
+                    <tr key={index} className="hover:bg-slate-50">
+                      <td className="p-2 border-r border-slate-300 text-center font-bold text-slate-500">
+                        {index + 1}
+                      </td>
+                      <td className="p-2 border-r border-slate-300 font-semibold text-slate-800">
+                        {measure.name}
+                      </td>
+                      <td className="p-2 border-r border-slate-300 text-center font-bold text-[#0A2647]">
+                        {measure.value || '-'}
+                      </td>
+                      <td className="p-2 text-slate-600 text-xs">
+                        {measure.notes || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Footer Note */}
+        <div className="mt-6 pt-3 border-t border-slate-200 text-center text-[10px] text-slate-400 footer-text">
+          Beta Asansör Kalite Kontrol Sistemi tarafından otomatik olarak derlenmiştir. Bu belge resmi denetim kaydıdır.
+        </div>
+      </div>
+    </div>
+  );
+};
+

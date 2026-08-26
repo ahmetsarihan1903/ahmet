@@ -1,0 +1,92 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Dependencies
+        run: |
+          npm install --legacy-peer-deps
+          npm install --save-dev sharp --legacy-peer-deps
+
+      - name: Build Web Application
+        run: |
+          npm run build
+
+      - name: Setup Capacitor Android & Apply App Name & Beta Logo Icon
+        run: |
+          rm -rf android
+          npx cap add android
+          npx cap sync android
+          node -e "
+          const sharp = require('sharp');
+          const fs = require('fs');
+          const path = require('path');
+
+          const svgPath = path.join(process.cwd(), 'public', 'beta-logo.svg');
+          const resDir = path.join(process.cwd(), 'android', 'app', 'src', 'main', 'res');
+
+          const sizes = {
+            'mipmap-mdpi': 48,
+            'mipmap-hdpi': 72,
+            'mipmap-xhdpi': 96,
+            'mipmap-xxhdpi': 144,
+            'mipmap-xxxhdpi': 192
+          };
+
+          async function generateIcons() {
+            for (const [folder, size] of Object.entries(sizes)) {
+              const targetFolder = path.join(resDir, folder);
+              if (fs.existsSync(targetFolder)) {
+                const buffer = await sharp(svgPath)
+                  .resize(size, size, { fit: 'contain', background: { r: 0, g: 136, b: 206, alpha: 1 } })
+                  .png()
+                  .toBuffer();
+                fs.writeFileSync(path.join(targetFolder, 'ic_launcher.png'), buffer);
+                fs.writeFileSync(path.join(targetFolder, 'ic_launcher_round.png'), buffer);
+                fs.writeFileSync(path.join(targetFolder, 'ic_launcher_foreground.png'), buffer);
+              }
+            }
+            console.log('BETA Asansör logolu Android simgeleri başarıyla oluşturuldu.');
+          }
+          generateIcons().catch(console.error);
+          "
+          # strings.xml içinde app_name'i KALITE KONTROL olarak garanti altına al
+          sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">KALITE KONTROL<\/string>/g' android/app/src/main/res/values/strings.xml || true
+          sed -i 's/<string name="title_activity_main">.*<\/string>/<string name="title_activity_main">KALITE KONTROL<\/string>/g' android/app/src/main/res/values/strings.xml || true
+
+      - name: Build Android Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BetaAsansor-Kalite-Kontrol-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30

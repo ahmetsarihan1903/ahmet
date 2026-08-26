@@ -1,0 +1,6 @@
+{
+  "appId": "com.betaasansor.kalite",
+  "appName": "KALITE KONTROL",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

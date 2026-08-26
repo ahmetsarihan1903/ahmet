@@ -1,0 +1,6 @@
+{
+  "name": "Beta Asansör Kalite Kontrol Formu",
+  "description": "Beta Asansör saha denetimleri için hibrit veri girişli, çevrimdışı destekli ve dinamik hata raporlamalı Kalite Kontrol Formu.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
