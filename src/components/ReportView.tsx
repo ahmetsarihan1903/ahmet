@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 import {
   Share2,
@@ -17,6 +18,7 @@ import {
   Printer,
   FolderCheck,
   FileText,
+  Eye,
 } from 'lucide-react';
 import { AuditFormData, InspectionItem } from '../types';
 import { BetaLogo } from './BetaLogo';
@@ -450,7 +452,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
       const folderName = 'BETAKALİTE';
       let savedLocation = '';
 
-      // 1. Check if running inside Capacitor Android native environment (Overwrites existing file)
+      // 1. Check if running inside Capacitor Android native environment
       if (Capacitor.isNativePlatform()) {
         try {
           try {
@@ -459,29 +461,63 @@ export const ReportView: React.FC<ReportViewProps> = ({
             // Permission might already be granted
           }
 
-          // Create BETAKALİTE folder in Documents
+          const base64Data = doc.output('datauristring').split(',')[1];
+          let savedFileUri = '';
+
+          // Attempt 1: Documents/BETAKALİTE (Primary Target)
           try {
             await Filesystem.mkdir({
               path: folderName,
               directory: Directory.Documents,
               recursive: true,
             });
-          } catch {
-            // Directory might exist
+            const res = await Filesystem.writeFile({
+              path: `${folderName}/${fileName}`,
+              data: base64Data,
+              directory: Directory.Documents,
+              recursive: true,
+            });
+            savedLocation = `Cihaz Hafızası / Belgeler / ${folderName} / ${fileName}`;
+            savedFileUri = res.uri;
+          } catch (docErr) {
+            console.warn('Documents save error, trying root Documents or Cache:', docErr);
+            // Attempt 2: Direct Documents root
+            try {
+              const res2 = await Filesystem.writeFile({
+                path: fileName,
+                data: base64Data,
+                directory: Directory.Documents,
+              });
+              savedLocation = `Cihaz Hafızası / Belgeler / ${fileName}`;
+              savedFileUri = res2.uri;
+            } catch (docRootErr) {
+              // Attempt 3: Cache / Data with native share trigger
+              const res3 = await Filesystem.writeFile({
+                path: fileName,
+                data: base64Data,
+                directory: Directory.Cache,
+              });
+              savedLocation = `Cihaz İndirilenler / ${fileName}`;
+              savedFileUri = res3.uri;
+            }
           }
 
-          const base64Data = doc.output('datauristring').split(',')[1];
-          await Filesystem.writeFile({
-            path: `${folderName}/${fileName}`,
-            data: base64Data,
-            directory: Directory.Documents,
-            recursive: true,
-          });
-
-          savedLocation = `Documents / ${folderName} / ${fileName}`;
           setDownloadedFilePath(savedLocation);
           setDownloadSuccess(true);
           setTimeout(() => setDownloadSuccess(false), 8000);
+
+          // Prompt native Android system share/open sheet so user can directly open in Acrobat/Drive or copy to any folder
+          if (savedFileUri) {
+            try {
+              await Share.share({
+                title: `Beta Asansör Raporu - ${data.serialNumber || 'QC'}`,
+                url: savedFileUri,
+                dialogTitle: 'PDF Raporunu Aç / Kaydet / Gönder',
+              });
+            } catch (shareErr) {
+              // User dismissed sheet
+            }
+          }
           return;
         } catch (nativeErr) {
           console.warn('Native Filesystem save fallback to browser download', nativeErr);
@@ -508,7 +544,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
           await writableStream.close();
 
           savedLocation = fileHandle.name || fileName;
-          setDownloadedFilePath(`Dosya kaydedildi (Üzerine yazıldı): ${savedLocation}`);
+          setDownloadedFilePath(`Dosya kaydedildi: ${savedLocation}`);
           setDownloadSuccess(true);
           setTimeout(() => setDownloadSuccess(false), 8000);
           return;
@@ -552,9 +588,26 @@ export const ReportView: React.FC<ReportViewProps> = ({
   };
 
   // Direct PDF Preview in New Tab / In-App Viewer
-  const handlePreviewPDF = () => {
+  const handlePreviewPDF = async () => {
     try {
       const doc = buildJsPdfDocument();
+
+      if (Capacitor.isNativePlatform()) {
+        const fileName = getStandardizedFileName();
+        const base64Data = doc.output('datauristring').split(',')[1];
+        const res = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Cache,
+        });
+        await Share.share({
+          title: `Beta Asansör Raporu - ${data.serialNumber || 'QC'}`,
+          url: res.uri,
+          dialogTitle: 'PDF Raporunu Önizle / Aç',
+        });
+        return;
+      }
+
       const pdfBlob = doc.output('blob');
       const blobUrl = URL.createObjectURL(pdfBlob);
       window.open(blobUrl, '_blank');
@@ -571,10 +624,33 @@ export const ReportView: React.FC<ReportViewProps> = ({
     try {
       const doc = buildJsPdfDocument();
       const fileName = getStandardizedFileName();
+
+      // 1. Android Capacitor Native Share (100% Reliable file attachment on Android tablets & phones)
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const base64Data = doc.output('datauristring').split(',')[1];
+          const tempFile = await Filesystem.writeFile({
+            path: fileName,
+            data: base64Data,
+            directory: Directory.Cache,
+          });
+          await Share.share({
+            title: `Beta Asansör Raporu - ${data.serialNumber || 'QC'}`,
+            url: tempFile.uri,
+            dialogTitle: 'Raporu WhatsApp / Drive / Dosyalar ile Paylaş',
+          });
+          setShareSuccess(true);
+          setTimeout(() => setShareSuccess(false), 4000);
+          return;
+        } catch (nativeShareErr) {
+          console.warn('Capacitor native share error, falling back', nativeShareErr);
+        }
+      }
+
       const pdfBlob = doc.output('blob');
       const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
 
-      // 1. Web Share API with actual PDF file attachment (No text param to force WhatsApp to attach as Document)
+      // 2. Web Share API with actual PDF file attachment (No text param to force WhatsApp to attach as Document)
       if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
         await navigator.share({
           files: [pdfFile],
@@ -583,7 +659,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
         setShareSuccess(true);
         setTimeout(() => setShareSuccess(false), 4000);
       } else {
-        // 2. Fallback for older browsers / webview: Download PDF file first so user can attach it in WhatsApp
+        // 3. Fallback for older browsers / webview: Download PDF file first so user can attach it in WhatsApp
         const blobUrl = URL.createObjectURL(pdfBlob);
         const link = document.createElement('a');
         link.href = blobUrl;

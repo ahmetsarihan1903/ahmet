@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+/* Android WebView & Lucide SVG Compatibility Rules */
+svg {
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+  shape-rendering: geometricPrecision;
+}
+
+svg.lucide {
+  min-width: 1em;
+  min-height: 1em;
+  stroke: currentColor;
+}
+
 @layer utilities {
   /* Safe area insets for mobile notches / status bar */
   .pt-safe {
