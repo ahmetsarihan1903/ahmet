@@ -35,8 +35,8 @@ export const Header: React.FC<HeaderProps> = ({
   }, [startTimestamp, currentStep]);
 
   return (
-    <header className="sticky top-0 z-40 bg-[#0A2647] text-white shadow-md border-b-4 border-orange-500">
-      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between">
+    <header className="sticky top-0 z-40 bg-[#0A2647] text-white shadow-md border-b-4 border-orange-500 pt-safe-or-4">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 pt-1 pb-2.5 sm:pb-3 flex items-center justify-between">
         {/* Brand & Logo */}
         <div className="flex items-center gap-2 sm:gap-2.5">
           <BetaLogo size="sm" className="shadow-xs" />

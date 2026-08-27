@@ -170,7 +170,7 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
       onTouchEnd={handleTouchEnd}
     >
       {/* Sticky Top Header Navigation & Controls (Fixed at the very top of pages) */}
-      <div className="sticky top-12 sm:top-14 z-30 bg-slate-900 border-b-2 border-slate-800 -mx-3 sm:-mx-4 px-3 sm:px-4 mb-3 shadow-lg">
+      <div className="sticky top-[calc(3.75rem+env(safe-area-inset-top,0px))] sm:top-[calc(4.25rem+env(safe-area-inset-top,0px))] z-30 bg-slate-900 border-b-2 border-slate-800 -mx-3 sm:-mx-4 px-3 sm:px-4 mb-3 shadow-lg">
         {/* Navigation Action Buttons: [ < ] | DENETİMİ BİTİR | [ > ] */}
         <div className="py-2 flex items-center justify-between gap-2 border-b border-slate-800">
           {/* Sol Ok (<) Button - Sadece Sembol */}
