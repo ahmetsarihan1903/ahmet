@@ -171,23 +171,23 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
     >
       {/* Sticky Top Header Navigation & Controls (Fixed at the very top of pages) */}
       <div className="sticky top-12 sm:top-14 z-30 bg-slate-900 border-b-2 border-slate-800 -mx-3 sm:-mx-4 px-3 sm:px-4 mb-3 shadow-lg">
-        {/* Navigation Action Buttons: Önceki | DENETİMİ BİTİR | Sonraki */}
+        {/* Navigation Action Buttons: [ < ] | DENETİMİ BİTİR | [ > ] */}
         <div className="py-2 flex items-center justify-between gap-2 border-b border-slate-800">
-          {/* Önceki Button */}
+          {/* Sol Ok (<) Button - Sadece Sembol */}
           <button
             type="button"
             id="btn-top-prev-tab"
             disabled={activeTab === 0}
             onClick={() => onTabChange(Math.max(0, activeTab - 1))}
-            className={`min-h-[40px] px-3.5 py-2 rounded font-bold text-xs uppercase tracking-wider flex items-center gap-1 transition-all shrink-0 select-none ${
+            className={`min-h-[40px] w-10 sm:w-11 px-0 rounded font-bold text-xs uppercase flex items-center justify-center transition-all shrink-0 select-none ${
               activeTab === 0
                 ? 'bg-slate-950 text-slate-600 cursor-not-allowed border border-slate-800'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 active:scale-95 cursor-pointer'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 active:scale-95 cursor-pointer shadow-md'
             }`}
-            title="Önceki Sayfaya Geç"
+            title="Önceki Sayfa (Sol)"
+            aria-label="Önceki Sayfa"
           >
-            <ChevronLeft className="w-4 h-4" />
-            <span className="inline">Önceki</span>
+            <ChevronLeft className="w-5 h-5" />
           </button>
 
           {/* Prominent DENETİMİ BİTİR Button */}
@@ -195,28 +195,28 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
             type="button"
             id="btn-top-finish-audit"
             onClick={onFinishAudit}
-            className="min-h-[40px] flex-1 max-w-md py-2 px-2.5 sm:px-4 rounded font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-1.5 sm:gap-2 bg-red-600 hover:bg-red-500 active:scale-[0.99] text-white shadow-lg border border-red-400 transition-all cursor-pointer select-none"
+            className="min-h-[40px] flex-1 py-2 px-3 sm:px-4 rounded font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-1.5 sm:gap-2 bg-red-600 hover:bg-red-500 active:scale-[0.99] text-white shadow-lg border border-red-400 transition-all cursor-pointer select-none"
             title="Denetimi Bitir ve Rapor Ekranına Geç"
           >
             <FileCheck2 className="w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0" />
             <span className="truncate">DENETİMİ BİTİR {totalUDCount > 0 ? `(${totalUDCount} Hata)` : ''}</span>
           </button>
 
-          {/* Sonraki Button */}
+          {/* Sağ Ok (>) Button - Sadece Sembol */}
           <button
             type="button"
             id="btn-top-next-tab"
             disabled={activeTab === tabs.length - 1}
             onClick={() => onTabChange(Math.min(tabs.length - 1, activeTab + 1))}
-            className={`min-h-[40px] px-3.5 py-2 rounded font-bold text-xs uppercase tracking-wider flex items-center gap-1 transition-all shrink-0 select-none ${
+            className={`min-h-[40px] w-10 sm:w-11 px-0 rounded font-bold text-xs uppercase flex items-center justify-center transition-all shrink-0 select-none ${
               activeTab === tabs.length - 1
                 ? 'bg-slate-950 text-slate-600 cursor-not-allowed border border-slate-800'
                 : 'bg-orange-500 hover:bg-orange-400 active:scale-95 text-white shadow-lg cursor-pointer'
             }`}
-            title="Sonraki Sayfaya Geç"
+            title="Sonraki Sayfa (Sağ)"
+            aria-label="Sonraki Sayfa"
           >
-            <span className="inline">Sonraki</span>
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-5 h-5" />
           </button>
         </div>
 
