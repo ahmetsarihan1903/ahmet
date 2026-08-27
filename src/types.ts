@@ -10,6 +10,7 @@ export interface InspectionItem {
   id: string;
   title: string;
   isNonCompliant: boolean; // True when [ UD ] is active (red)
+  isPassed?: boolean; // True when verified/checked via long-press (green)
   description: string;
   isCustom?: boolean; // Added via "+ Ekstra Madde Ekle"
   isRequiredDescription?: boolean; // E.g., Boy fotosel, Denge zinciri

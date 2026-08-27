@@ -450,7 +450,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
       const folderName = 'BETAKALİTE';
       let savedLocation = '';
 
-      // 1. Check if running inside Capacitor Android native environment
+      // 1. Check if running inside Capacitor Android native environment (Overwrites existing file)
       if (Capacitor.isNativePlatform()) {
         try {
           try {
@@ -479,13 +479,49 @@ export const ReportView: React.FC<ReportViewProps> = ({
           });
 
           savedLocation = `Documents / ${folderName} / ${fileName}`;
+          setDownloadedFilePath(savedLocation);
+          setDownloadSuccess(true);
+          setTimeout(() => setDownloadSuccess(false), 8000);
+          return;
         } catch (nativeErr) {
           console.warn('Native Filesystem save fallback to browser download', nativeErr);
         }
       }
 
-      // 2. Standard direct binary blob download (Android Chrome, Tablet WebView, PC)
       const pdfBlob = doc.output('blob');
+
+      // 2. Modern Web File System Access API (Allows selecting & directly overwriting the existing file)
+      if ('showSaveFilePicker' in window) {
+        try {
+          const fileHandle = await (window as any).showSaveFilePicker({
+            suggestedName: fileName,
+            types: [
+              {
+                description: 'PDF Rapor Dosyası',
+                accept: { 'application/pdf': ['.pdf'] },
+              },
+            ],
+          });
+
+          const writableStream = await fileHandle.createWritable();
+          await writableStream.write(pdfBlob);
+          await writableStream.close();
+
+          savedLocation = fileHandle.name || fileName;
+          setDownloadedFilePath(`Dosya kaydedildi (Üzerine yazıldı): ${savedLocation}`);
+          setDownloadSuccess(true);
+          setTimeout(() => setDownloadSuccess(false), 8000);
+          return;
+        } catch (pickerErr: any) {
+          if (pickerErr?.name === 'AbortError') {
+            // User intentionally cancelled the file picker dialog
+            return;
+          }
+          console.warn('File System Access API fallback', pickerErr);
+        }
+      }
+
+      // 3. Fallback standard direct binary blob download (Android Chrome, Tablet WebView, PC)
       const blobUrl = URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
       link.href = blobUrl;

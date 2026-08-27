@@ -167,9 +167,17 @@ export default function App() {
   const handleToggleUD = useCallback((categoryKey: string, id: string) => {
     setFormData((prev) => {
       const updateList = (list: InspectionItem[]) =>
-        list.map((item) =>
-          item.id === id ? { ...item, isNonCompliant: !item.isNonCompliant } : item
-        );
+        list.map((item) => {
+          if (item.id === id) {
+            const nextUD = !item.isNonCompliant;
+            return {
+              ...item,
+              isNonCompliant: nextUD,
+              isPassed: nextUD ? false : item.isPassed,
+            };
+          }
+          return item;
+        });
 
       switch (categoryKey) {
         case 'controlPanel':
@@ -186,6 +194,41 @@ export default function App() {
           return { ...prev, cabinAndFloorButtonsItems: updateList(prev.cabinAndFloorButtonsItems) };
         case 'doors':
           return { ...prev, doorsItems: updateList(prev.doorsItems) };
+        default:
+          return prev;
+      }
+    });
+  }, []);
+
+  // Toggle Passed/Verified status (when long-pressed for 2s on tabs 1-6)
+  const handleTogglePassed = useCallback((categoryKey: string, id: string) => {
+    setFormData((prev) => {
+      const updateList = (list: InspectionItem[]) =>
+        list.map((item) => {
+          if (item.id === id) {
+            const nextPassed = !item.isPassed;
+            return {
+              ...item,
+              isPassed: nextPassed,
+              isNonCompliant: nextPassed ? false : item.isNonCompliant,
+            };
+          }
+          return item;
+        });
+
+      switch (categoryKey) {
+        case 'controlPanel':
+          return { ...prev, controlPanelItems: updateList(prev.controlPanelItems) };
+        case 'motorChassis':
+          return { ...prev, motorChassisItems: updateList(prev.motorChassisItems) };
+        case 'cabinTop':
+          return { ...prev, cabinTopItems: updateList(prev.cabinTopItems) };
+        case 'counterweight':
+          return { ...prev, counterweightItems: updateList(prev.counterweightItems) };
+        case 'shaftAndPit':
+          return { ...prev, shaftAndPitItems: updateList(prev.shaftAndPitItems) };
+        case 'cabinAndButtons':
+          return { ...prev, cabinAndFloorButtonsItems: updateList(prev.cabinAndFloorButtonsItems) };
         default:
           return prev;
       }
@@ -444,6 +487,7 @@ export default function App() {
             onUpdateMeasure={handleUpdateMeasure}
             onDeleteMeasure={handleDeleteMeasure}
             onToggleUD={handleToggleUD}
+            onTogglePassed={handleTogglePassed}
             onDescriptionChange={handleDescriptionChange}
             onAddExtraItem={handleAddExtraItem}
             onDeleteCustomItem={handleDeleteCustomItem}

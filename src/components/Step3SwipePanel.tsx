@@ -37,6 +37,7 @@ interface Step3SwipePanelProps {
   onDeleteMeasure: (id: string) => void;
 
   onToggleUD: (categoryKey: string, id: string) => void;
+  onTogglePassed: (categoryKey: string, id: string) => void;
   onDescriptionChange: (categoryKey: string, id: string, desc: string) => void;
   onAddExtraItem: (categoryKey: string, title: string) => void;
   onDeleteCustomItem: (categoryKey: string, id: string) => void;
@@ -60,6 +61,7 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
   onUpdateMeasure,
   onDeleteMeasure,
   onToggleUD,
+  onTogglePassed,
   onDescriptionChange,
   onAddExtraItem,
   onDeleteCustomItem,
@@ -303,7 +305,9 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
                 key={item.id}
                 item={item}
                 index={idx}
+                allowLongPressPass={true}
                 onToggleUD={(id) => onToggleUD('controlPanel', id)}
+                onTogglePassed={(id) => onTogglePassed('controlPanel', id)}
                 onDescriptionChange={(id, desc) => onDescriptionChange('controlPanel', id, desc)}
                 onDeleteCustomItem={(id) => onDeleteCustomItem('controlPanel', id)}
               />
@@ -323,7 +327,9 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
                 key={item.id}
                 item={item}
                 index={idx}
+                allowLongPressPass={true}
                 onToggleUD={(id) => onToggleUD('motorChassis', id)}
+                onTogglePassed={(id) => onTogglePassed('motorChassis', id)}
                 onDescriptionChange={(id, desc) => onDescriptionChange('motorChassis', id, desc)}
                 onDeleteCustomItem={(id) => onDeleteCustomItem('motorChassis', id)}
               />
@@ -339,7 +345,9 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
                 key={item.id}
                 item={item}
                 index={idx}
+                allowLongPressPass={true}
                 onToggleUD={(id) => onToggleUD('cabinTop', id)}
+                onTogglePassed={(id) => onTogglePassed('cabinTop', id)}
                 onDescriptionChange={(id, desc) => onDescriptionChange('cabinTop', id, desc)}
                 onDeleteCustomItem={(id) => onDeleteCustomItem('cabinTop', id)}
               />
@@ -355,7 +363,9 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
                 key={item.id}
                 item={item}
                 index={idx}
+                allowLongPressPass={true}
                 onToggleUD={(id) => onToggleUD('counterweight', id)}
+                onTogglePassed={(id) => onTogglePassed('counterweight', id)}
                 onDescriptionChange={(id, desc) => onDescriptionChange('counterweight', id, desc)}
                 onDeleteCustomItem={(id) => onDeleteCustomItem('counterweight', id)}
               />
@@ -371,7 +381,9 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
                 key={item.id}
                 item={item}
                 index={idx}
+                allowLongPressPass={true}
                 onToggleUD={(id) => onToggleUD('shaftAndPit', id)}
+                onTogglePassed={(id) => onTogglePassed('shaftAndPit', id)}
                 onDescriptionChange={(id, desc) => onDescriptionChange('shaftAndPit', id, desc)}
                 onDeleteCustomItem={(id) => onDeleteCustomItem('shaftAndPit', id)}
               />
@@ -387,7 +399,9 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
                 key={item.id}
                 item={item}
                 index={idx}
+                allowLongPressPass={true}
                 onToggleUD={(id) => onToggleUD('cabinAndButtons', id)}
+                onTogglePassed={(id) => onTogglePassed('cabinAndButtons', id)}
                 onDescriptionChange={(id, desc) => onDescriptionChange('cabinAndButtons', id, desc)}
                 onDeleteCustomItem={(id) => onDeleteCustomItem('cabinAndButtons', id)}
               />
