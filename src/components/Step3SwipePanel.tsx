@@ -170,19 +170,19 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
       onTouchEnd={handleTouchEnd}
     >
       {/* Sticky Top Header Navigation & Controls (Fixed at the very top of pages) */}
-      <div className="sticky top-12 sm:top-14 z-30 bg-slate-100 border-b-2 border-slate-300 -mx-3 sm:-mx-4 px-3 sm:px-4 mb-3 shadow-sm">
+      <div className="sticky top-12 sm:top-14 z-30 bg-slate-900 border-b-2 border-slate-800 -mx-3 sm:-mx-4 px-3 sm:px-4 mb-3 shadow-lg">
         {/* Navigation Action Buttons: Önceki | DENETİMİ BİTİR | Sonraki */}
-        <div className="py-2.5 flex items-center justify-between gap-2 border-b-2 border-slate-200">
+        <div className="py-2 flex items-center justify-between gap-2 border-b border-slate-800">
           {/* Önceki Button */}
           <button
             type="button"
             id="btn-top-prev-tab"
             disabled={activeTab === 0}
             onClick={() => onTabChange(Math.max(0, activeTab - 1))}
-            className={`min-h-[44px] px-3.5 py-2 rounded-lg font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all shrink-0 select-none ${
+            className={`min-h-[40px] px-3.5 py-2 rounded font-bold text-xs uppercase tracking-wider flex items-center gap-1 transition-all shrink-0 select-none ${
               activeTab === 0
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300'
-                : 'bg-white hover:bg-slate-200 text-slate-900 border-2 border-slate-300 active:scale-95 cursor-pointer shadow-xs'
+                ? 'bg-slate-950 text-slate-600 cursor-not-allowed border border-slate-800'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 active:scale-95 cursor-pointer'
             }`}
             title="Önceki Sayfaya Geç"
           >
@@ -195,10 +195,10 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
             type="button"
             id="btn-top-finish-audit"
             onClick={onFinishAudit}
-            className="min-h-[44px] flex-1 max-w-md py-2 px-2.5 sm:px-4 rounded-lg font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-1.5 sm:gap-2 bg-red-600 hover:bg-red-700 active:scale-[0.99] text-white shadow-md border-2 border-red-800 transition-all cursor-pointer select-none"
+            className="min-h-[40px] flex-1 max-w-md py-2 px-2.5 sm:px-4 rounded font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-1.5 sm:gap-2 bg-red-600 hover:bg-red-500 active:scale-[0.99] text-white shadow-lg border border-red-400 transition-all cursor-pointer select-none"
             title="Denetimi Bitir ve Rapor Ekranına Geç"
           >
-            <FileCheck2 className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+            <FileCheck2 className="w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0" />
             <span className="truncate">DENETİMİ BİTİR {totalUDCount > 0 ? `(${totalUDCount} Hata)` : ''}</span>
           </button>
 
@@ -208,10 +208,10 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
             id="btn-top-next-tab"
             disabled={activeTab === tabs.length - 1}
             onClick={() => onTabChange(Math.min(tabs.length - 1, activeTab + 1))}
-            className={`min-h-[44px] px-3.5 py-2 rounded-lg font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all shrink-0 select-none ${
+            className={`min-h-[40px] px-3.5 py-2 rounded font-bold text-xs uppercase tracking-wider flex items-center gap-1 transition-all shrink-0 select-none ${
               activeTab === tabs.length - 1
-                ? 'bg-slate-200 text-slate-400 cursor-not-allowed border-2 border-slate-300'
-                : 'bg-orange-500 hover:bg-orange-600 active:scale-95 text-white border-2 border-orange-700 shadow-md cursor-pointer'
+                ? 'bg-slate-950 text-slate-600 cursor-not-allowed border border-slate-800'
+                : 'bg-orange-500 hover:bg-orange-400 active:scale-95 text-white shadow-lg cursor-pointer'
             }`}
             title="Sonraki Sayfaya Geç"
           >
@@ -223,7 +223,7 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
         {/* 8 Swipe Tabs Horizontal Bar */}
         <div
           ref={tabsContainerRef}
-          className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1.5"
+          className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1"
         >
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -236,24 +236,24 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
                 type="button"
                 id={`tab-btn-${tab.id}`}
                 onClick={() => onTabChange(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-2 sm:py-2.5 border-b-4 text-xs font-black uppercase tracking-tight shrink-0 transition-all cursor-pointer rounded-t-lg ${
+                className={`flex items-center gap-1.5 px-3 py-2 sm:py-2.5 border-b-4 text-[11px] font-bold uppercase tracking-tight shrink-0 transition-all cursor-pointer rounded-t ${
                   isActive
-                    ? 'border-blue-600 text-blue-900 bg-white shadow-xs'
-                    : 'border-transparent text-slate-600 hover:text-slate-950 hover:bg-slate-200'
+                    ? 'border-blue-500 text-blue-400 bg-slate-800 font-black'
+                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 opacity-80 hover:opacity-100'
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-3.5 h-3.5" />
                 <span className="whitespace-nowrap">{tab.id + 1}. {tab.title}</span>
 
                 {/* Badge */}
                 {tab.id === 0 ? (
                   count > 0 && (
-                    <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-blue-100 text-blue-900 border border-blue-300">
+                    <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-400/40">
                       {count}
                     </span>
                   )
                 ) : count > 0 ? (
-                  <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-red-600 text-white shadow-xs">
+                  <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-red-600 text-white animate-pulse shadow-xs">
                     {count} UD
                   </span>
                 ) : null}
@@ -264,18 +264,18 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
       </div>
 
       {/* Current Page Banner & Info */}
-      <div className="bg-white rounded-xl p-3.5 sm:p-4 shadow-xs border-2 border-slate-300 mb-3.5 flex items-center justify-between">
+      <div className="bg-slate-900 rounded p-3 sm:p-3.5 shadow-sm border border-slate-800 mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-800 border-2 border-slate-300">
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700">
             Sayfa {activeTab + 1} / 8
           </span>
-          <h2 className="text-sm sm:text-base font-black text-slate-950">
+          <h2 className="text-sm sm:text-base font-bold text-slate-100">
             {currentTabInfo.title}
           </h2>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             {activeTab === 0
               ? `${measures.length} Saha Ölçüsü`
               : `${tabCounts[activeTab]} Uygunsuzluk`}
@@ -314,9 +314,9 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
         {/* Tab 2: MOTOR / ŞASE (Dinamik MR / MRL) */}
         {activeTab === 2 && (
           <div className="space-y-3">
-            <div className="bg-white p-3.5 rounded-xl border-2 border-slate-300 text-xs text-slate-800 flex items-center justify-between shadow-xs">
-              <span className="font-black text-slate-950">Asansör Yapısı: {elevatorType === 'MR' ? 'Makine Daireli (MR)' : 'Makine Dairesiz (MRL)'}</span>
-              <span className="text-slate-600 font-bold">{motorChassisItems.length} Kontrol Maddesi</span>
+            <div className="bg-slate-900 p-3 rounded border border-slate-800 text-xs text-slate-300 flex items-center justify-between">
+              <span className="font-bold text-slate-200">Asansör Yapısı: {elevatorType === 'MR' ? 'Makine Daireli (MR)' : 'Makine Dairesiz (MRL)'}</span>
+              <span className="text-slate-400 font-medium">{motorChassisItems.length} Kontrol Maddesi</span>
             </div>
             {motorChassisItems.map((item, idx) => (
               <InspectionItemCard
@@ -398,9 +398,9 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
         {/* Tab 7: KABİN VE KAT KAPISI MONTAJLARI (No Extra Item Button) */}
         {activeTab === 7 && (
           <div className="space-y-3">
-            <div className="bg-white p-3.5 rounded-xl border-2 border-slate-300 text-xs text-slate-800 shadow-xs">
-              <span className="font-black text-slate-950 block">Otomatik Oluşturulan Kat Kapısı Matrisi</span>
-              <span className="text-slate-600 text-xs block mt-1 font-medium">
+            <div className="bg-slate-900 p-3 rounded border border-slate-800 text-xs text-slate-300">
+              <span className="font-bold text-slate-200 block">Otomatik Oluşturulan Kat Kapısı Matrisi</span>
+              <span className="text-slate-400 text-[11px] block mt-0.5">
                 Kabin kapısı ve tüm katların durak kapı kontrolleri listelenmiştir. Uygunsuzluk tespit edilen katın [ UD ] butonuna basınız.
               </span>
             </div>
@@ -423,9 +423,9 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
               type="button"
               id="btn-add-extra-item"
               onClick={() => setModalCategory({ key: currentTabInfo.key, name: currentTabInfo.title })}
-              className="w-full py-3.5 px-4 rounded-xl border-2 border-dashed border-slate-400 hover:border-slate-600 bg-white hover:bg-slate-50 text-slate-900 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+              className="w-full py-3 px-3 rounded border border-dashed border-slate-700 hover:border-slate-500 bg-slate-900 hover:bg-slate-850 text-slate-300 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
-              <Plus className="w-4 h-4 text-blue-600" />
+              <Plus className="w-3.5 h-3.5" />
               <span>[ + Ekstra Madde Ekle ]</span>
             </button>
           </div>
