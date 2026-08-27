@@ -48,12 +48,25 @@ function syncItemsWithMaster(draftItems: InspectionItem[], masterItems: Inspecti
   return [...synced, ...customItems];
 }
 
+function resolveMotorChassisItems(type: ElevatorType, customSynced?: Record<string, InspectionItem[]> | null): InspectionItem[] {
+  if (customSynced) {
+    if (type === 'MR' && customSynced.motorChassisMR?.length) {
+      return customSynced.motorChassisMR;
+    }
+    if (type === 'MRL' && customSynced.motorChassisMRL?.length) {
+      return customSynced.motorChassisMRL;
+    }
+    if (customSynced.motorChassis?.length) {
+      return customSynced.motorChassis;
+    }
+  }
+  return getMotorChassisItems(type);
+}
+
 function syncDraftWithMaster(draft: AuditFormData): AuditFormData {
   const customSynced = loadSyncedItemsFromStorage();
   const cpMaster = customSynced?.controlPanel?.length ? customSynced.controlPanel : CONTROL_PANEL_ITEMS;
-  const motorMaster = customSynced?.motorChassis?.length
-    ? customSynced.motorChassis
-    : getMotorChassisItems(draft.elevatorType || 'MR');
+  const motorMaster = resolveMotorChassisItems(draft.elevatorType || 'MR', customSynced);
   const ctMaster = customSynced?.cabinTop?.length ? customSynced.cabinTop : CABIN_TOP_ITEMS;
   const cwMaster = customSynced?.counterweight?.length ? customSynced.counterweight : COUNTERWEIGHT_ITEMS;
   const spMaster = customSynced?.shaftAndPit?.length ? customSynced.shaftAndPit : SHAFT_AND_PIT_ITEMS;
@@ -115,9 +128,7 @@ export default function App() {
       controlPanelItems: customSynced?.controlPanel?.length
         ? JSON.parse(JSON.stringify(customSynced.controlPanel))
         : JSON.parse(JSON.stringify(CONTROL_PANEL_ITEMS)),
-      motorChassisItems: customSynced?.motorChassis?.length
-        ? JSON.parse(JSON.stringify(customSynced.motorChassis))
-        : JSON.parse(JSON.stringify(getMotorChassisItems('MR'))),
+      motorChassisItems: JSON.parse(JSON.stringify(resolveMotorChassisItems('MR', customSynced))),
       cabinTopItems: customSynced?.cabinTop?.length
         ? JSON.parse(JSON.stringify(customSynced.cabinTop))
         : JSON.parse(JSON.stringify(CABIN_TOP_ITEMS)),
@@ -151,10 +162,11 @@ export default function App() {
 
   // Sync Motor Chassis items when elevator type changes in Step 2
   const handleTypeChange = (newType: ElevatorType) => {
+    const customSynced = loadSyncedItemsFromStorage();
     setFormData((prev) => ({
       ...prev,
       elevatorType: newType,
-      motorChassisItems: JSON.parse(JSON.stringify(getMotorChassisItems(newType))),
+      motorChassisItems: JSON.parse(JSON.stringify(resolveMotorChassisItems(newType, customSynced))),
     }));
   };
 
@@ -438,9 +450,7 @@ export default function App() {
       controlPanelItems: customSynced?.controlPanel?.length
         ? JSON.parse(JSON.stringify(customSynced.controlPanel))
         : JSON.parse(JSON.stringify(CONTROL_PANEL_ITEMS)),
-      motorChassisItems: customSynced?.motorChassis?.length
-        ? JSON.parse(JSON.stringify(customSynced.motorChassis))
-        : JSON.parse(JSON.stringify(getMotorChassisItems('MR'))),
+      motorChassisItems: JSON.parse(JSON.stringify(resolveMotorChassisItems('MR', customSynced))),
       cabinTopItems: customSynced?.cabinTop?.length
         ? JSON.parse(JSON.stringify(customSynced.cabinTop))
         : JSON.parse(JSON.stringify(CABIN_TOP_ITEMS)),
@@ -466,7 +476,7 @@ export default function App() {
     setFormData((prev) => ({
       ...prev,
       controlPanelItems: synced.controlPanel?.length ? JSON.parse(JSON.stringify(synced.controlPanel)) : prev.controlPanelItems,
-      motorChassisItems: synced.motorChassis?.length ? JSON.parse(JSON.stringify(synced.motorChassis)) : prev.motorChassisItems,
+      motorChassisItems: JSON.parse(JSON.stringify(resolveMotorChassisItems(prev.elevatorType || 'MR', synced))),
       cabinTopItems: synced.cabinTop?.length ? JSON.parse(JSON.stringify(synced.cabinTop)) : prev.cabinTopItems,
       counterweightItems: synced.counterweight?.length ? JSON.parse(JSON.stringify(synced.counterweight)) : prev.counterweightItems,
       shaftAndPitItems: synced.shaftAndPit?.length ? JSON.parse(JSON.stringify(synced.shaftAndPit)) : prev.shaftAndPitItems,

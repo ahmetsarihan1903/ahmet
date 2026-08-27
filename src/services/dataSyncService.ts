@@ -81,11 +81,13 @@ export function parseCSV(csvText: string): string[][] {
   return rows;
 }
 
-// Category normalization helper
+// Category normalization helper supporting explicit MR and MRL motor chassis separation
 function normalizeCategoryKey(rawCategory: string): string | null {
   const c = rawCategory.toUpperCase().replace(/\s+/g, '_').trim();
 
   if (c.includes('KUMANDA') || c.includes('PANO') || c === 'CONTROL_PANEL') return 'controlPanel';
+  if (c.includes('MRL') || c.includes('MOTOR_MRL') || c.includes('MOTOR_SASE_MRL') || c.includes('MAKINE_DAIRESIZ')) return 'motorChassisMRL';
+  if (c.includes('MR') || c.includes('MOTOR_MR') || c.includes('MOTOR_SASE_MR') || c.includes('MAKINE_DAIRELI')) return 'motorChassisMR';
   if (c.includes('MOTOR') || c.includes('SASE') || c.includes('ŞASE') || c === 'MOTOR_CHASSIS') return 'motorChassis';
   if (c.includes('KABIN_UST') || c.includes('KABİN_ÜST') || c === 'CABIN_TOP') return 'cabinTop';
   if (c.includes('KARSI_AGIRLIK') || c.includes('KARŞI_AĞIRLIK') || c === 'COUNTERWEIGHT') return 'counterweight';
@@ -139,6 +141,8 @@ export async function syncItemsFromGoogleSheet(url: string): Promise<DataSyncRes
     const parsedData: Record<string, InspectionItem[]> = {
       controlPanel: [],
       motorChassis: [],
+      motorChassisMR: [],
+      motorChassisMRL: [],
       cabinTop: [],
       counterweight: [],
       shaftAndPit: [],
@@ -233,8 +237,11 @@ export function saveGoogleSheetUrl(url: string): void {
 
 export function loadGoogleSheetUrl(): string {
   try {
-    return localStorage.getItem(STORAGE_KEY_SHEET_URL) || '';
+    return (
+      localStorage.getItem(STORAGE_KEY_SHEET_URL) ||
+      'https://docs.google.com/spreadsheets/d/e/2PACX-1vTIFBymZABJw0Z_fmmdT3m8f3r6G7iTVn5Qla7EfnVZFeo76tZlrv1-Fw-tCcmGJ7j6WQJ4f2Um2m2W/pub?output=csv'
+    );
   } catch {
-    return '';
+    return 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTIFBymZABJw0Z_fmmdT3m8f3r6G7iTVn5Qla7EfnVZFeo76tZlrv1-Fw-tCcmGJ7j6WQJ4f2Um2m2W/pub?output=csv';
   }
 }

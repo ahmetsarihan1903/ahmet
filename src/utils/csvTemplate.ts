@@ -1,6 +1,7 @@
 import {
   CONTROL_PANEL_ITEMS,
   MOTOR_MR_ITEMS,
+  MOTOR_MRL_ITEMS,
   CABIN_TOP_ITEMS,
   COUNTERWEIGHT_ITEMS,
   SHAFT_AND_PIT_ITEMS,
@@ -22,7 +23,8 @@ export function generateTemplateCSV(): string {
   };
 
   addCategoryItems('KUMANDA_PANOSU', CONTROL_PANEL_ITEMS);
-  addCategoryItems('MOTOR_SASE', MOTOR_MR_ITEMS);
+  addCategoryItems('MOTOR_MR', MOTOR_MR_ITEMS);
+  addCategoryItems('MOTOR_MRL', MOTOR_MRL_ITEMS);
   addCategoryItems('KABIN_USTU', CABIN_TOP_ITEMS);
   addCategoryItems('KARSI_AGIRLIK', COUNTERWEIGHT_ITEMS);
   addCategoryItems('KUYU_DIBI', SHAFT_AND_PIT_ITEMS);
