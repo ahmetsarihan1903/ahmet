@@ -49,15 +49,24 @@ function syncItemsWithMaster(draftItems: InspectionItem[], masterItems: Inspecti
 }
 
 function syncDraftWithMaster(draft: AuditFormData): AuditFormData {
-  const motorMaster = getMotorChassisItems(draft.elevatorType || 'MR');
+  const customSynced = loadSyncedItemsFromStorage();
+  const cpMaster = customSynced?.controlPanel?.length ? customSynced.controlPanel : CONTROL_PANEL_ITEMS;
+  const motorMaster = customSynced?.motorChassis?.length
+    ? customSynced.motorChassis
+    : getMotorChassisItems(draft.elevatorType || 'MR');
+  const ctMaster = customSynced?.cabinTop?.length ? customSynced.cabinTop : CABIN_TOP_ITEMS;
+  const cwMaster = customSynced?.counterweight?.length ? customSynced.counterweight : COUNTERWEIGHT_ITEMS;
+  const spMaster = customSynced?.shaftAndPit?.length ? customSynced.shaftAndPit : SHAFT_AND_PIT_ITEMS;
+  const cbMaster = customSynced?.cabinAndButtons?.length ? customSynced.cabinAndButtons : CABIN_AND_BUTTONS_ITEMS;
+
   return {
     ...draft,
-    controlPanelItems: syncItemsWithMaster(draft.controlPanelItems, CONTROL_PANEL_ITEMS),
+    controlPanelItems: syncItemsWithMaster(draft.controlPanelItems, cpMaster),
     motorChassisItems: syncItemsWithMaster(draft.motorChassisItems, motorMaster),
-    cabinTopItems: syncItemsWithMaster(draft.cabinTopItems, CABIN_TOP_ITEMS),
-    counterweightItems: syncItemsWithMaster(draft.counterweightItems, COUNTERWEIGHT_ITEMS),
-    shaftAndPitItems: syncItemsWithMaster(draft.shaftAndPitItems, SHAFT_AND_PIT_ITEMS),
-    cabinAndFloorButtonsItems: syncItemsWithMaster(draft.cabinAndFloorButtonsItems, CABIN_AND_BUTTONS_ITEMS),
+    cabinTopItems: syncItemsWithMaster(draft.cabinTopItems, ctMaster),
+    counterweightItems: syncItemsWithMaster(draft.counterweightItems, cwMaster),
+    shaftAndPitItems: syncItemsWithMaster(draft.shaftAndPitItems, spMaster),
+    cabinAndFloorButtonsItems: syncItemsWithMaster(draft.cabinAndFloorButtonsItems, cbMaster),
   };
 }
 
@@ -68,6 +77,8 @@ import { Step3SwipePanel } from './components/Step3SwipePanel';
 import { Step4FinalComfortModal } from './components/Step4FinalComfortModal';
 import { ReportView } from './components/ReportView';
 import { AuditHistoryModal } from './components/AuditHistoryModal';
+import { SyncModal } from './components/SyncModal';
+import { loadSyncedItemsFromStorage } from './services/dataSyncService';
 
 export default function App() {
   const [formData, setFormData] = useState<AuditFormData>(() => {
@@ -79,6 +90,9 @@ export default function App() {
 
     const defaultStopCount = 10;
     const defaultFloorStart = -1;
+
+    // Check if custom synced items exist in local storage
+    const customSynced = loadSyncedItemsFromStorage();
 
     return {
       date: new Date().toISOString(),
@@ -98,12 +112,24 @@ export default function App() {
       endTimestamp: null,
       totalDurationFormatted: null,
       measures: [],
-      controlPanelItems: JSON.parse(JSON.stringify(CONTROL_PANEL_ITEMS)),
-      motorChassisItems: JSON.parse(JSON.stringify(getMotorChassisItems('MR'))),
-      cabinTopItems: JSON.parse(JSON.stringify(CABIN_TOP_ITEMS)),
-      counterweightItems: JSON.parse(JSON.stringify(COUNTERWEIGHT_ITEMS)),
-      shaftAndPitItems: JSON.parse(JSON.stringify(SHAFT_AND_PIT_ITEMS)),
-      cabinAndFloorButtonsItems: JSON.parse(JSON.stringify(CABIN_AND_BUTTONS_ITEMS)),
+      controlPanelItems: customSynced?.controlPanel?.length
+        ? JSON.parse(JSON.stringify(customSynced.controlPanel))
+        : JSON.parse(JSON.stringify(CONTROL_PANEL_ITEMS)),
+      motorChassisItems: customSynced?.motorChassis?.length
+        ? JSON.parse(JSON.stringify(customSynced.motorChassis))
+        : JSON.parse(JSON.stringify(getMotorChassisItems('MR'))),
+      cabinTopItems: customSynced?.cabinTop?.length
+        ? JSON.parse(JSON.stringify(customSynced.cabinTop))
+        : JSON.parse(JSON.stringify(CABIN_TOP_ITEMS)),
+      counterweightItems: customSynced?.counterweight?.length
+        ? JSON.parse(JSON.stringify(customSynced.counterweight))
+        : JSON.parse(JSON.stringify(COUNTERWEIGHT_ITEMS)),
+      shaftAndPitItems: customSynced?.shaftAndPit?.length
+        ? JSON.parse(JSON.stringify(customSynced.shaftAndPit))
+        : JSON.parse(JSON.stringify(SHAFT_AND_PIT_ITEMS)),
+      cabinAndFloorButtonsItems: customSynced?.cabinAndButtons?.length
+        ? JSON.parse(JSON.stringify(customSynced.cabinAndButtons))
+        : JSON.parse(JSON.stringify(CABIN_AND_BUTTONS_ITEMS)),
       doorsItems: generateDoorInspectionItems(defaultStopCount, defaultFloorStart),
       rideComfortNonCompliant: false,
       rideComfortNotes: '',
@@ -114,6 +140,7 @@ export default function App() {
 
   const [isComfortModalOpen, setIsComfortModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
 
   // Auto-save draft whenever formData changes (offline local storage)
   useEffect(() => {
@@ -388,6 +415,7 @@ export default function App() {
     clearActiveDraft();
     const defaultStopCount = 10;
     const defaultFloorStart = -1;
+    const customSynced = loadSyncedItemsFromStorage();
 
     setFormData({
       date: new Date().toISOString(),
@@ -407,18 +435,55 @@ export default function App() {
       endTimestamp: null,
       totalDurationFormatted: null,
       measures: [],
-      controlPanelItems: JSON.parse(JSON.stringify(CONTROL_PANEL_ITEMS)),
-      motorChassisItems: JSON.parse(JSON.stringify(getMotorChassisItems('MR'))),
-      cabinTopItems: JSON.parse(JSON.stringify(CABIN_TOP_ITEMS)),
-      counterweightItems: JSON.parse(JSON.stringify(COUNTERWEIGHT_ITEMS)),
-      shaftAndPitItems: JSON.parse(JSON.stringify(SHAFT_AND_PIT_ITEMS)),
-      cabinAndFloorButtonsItems: JSON.parse(JSON.stringify(CABIN_AND_BUTTONS_ITEMS)),
+      controlPanelItems: customSynced?.controlPanel?.length
+        ? JSON.parse(JSON.stringify(customSynced.controlPanel))
+        : JSON.parse(JSON.stringify(CONTROL_PANEL_ITEMS)),
+      motorChassisItems: customSynced?.motorChassis?.length
+        ? JSON.parse(JSON.stringify(customSynced.motorChassis))
+        : JSON.parse(JSON.stringify(getMotorChassisItems('MR'))),
+      cabinTopItems: customSynced?.cabinTop?.length
+        ? JSON.parse(JSON.stringify(customSynced.cabinTop))
+        : JSON.parse(JSON.stringify(CABIN_TOP_ITEMS)),
+      counterweightItems: customSynced?.counterweight?.length
+        ? JSON.parse(JSON.stringify(customSynced.counterweight))
+        : JSON.parse(JSON.stringify(COUNTERWEIGHT_ITEMS)),
+      shaftAndPitItems: customSynced?.shaftAndPit?.length
+        ? JSON.parse(JSON.stringify(customSynced.shaftAndPit))
+        : JSON.parse(JSON.stringify(SHAFT_AND_PIT_ITEMS)),
+      cabinAndFloorButtonsItems: customSynced?.cabinAndButtons?.length
+        ? JSON.parse(JSON.stringify(customSynced.cabinAndButtons))
+        : JSON.parse(JSON.stringify(CABIN_AND_BUTTONS_ITEMS)),
       doorsItems: generateDoorInspectionItems(defaultStopCount, defaultFloorStart),
       rideComfortNonCompliant: false,
       rideComfortNotes: '',
       currentStep: 'welcome',
       activeAuditTab: 0,
     });
+  };
+
+  // Handle Dynamic Sync from Google Sheets
+  const handleApplySyncedData = (synced: Record<string, InspectionItem[]>) => {
+    setFormData((prev) => ({
+      ...prev,
+      controlPanelItems: synced.controlPanel?.length ? JSON.parse(JSON.stringify(synced.controlPanel)) : prev.controlPanelItems,
+      motorChassisItems: synced.motorChassis?.length ? JSON.parse(JSON.stringify(synced.motorChassis)) : prev.motorChassisItems,
+      cabinTopItems: synced.cabinTop?.length ? JSON.parse(JSON.stringify(synced.cabinTop)) : prev.cabinTopItems,
+      counterweightItems: synced.counterweight?.length ? JSON.parse(JSON.stringify(synced.counterweight)) : prev.counterweightItems,
+      shaftAndPitItems: synced.shaftAndPit?.length ? JSON.parse(JSON.stringify(synced.shaftAndPit)) : prev.shaftAndPitItems,
+      cabinAndFloorButtonsItems: synced.cabinAndButtons?.length ? JSON.parse(JSON.stringify(synced.cabinAndButtons)) : prev.cabinAndFloorButtonsItems,
+    }));
+  };
+
+  const handleResetToDefault = () => {
+    setFormData((prev) => ({
+      ...prev,
+      controlPanelItems: JSON.parse(JSON.stringify(CONTROL_PANEL_ITEMS)),
+      motorChassisItems: JSON.parse(JSON.stringify(getMotorChassisItems(prev.elevatorType || 'MR'))),
+      cabinTopItems: JSON.parse(JSON.stringify(CABIN_TOP_ITEMS)),
+      counterweightItems: JSON.parse(JSON.stringify(COUNTERWEIGHT_ITEMS)),
+      shaftAndPitItems: JSON.parse(JSON.stringify(SHAFT_AND_PIT_ITEMS)),
+      cabinAndFloorButtonsItems: JSON.parse(JSON.stringify(CABIN_AND_BUTTONS_ITEMS)),
+    }));
   };
 
   return (
@@ -429,6 +494,7 @@ export default function App() {
         startTimestamp={formData.startTimestamp}
         nonCompliantCount={totalUDCount}
         onOpenHistory={() => setIsHistoryModalOpen(true)}
+        onOpenSyncModal={() => setIsSyncModalOpen(true)}
         onNewInspection={handleNewInspection}
       />
 
@@ -535,6 +601,14 @@ export default function App() {
           const draft = loadActiveDraft();
           if (draft) setFormData(draft);
         }}
+      />
+
+      {/* Google Sheets Data Sync Modal */}
+      <SyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
+        onApplySyncedData={handleApplySyncedData}
+        onResetToDefault={handleResetToDefault}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Clock, AlertTriangle, History } from 'lucide-react';
+import { ShieldCheck, Clock, AlertTriangle, History, RefreshCw } from 'lucide-react';
 import { formatTimerDisplay } from '../utils/textUtils';
 import { BetaLogo } from './BetaLogo';
 
@@ -9,6 +9,7 @@ interface HeaderProps {
   nonCompliantCount: number;
   onOpenHistory?: () => void;
   onNewInspection?: () => void;
+  onOpenSyncModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   startTimestamp,
   nonCompliantCount,
   onOpenHistory,
+  onOpenSyncModal,
 }) => {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
@@ -103,6 +105,20 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </div>
 
+          {/* Data Sync Button */}
+          {onOpenSyncModal && (
+            <button
+              type="button"
+              id="btn-open-sync-modal"
+              onClick={onOpenSyncModal}
+              title="Maddeleri E-Tablodan Güncelle"
+              className="p-1.5 sm:p-2 text-white bg-slate-800 hover:bg-emerald-950/60 rounded border border-slate-600 hover:border-emerald-500 transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <RefreshCw className="w-4 h-4 text-emerald-400" />
+              <span className="text-[11px] font-bold hidden md:inline text-emerald-300">Veri Güncelle</span>
+            </button>
+          )}
+
           {/* History Button */}
           {onOpenHistory && (
             <button
@@ -110,7 +126,7 @@ export const Header: React.FC<HeaderProps> = ({
               id="btn-open-history"
               onClick={onOpenHistory}
               title="Geçmiş Raporlar ve Taslaklar"
-              className="p-2 text-white bg-slate-800 hover:bg-slate-700 rounded border-2 border-slate-600 transition-colors cursor-pointer"
+              className="p-2 text-white bg-slate-800 hover:bg-slate-700 rounded border border-slate-600 transition-colors cursor-pointer"
             >
               <History className="w-4 h-4 text-blue-300" />
             </button>
