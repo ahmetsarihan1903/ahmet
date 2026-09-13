@@ -21,6 +21,7 @@ interface Step2ElevatorSpecsProps {
   onHardwareMatchToggle: () => void;
   onBack: () => void;
   onStartAudit: () => void;
+  isAlreadyStarted?: boolean;
 }
 
 export const Step2ElevatorSpecs: React.FC<Step2ElevatorSpecsProps> = ({
@@ -40,6 +41,7 @@ export const Step2ElevatorSpecs: React.FC<Step2ElevatorSpecsProps> = ({
   onHardwareMatchToggle,
   onBack,
   onStartAudit,
+  isAlreadyStarted = false,
 }) => {
   const [showMatrixPreview, setShowMatrixPreview] = useState(false);
 
@@ -346,12 +348,12 @@ export const Step2ElevatorSpecs: React.FC<Step2ElevatorSpecsProps> = ({
               {isUnlocked ? (
                 <>
                   <Play className="w-4 h-4 fill-current" />
-                  <span>DENETİMİ BAŞLAT (Süreyi Başlat)</span>
+                  <span>{isAlreadyStarted ? 'DEĞİŞİKLİKLERİ KAYDET & DENETİME DÖN' : 'DENETİMİ BAŞLAT (Süreyi Başlat)'}</span>
                 </>
               ) : (
                 <>
                   <Lock className="w-4 h-4" />
-                  <span>DENETİMİ BAŞLAT (Kilitli)</span>
+                  <span>{isAlreadyStarted ? 'DEĞİŞİKLİKLERİ KAYDET (Kilitli)' : 'DENETİMİ BAŞLAT (Kilitli)'}</span>
                 </>
               )}
             </button>

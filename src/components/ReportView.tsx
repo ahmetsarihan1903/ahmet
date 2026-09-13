@@ -133,12 +133,12 @@ export const ReportView: React.FC<ReportViewProps> = ({
     }
 
     // Header Text
-    doc.setFontSize(12);
+    doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
     doc.text('BETA ASANSOR - KALITE KONTROL RAPORU', margin + 18, margin + 9);
 
-    doc.setFontSize(8);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(203, 213, 225); // Slate 300
     doc.text(
@@ -257,17 +257,17 @@ export const ReportView: React.FC<ReportViewProps> = ({
       body: metaRows,
       theme: 'grid',
       styles: {
-        fontSize: 8,
-        cellPadding: 2,
+        fontSize: 10,
+        cellPadding: 2.5,
         lineColor: [203, 213, 225],
-        lineWidth: 0.2,
+        lineWidth: 0.25,
         textColor: [15, 23, 42],
       },
       columnStyles: {
-        0: { cellWidth: 35 },
-        1: { cellWidth: 55 },
-        2: { cellWidth: 35 },
-        3: { cellWidth: 61 },
+        0: { cellWidth: 36, fontStyle: 'bold' as const },
+        1: { cellWidth: 54 },
+        2: { cellWidth: 36, fontStyle: 'bold' as const },
+        3: { cellWidth: 60 },
       },
     });
 
@@ -287,6 +287,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
                 fillColor: [16, 185, 129],
                 textColor: [255, 255, 255],
                 fontStyle: 'bold' as const,
+                fontSize: 10.5,
               },
             },
           ],
@@ -301,13 +302,14 @@ export const ReportView: React.FC<ReportViewProps> = ({
                 fillColor: [236, 253, 245],
                 fontStyle: 'bold' as const,
                 halign: 'center' as const,
-                cellPadding: 5,
+                cellPadding: 6,
+                fontSize: 10.5,
               },
             },
           ],
         ],
         theme: 'grid',
-        styles: { fontSize: 8.5 },
+        styles: { fontSize: 10.5 },
       });
     } else {
       const udTableRows = allUDItems.map((entry, index) => [
@@ -336,14 +338,14 @@ export const ReportView: React.FC<ReportViewProps> = ({
           fillColor: [220, 38, 38], // Red #DC2626
           textColor: [255, 255, 255],
           fontStyle: 'bold' as const,
-          fontSize: 7.5,
-          cellPadding: 2.5,
+          fontSize: 9.5,
+          cellPadding: 3,
         },
         styles: {
-          fontSize: 7.5,
-          cellPadding: 2,
+          fontSize: 9.5,
+          cellPadding: 2.5,
           lineColor: [226, 232, 240],
-          lineWidth: 0.2,
+          lineWidth: 0.25,
           textColor: [15, 23, 42],
           valign: 'middle' as const,
         },
@@ -354,7 +356,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
           0: { halign: 'center' as const, fontStyle: 'bold' as const, textColor: [185, 28, 28] },
           1: { fontStyle: 'bold' as const },
           3: { halign: 'center' as const },
-          4: { textColor: [153, 27, 27] },
+          4: { textColor: [153, 27, 27], fontStyle: 'bold' as const },
         },
       });
     }
@@ -393,14 +395,14 @@ export const ReportView: React.FC<ReportViewProps> = ({
           fillColor: [10, 38, 71], // Navy #0A2647
           textColor: [255, 255, 255],
           fontStyle: 'bold' as const,
-          fontSize: 7.5,
-          cellPadding: 2.5,
+          fontSize: 9.5,
+          cellPadding: 3,
         },
         styles: {
-          fontSize: 7.5,
-          cellPadding: 2,
+          fontSize: 9.5,
+          cellPadding: 2.5,
           lineColor: [226, 232, 240],
-          lineWidth: 0.2,
+          lineWidth: 0.25,
           textColor: [15, 23, 42],
           valign: 'middle' as const,
         },
@@ -427,7 +429,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
       doc.setLineWidth(0.3);
       doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
 
-      doc.setFontSize(7);
+      doc.setFontSize(9);
       doc.setTextColor(148, 163, 184); // Slate 400
       doc.setFont('helvetica', 'normal');
       doc.text(

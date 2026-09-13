@@ -1,0 +1,281 @@
+import React, { useState, useEffect } from 'react';
+import { RailDoorInspectionFullData } from './types';
+import { calculateFloors } from './constants';
+import { RailDoorSetupScreen } from './components/RailDoorSetupScreen';
+import { RailDoorInspectionScreen } from './components/RailDoorInspectionScreen';
+import { RailDoorReportModal } from './components/RailDoorReportModal';
+import { RailDoorSettingsModal } from './components/RailDoorSettingsModal';
+import { BetaLogo } from '../../components/BetaLogo';
+import {
+  ArrowLeft,
+  Save,
+  Check,
+  FileText,
+  Settings,
+  FolderKanban,
+  FileCheck2,
+} from 'lucide-react';
+import { getCurrentDateFormatted } from '../../utils/textUtils';
+
+interface RailDoorInspectionModuleProps {
+  onBackToMainMenu: () => void;
+}
+
+const STORAGE_KEY = 'beta_asansor_rail_door_inspection_v2_full';
+const HISTORY_KEY = 'beta_asansor_rail_door_history_v1';
+const LAST_SAVED_TIME_KEY = 'beta_asansor_rail_door_last_saved_time';
+
+export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> = ({
+  onBackToMainMenu,
+}) => {
+  const [currentStep, setCurrentStep] = useState<'setup' | 'inspection'>('setup');
+  const [showReportModal, setShowReportModal] = useState<boolean>(false);
+  const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
+  const [isSaved, setIsSaved] = useState<boolean>(false);
+
+  const createInitialForm = (): RailDoorInspectionFullData => {
+    const defaultStops = 8;
+    const defaultStartFloor = -1;
+    const floorsList = calculateFloors(defaultStops, defaultStartFloor);
+
+    return {
+      id: `raildoor_${Date.now()}`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      inspectionDateDisplay: getCurrentDateFormatted(),
+
+      identity: {
+        serialNumber: '05.01.25.206',
+        reference: 'AHMET İNŞAAT',
+        location: 'KADIKÖY / İSTANBUL',
+        installerMaster: 'NAZIM KÜÇÜK',
+        projectManager: 'MÜFİT GÖNCE',
+        inspector: 'AHMET SARIHAN',
+      },
+
+      stopCount: defaultStops,
+      startFloor: defaultStartFloor,
+      floors: floorsList.map((f) => ({
+        floorIndex: f.stopIndex,
+        floorLabel: f.floorLabel,
+        floorNumber: f.floorNumber,
+        measurements: {},
+      })),
+      floorAliases: {},
+
+      mainType: 'MR',
+      layoutPosition: 'CWT_REAR',
+
+      projectNominalValues: {},
+      floorMatrixMeasurements: {},
+      machineChassisMeasurements: {},
+      railDoorMeasurements: {},
+
+      generalNotes: '',
+      isApproved: false,
+    };
+  };
+
+  const [formData, setFormData] = useState<RailDoorInspectionFullData>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...parsed,
+          inspectionDateDisplay: getCurrentDateFormatted(),
+        };
+      }
+    } catch (e) {
+      console.error('Failed to load saved rail door draft', e);
+    }
+    return createInitialForm();
+  });
+
+  // Otomatik Yerel Kayıt
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+    } catch (e) {
+      console.error('LocalStorage save error', e);
+    }
+  }, [formData]);
+
+  const handleManualSave = () => {
+    try {
+      const now = new Date();
+      const timeStr = `${now.toLocaleDateString('tr-TR')} ${now.toLocaleTimeString('tr-TR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })}`;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+      localStorage.setItem(LAST_SAVED_TIME_KEY, timeStr);
+
+      // Save / update in history
+      try {
+        const histRaw = localStorage.getItem(HISTORY_KEY);
+        let hist: RailDoorInspectionFullData[] = histRaw ? JSON.parse(histRaw) : [];
+        if (!Array.isArray(hist)) hist = [];
+        const existingIdx = hist.findIndex((h) => h.id === formData.id);
+        if (existingIdx >= 0) {
+          hist[existingIdx] = { ...formData, updatedAt: Date.now() };
+        } else {
+          hist.unshift({ ...formData, updatedAt: Date.now() });
+        }
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(0, 30)));
+      } catch (err) {
+        console.error(err);
+      }
+
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRestoreData = (restored: RailDoorInspectionFullData) => {
+    setFormData(restored);
+    setCurrentStep('inspection');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleResetForm = () => {
+    // Current form save to history before reset
+    try {
+      const histRaw = localStorage.getItem(HISTORY_KEY);
+      let hist: RailDoorInspectionFullData[] = histRaw ? JSON.parse(histRaw) : [];
+      if (!Array.isArray(hist)) hist = [];
+      hist.unshift({ ...formData, updatedAt: Date.now() });
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(0, 30)));
+    } catch (err) {
+      console.error(err);
+    }
+
+    const newForm = createInitialForm();
+    setFormData(newForm);
+    setCurrentStep('setup');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleStartInspection = () => {
+    setCurrentStep('inspection');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 light:bg-slate-100 text-slate-100 light:text-slate-900 flex flex-col font-sans transition-colors">
+      {/* Üst Header: Menü, BetaLogo, Başlık + Sağ Tarafta [Proje Bilgileri] [Kaydet Simgesi] [Ayarlar Simgesi] */}
+      <header className="sticky top-0 z-40 bg-[#0A2647] text-white shadow-md border-b-4 border-amber-500 pt-safe-or-4 print:hidden">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
+          {/* Sol Kısım: Menü Butonu + BetaLogo + Başlık */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={onBackToMainMenu}
+              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg border border-slate-600 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+              title="Ana Menüye Dön"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-amber-400" />
+              <span>Menü</span>
+            </button>
+            <BetaLogo size="sm" className="shrink-0 hidden sm:block" />
+            <div className="min-w-0">
+              <h1 className="text-xs sm:text-sm md:text-base font-black leading-none text-white truncate flex items-center gap-2">
+                <span>RAY & KAPI KONTROL FORMU</span>
+              </h1>
+            </div>
+          </div>
+
+          {/* Sağ Kısım: Proje Bilgileri Butonu | Kaydet Simgesi | Ayarlar Simgesi */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Proje Bilgileri Butonu */}
+            <button
+              type="button"
+              onClick={() => {
+                if (currentStep === 'setup') {
+                  setCurrentStep('inspection');
+                } else {
+                  setCurrentStep('setup');
+                }
+              }}
+              className="px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:bg-amber-500 active:text-slate-950 text-slate-200 hover:text-white rounded-lg border border-slate-600 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              title="Proje Bilgilerini Görüntüle / Düzenle"
+            >
+              <FolderKanban className="w-4 h-4 text-amber-400" />
+              <span className="hidden xs:inline">Proje Bilgileri</span>
+            </button>
+
+            {/* Kaydet Simgesi Butonu */}
+            <button
+              type="button"
+              onClick={handleManualSave}
+              className={`p-2 rounded-lg border text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                isSaved
+                  ? 'bg-emerald-600 border-emerald-400 text-white shadow-md'
+                  : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-slate-600'
+              }`}
+              title={isSaved ? 'Kaydedildi' : 'Taslağı Kaydet'}
+            >
+              {isSaved ? <Check className="w-4 h-4 text-white animate-bounce" /> : <Save className="w-4 h-4 text-amber-400" />}
+            </button>
+
+            {/* Ayarlar Simgesi Butonu */}
+            <button
+              type="button"
+              id="btn-rail-door-settings"
+              onClick={() => setShowSettingsModal(true)}
+              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg border border-slate-600 text-xs font-bold flex items-center justify-center transition-colors cursor-pointer"
+              title="Uygulama Ayarları & Taslaklar"
+            >
+              <Settings className="w-4 h-4 text-amber-400 hover:rotate-45 transition-transform" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Body */}
+      <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-4 py-4 sm:py-6">
+        {currentStep === 'setup' ? (
+          <RailDoorSetupScreen
+            data={formData}
+            onChange={setFormData}
+            onStartInspection={handleStartInspection}
+          />
+        ) : (
+          <RailDoorInspectionScreen
+            data={formData}
+            onChange={setFormData}
+            onBackToSetup={() => setCurrentStep('setup')}
+            onViewReport={() => setShowReportModal(true)}
+            onSaveDraft={handleManualSave}
+            isSaved={isSaved}
+          />
+        )}
+      </main>
+
+      {/* Rapor Önizleme Modalı */}
+      {showReportModal && (
+        <RailDoorReportModal
+          data={formData}
+          onClose={() => setShowReportModal(false)}
+        />
+      )}
+
+      {/* Ayarlar ve Taslak Yönetimi Modalı (Kalite Kontrol ile Birebir, Senkronizasyon hariç) */}
+      <RailDoorSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+        formData={formData}
+        onManualSave={handleManualSave}
+        onRestoreData={handleRestoreData}
+        onEditInspectionInfo={() => {
+          setCurrentStep('setup');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onResetForm={handleResetForm}
+        lastSavedFeedback={isSaved}
+      />
+    </div>
+  );
+};

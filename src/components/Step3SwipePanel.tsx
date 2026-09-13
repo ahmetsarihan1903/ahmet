@@ -120,7 +120,7 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
     { id: 4, title: 'Ağırlık Karkası', icon: Anchor, allowExtra: true, key: 'counterweight' },
     { id: 5, title: 'Kuyu ve Kuyu Dibi', icon: Layers, allowExtra: true, key: 'shaftAndPit' },
     { id: 6, title: 'Kabin & Butonlar', icon: Sliders, allowExtra: true, key: 'cabinAndButtons' },
-    { id: 7, title: 'Kapı Montajları', icon: DoorOpen, allowExtra: false, key: 'doors' },
+    { id: 7, title: 'Kapı Montajları', icon: DoorOpen, allowExtra: true, key: 'doors' },
   ];
 
   // Auto-scroll active tab into view in the horizontal tabs bar
@@ -409,13 +409,13 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
           </div>
         )}
 
-        {/* Tab 7: KABİN VE KAT KAPISI MONTAJLARI (No Extra Item Button) */}
+        {/* Tab 7: KABİN VE KAT KAPISI MONTAJLARI */}
         {activeTab === 7 && (
           <div className="space-y-3">
             <div className="bg-slate-900 p-3 rounded border border-slate-800 text-xs text-slate-300">
               <span className="font-bold text-slate-200 block">Otomatik Oluşturulan Kat Kapısı Matrisi</span>
               <span className="text-slate-400 text-[11px] block mt-0.5">
-                Kabin kapısı ve tüm katların durak kapı kontrolleri listelenmiştir. Uygunsuzluk tespit edilen katın [ UD ] butonuna basınız.
+                Kabin kapısı ve tüm katların durak kapı kontrolleri listelenmiştir. Uygunsuzluk tespit edilen katın [ UD ] butonuna basınız. Genel veya ekstra kapı notları için aşağıdaki <strong>[ + Ekstra Madde Ekle ]</strong> butonunu kullanabilirsiniz.
               </span>
             </div>
             {doorsItems.map((item, idx) => (
@@ -425,6 +425,7 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
                 index={idx}
                 onToggleUD={(id) => onToggleUD('doors', id)}
                 onDescriptionChange={(id, desc) => onDescriptionChange('doors', id, desc)}
+                onDeleteCustomItem={(id) => onDeleteCustomItem('doors', id)}
               />
             ))}
           </div>
