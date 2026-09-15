@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../../context/ThemeContext';
 import { RailDoorInspectionFullData } from '../types';
+import { FontSizeControl } from '../../../components/FontSizeControl';
 
 interface RailDoorSettingsModalProps {
   isOpen: boolean;
@@ -51,9 +52,11 @@ export const RailDoorSettingsModal: React.FC<RailDoorSettingsModalProps> = ({
   const [activeTab, setActiveTab] = useState<'general' | 'saved_data'>('general');
   const [historyList, setHistoryList] = useState<RailDoorInspectionFullData[]>([]);
   const [lastSavedTime, setLastSavedTime] = useState<string>('');
+  const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
+      setConfirmReset(false);
       // Load last saved time
       try {
         const t = localStorage.getItem(LAST_SAVED_TIME_KEY);
@@ -227,7 +230,10 @@ export const RailDoorSettingsModal: React.FC<RailDoorSettingsModalProps> = ({
                 </p>
               </div>
 
-              {/* 2. Manual Save Action */}
+              {/* 2. Font Size (Punto Büyütme) Kontrolü */}
+              <FontSizeControl />
+
+              {/* 3. Manual Save Action */}
               <div className="p-3.5 bg-slate-950 light:bg-slate-50 rounded-lg border border-slate-800 light:border-slate-200">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs font-black uppercase tracking-wider text-slate-300 light:text-slate-700 flex items-center gap-1.5">
@@ -304,19 +310,43 @@ export const RailDoorSettingsModal: React.FC<RailDoorSettingsModalProps> = ({
                   <p className="text-[11px] text-slate-400 light:text-slate-600 mb-2.5">
                     Mevcut formu arşivleyip yeni bir asansör için sıfır form başlatır.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (window.confirm('Mevcut form kaydedilip yeni bir boş form başlatılsın mı?')) {
-                        onResetForm();
-                        onClose();
-                      }
-                    }}
-                    className="w-full py-2 px-3 bg-slate-800 hover:bg-rose-950/40 text-rose-300 rounded-lg border border-slate-700 hover:border-rose-500/40 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    <span>Yeni Form Başlat</span>
-                  </button>
+
+                  {!confirmReset ? (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmReset(true)}
+                      className="w-full py-2 px-3 bg-slate-800 hover:bg-rose-950/40 text-rose-300 rounded-lg border border-slate-700 hover:border-rose-500/40 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      <span>Yeni Form Başlat</span>
+                    </button>
+                  ) : (
+                    <div className="p-2.5 bg-rose-950/30 border border-rose-600/50 rounded-lg space-y-2 animate-fadeIn">
+                      <div className="text-[11px] font-bold text-rose-300 leading-snug">
+                        ⚠️ Mevcut formunuz arşive kaydedilecek ve sıfır boş form açılacaktır. Devam etmek istiyor musunuz?
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onResetForm();
+                            setConfirmReset(false);
+                            onClose();
+                          }}
+                          className="flex-1 py-1.5 px-2 bg-rose-600 hover:bg-rose-500 text-white rounded text-xs font-black transition cursor-pointer shadow-sm active:scale-95"
+                        >
+                          Evet, Yeni Form Başlat
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmReset(false)}
+                          className="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-bold transition cursor-pointer"
+                        >
+                          Vazgeç
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </>

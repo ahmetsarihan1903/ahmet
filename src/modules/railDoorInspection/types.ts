@@ -85,10 +85,13 @@ export interface RailDoorInspectionFullData {
   mainType: RailElevatorMainType;
   layoutPosition: RailLayoutPosition;
 
-  // 4. Proje Nominal / Referans Değerleri (1..15 Kolonları İçin)
+  // 4. Proje Nominal / Referans Değerleri (1..15 ve Özel Eklenen Kolonlar İçin)
   projectNominalValues?: Record<string, string>;
 
-  // 5. Matris Kat Ölçümleri (Kat x 1..15 Kolon Matrisi):
+  // 15'ten sonra kullanıcının kendi belirlediği özel sütun kodları (Örn: ['16', '18', '20'])
+  customColumnCodes?: string[];
+
+  // 5. Matris Kat Ölçümleri (Kat x Sütun Matrisi):
   // [stopIndex (1..N)]: { [colCode (1..15)]: '1205' }
   floorMatrixMeasurements: Record<string, Record<string, string>>;
 
@@ -104,4 +107,15 @@ export interface RailDoorInspectionFullData {
   // Genel Notlar & Onay
   generalNotes: string;
   isApproved: boolean;
+
+  // Eklenen PDF Proje Dosyası (Kullanıcının kendi PDF teknik projesi)
+  attachedPdfName?: string;
+  attachedPdfDataUrl?: string;
+
+  // Şema / Yerleşim Bazlı Özel Resimler (Her kuyu şemasının resmi sadece kendi bölümünde gözükür)
+  layoutImages?: Partial<Record<RailLayoutPosition, { imageName?: string; imageUrl?: string }>>;
+
+  // Eklenen Teknik Resim (Aktif seçimin görseli)
+  attachedImageName?: string;
+  attachedImageUrl?: string;
 }

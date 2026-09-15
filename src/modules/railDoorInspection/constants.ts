@@ -242,6 +242,14 @@ export const MEASUREMENTS_MACHINE_CHASSIS: MeasurementFieldDef[] = [
   { code: 'M9', title: 'M9 - Makine Şase Terazi / Düzlemsellik Kontrolü', unit: 'mm', category: 'shaft', hint: 'Su terazisi / şakül sapma değeri (mm/m)' },
 ];
 
+export const LAYOUT_TITLES: Record<RailLayoutPosition, string> = {
+  CWT_REAR: 'Ağırlık Arkada',
+  CWT_SIDE_RIGHT: 'Ağırlık Yanda (Sağ)',
+  CWT_SIDE_LEFT: 'Ağırlık Yanda (Sol)',
+  PISTON_SINGLE: 'Hidrolik - Tek Piston',
+  PISTON_DOUBLE: 'Hidrolik - Çift Piston',
+};
+
 export function getMeasurementDefsForLayout(layout: RailLayoutPosition): MeasurementFieldDef[] {
   switch (layout) {
     case 'CWT_REAR':
@@ -257,3 +265,214 @@ export function getMeasurementDefsForLayout(layout: RailLayoutPosition): Measure
       return MEASUREMENTS_CWT_REAR;
   }
 }
+
+// ============================================================================
+// CM -> MM DÖNÜŞTÜRÜCÜ VE SAYISAL AYRIŞTIRICI MOTORU (Virgül ve Nokta Desteği)
+// ============================================================================
+/**
+ * Kullanıcının girdiği CM değerini sayısal MM değerine dönüştürür.
+ * Hem virgül (120,5) hem nokta (120.5) girişlerini destekler.
+ * 120.5 cm -> 1205 mm
+ */
+export function parseCmToMm(val: string | number | undefined | null): number | null {
+  if (val === undefined || val === null) return null;
+  const str = String(val).trim().replace(',', '.');
+  if (str === '' || str === '-' || isNaN(Number(str))) {
+    const parsed = parseFloat(str);
+    return isNaN(parsed) ? null : Math.round(parsed * 10 * 100) / 100;
+  }
+  const num = parseFloat(str);
+  if (isNaN(num)) return null;
+  return Math.round(num * 10 * 100) / 100;
+}
+
+/**
+ * CM olarak girilen değeri raporda gösterilmek üzere MM metnine dönüştürür.
+ * Örn: "120" -> "1200", "120,5" -> "1205", "120.55" -> "1205.5"
+ */
+export function formatCmToMm(val: string | number | undefined | null, fallback = '-'): string {
+  const mm = parseCmToMm(val);
+  if (mm === null) return fallback;
+  return Number.isInteger(mm) ? mm.toString() : mm.toFixed(1);
+}
+
+/**
+ * Saha Ölçümü ve Proje Nominal Değeri Arasındaki Sapmayı MM Cinsinden Hesaplar
+ * Yerleşim Özel Kuralları:
+ *   - AGIRLIK YANDA SAĞ (CWT_SIDE_RIGHT) & AGIRLIK YANDA SOL (CWT_SIDE_LEFT):
+ *       - 4 Numaralı Sütun: Proje nominali girilmişse o değer, girilmemişse varsayılan 12 cm (120 mm) alt sınır kabul edilir. Altı kırmızı hata, üstü UYGUN.
+ *       - 12 Numaralı Sütun: Proje nominali girilmişse bu değer alt sınır kabul edilir. Altı kırmızı hata, üstü UYGUN.
+ *       - Diğer Sütunlar: Proje nominali yoksa sütun kendi içinde analiz edilir (0 mm tam, 1-3 mm sarı, >3 mm kırmızı kritik sapma).
+ *   - AGIRLIK ARKADA (CWT_REAR):
+ *       - Standart eksen / ray kuralları (arka ağırlık senaryosuna hazır).
+ */
+export function calculateMmDeviation(
+  cellValCm: string | number | undefined | null,
+  nomValCm: string | number | undefined | null,
+  colCode?: string,
+  inferredNominalMm?: number | null,
+  layoutPosition?: RailLayoutPosition
+): {
+  cellMm: number;
+  nomMm: number | null;
+  diffMm: number;
+  badgeText: string;
+  isMatch: boolean;
+  isWarning: boolean;
+  isCritical: boolean;
+  isCol4UnderLimit?: boolean;
+  isUnderLimit?: boolean;
+  isInferred?: boolean;
+} | null {
+  const cellMm = parseCmToMm(cellValCm);
+  const nomMm = parseCmToMm(nomValCm);
+
+  if (cellMm === null) return null;
+
+  const isSideCwt = !layoutPosition || layoutPosition === 'CWT_SIDE_RIGHT' || layoutPosition === 'CWT_SIDE_LEFT';
+
+  // Ağırlık Yanda (Sağ veya Sol) için 4 Numaralı Sütun Özel Kuralı:
+  if (isSideCwt && String(colCode) === '4') {
+    const thresholdMm = nomMm !== null ? nomMm : (inferredNominalMm ?? 120);
+
+    if (cellMm < thresholdMm) {
+      const diffMm = Math.round((cellMm - thresholdMm) * 100) / 100;
+      return {
+        cellMm,
+        nomMm: nomMm !== null ? nomMm : thresholdMm,
+        diffMm,
+        badgeText: `${diffMm} mm`,
+        isMatch: false,
+        isWarning: false,
+        isCritical: true,
+        isCol4UnderLimit: true,
+        isUnderLimit: true,
+        isInferred: nomMm === null && inferredNominalMm !== undefined && inferredNominalMm !== null,
+      };
+    }
+
+    // Eşik değer ve üzerindeki tüm değerlerde ne kadar sapma/fark olursa olsun UYGUN (işaretsiz)
+    return {
+      cellMm,
+      nomMm: nomMm !== null ? nomMm : thresholdMm,
+      diffMm: 0,
+      badgeText: '',
+      isMatch: true,
+      isWarning: false,
+      isCritical: false,
+      isCol4UnderLimit: false,
+      isUnderLimit: false,
+      isInferred: nomMm === null && inferredNominalMm !== undefined && inferredNominalMm !== null,
+    };
+  }
+
+  // Ağırlık Yanda (Sağ veya Sol) için 12 Numaralı Sütun Özel Kuralı:
+  if (isSideCwt && String(colCode) === '12') {
+    const thresholdMm = nomMm !== null ? nomMm : (inferredNominalMm ?? null);
+    if (thresholdMm !== null) {
+      if (cellMm < thresholdMm) {
+        const diffMm = Math.round((cellMm - thresholdMm) * 100) / 100;
+        return {
+          cellMm,
+          nomMm: thresholdMm,
+          diffMm,
+          badgeText: `${diffMm} mm`,
+          isMatch: false,
+          isWarning: false,
+          isCritical: true,
+          isCol4UnderLimit: false,
+          isUnderLimit: true,
+          isInferred: nomMm === null,
+        };
+      }
+
+      // Proje nominali ve üzerindeki tüm değerlerde UYGUN (işaretsiz)
+      return {
+        cellMm,
+        nomMm: thresholdMm,
+        diffMm: 0,
+        badgeText: '',
+        isMatch: true,
+        isWarning: false,
+        isCritical: false,
+        isCol4UnderLimit: false,
+        isUnderLimit: false,
+        isInferred: nomMm === null,
+      };
+    }
+    return null;
+  }
+
+  // Standart sütunlar (veya Ağırlık Arkada senaryosu):
+  // Eğer Proje Nominal değeri varsa onu kullan; yoksa sütunun kendi iç analizinden çıkan inferredNominalMm'yi kullan!
+  const targetNominalMm = nomMm !== null ? nomMm : (inferredNominalMm ?? null);
+  if (targetNominalMm === null) return null;
+
+  const diffMm = Math.round((cellMm - targetNominalMm) * 100) / 100;
+  const badgeText = `${diffMm > 0 ? '+' : ''}${diffMm} mm`;
+
+  // 3 mm tolerans kuralı:
+  // - 0 mm: Tam Uyumlu
+  // - 1-3 mm (0 < |diff| <= 3): Hafif Fark / Değişik Ölçü (Sarı)
+  // - >3 mm (|diff| > 3): KRİTİK SAPMA (Kırmızı)
+  return {
+    cellMm,
+    nomMm: targetNominalMm,
+    diffMm,
+    badgeText,
+    isMatch: diffMm === 0,
+    isWarning: Math.abs(diffMm) > 0 && Math.abs(diffMm) <= 3,
+    isCritical: Math.abs(diffMm) > 3,
+    isCol4UnderLimit: false,
+    isUnderLimit: false,
+    isInferred: nomMm === null,
+  };
+}
+
+/**
+ * Tablodaki tüm sütunların girilen kat değerlerini kendi içerisinde analiz eder.
+ * Eğer bir sütunda Proje Nominal değeri girilmemişse, o sütunun en çok tekrarlanan (mod)
+ * veya medyan değerini otomatik referans olarak hesaplar.
+ */
+export function getColumnInferredNominals(
+  floorMatrixMeasurements: Record<string, Record<string, string>>,
+  columnCodes: string[]
+): Record<string, number> {
+  const result: Record<string, number> = {};
+
+  columnCodes.forEach((cCode) => {
+    const values: number[] = [];
+    Object.values(floorMatrixMeasurements).forEach((row) => {
+      const val = row[cCode];
+      const mm = parseCmToMm(val);
+      if (mm !== null) values.push(mm);
+    });
+
+    if (values.length >= 2) {
+      // Mod (en sık tekrar eden) bul
+      const freq: Record<number, number> = {};
+      let maxCount = 0;
+      let modeVal = values[0];
+
+      values.forEach((v) => {
+        freq[v] = (freq[v] || 0) + 1;
+        if (freq[v] > maxCount) {
+          maxCount = freq[v];
+          modeVal = v;
+        }
+      });
+
+      if (maxCount === 1) {
+        // Hepsi farklıysa medyan
+        const sorted = [...values].sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        result[cCode] = sorted[mid];
+      } else {
+        result[cCode] = modeVal;
+      }
+    }
+  });
+
+  return result;
+}
+

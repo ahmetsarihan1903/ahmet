@@ -18,6 +18,7 @@ import {
 import { CustomerThemeMode } from './customerThemes';
 import { CustomerInspectionMetadata, CustomerInspectionItem, CustomerInspectionRecord } from './customerChecklistData';
 import { formatDateDMY } from '../../utils/dateUtils';
+import { FontSizeControl } from '../../components/FontSizeControl';
 
 interface CustomerSettingsModalProps {
   isOpen: boolean;
@@ -165,7 +166,10 @@ export const CustomerSettingsModal: React.FC<CustomerSettingsModalProps> = ({
                 </p>
               </div>
 
-              {/* 2. Manual Save Action */}
+              {/* 2. Font Size (Punto Büyütme) Kontrolü */}
+              <FontSizeControl />
+
+              {/* 3. Manual Save Action */}
               <div className="p-3.5 bg-slate-950 light:bg-slate-50 rounded-lg border border-slate-800 light:border-slate-200">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs font-black uppercase tracking-wider text-slate-300 light:text-slate-700 flex items-center gap-1.5">

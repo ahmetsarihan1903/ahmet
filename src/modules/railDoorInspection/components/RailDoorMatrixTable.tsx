@@ -1,12 +1,15 @@
-import React, { useRef, useState } from 'react';
-import { MeasurementFieldDef } from '../types';
-import { getDefaultFloorAlias } from '../constants';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
+import { MeasurementFieldDef, RailLayoutPosition } from '../types';
+import { getDefaultFloorAlias, calculateMmDeviation, getColumnInferredNominals } from '../constants';
 import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   ChevronDown,
   BookOpen,
+  Plus,
+  X,
+  Trash2,
 } from 'lucide-react';
 
 interface RailDoorMatrixTableProps {
@@ -16,6 +19,8 @@ interface RailDoorMatrixTableProps {
   floorMatrixMeasurements: Record<string, Record<string, string>>;
   floorAliases?: Record<number, string>;
   projectNominalValues?: Record<string, string>;
+  customColumnCodes?: string[];
+  layoutPosition?: RailLayoutPosition;
   activeCode?: string;
   onSelectCode?: (code: string) => void;
   onCellChange: (stopIndex: number, colCode: string, value: string) => void;
@@ -23,6 +28,8 @@ interface RailDoorMatrixTableProps {
   onNominalChange: (colCode: string, value: string) => void;
   onApplyNominalToAll: (colCode: string) => void;
   onClearColumn: (colCode: string) => void;
+  onAddColumn?: (code: string) => void;
+  onRemoveColumn?: (code: string) => void;
   onOpenReferenceGuide?: () => void;
 }
 
@@ -33,6 +40,8 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
   floorMatrixMeasurements,
   floorAliases = {},
   projectNominalValues = {},
+  customColumnCodes = [],
+  layoutPosition,
   activeCode,
   onSelectCode,
   onCellChange,
@@ -40,9 +49,17 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
   onNominalChange,
   onApplyNominalToAll,
   onClearColumn,
+  onAddColumn,
+  onRemoveColumn,
   onOpenReferenceGuide,
 }) => {
   const tableRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sütun Ekleme Modalı State'i
+  const [showAddColumnModal, setShowAddColumnModal] = useState(false);
+  const [newColumnCode, setNewColumnCode] = useState('');
+  const [columnError, setColumnError] = useState('');
 
   // Sayfa başına durak sayısı: 6 Durak
   const FLOORS_PER_PAGE = 6;
@@ -61,8 +78,64 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
     (safeCurrentPage + 1) * FLOORS_PER_PAGE
   );
 
-  // 1..15 kolon kodları
-  const columnCodes = Array.from({ length: 15 }, (_, i) => String(i + 1));
+  // Standart 1..15 + Kullanıcının Eklediği Özel Sütunlar
+  const baseColumnCodes = Array.from({ length: 15 }, (_, i) => String(i + 1));
+  const columnCodes = [...baseColumnCodes, ...customColumnCodes];
+
+  // Proje nominali girilmemiş sütunlar için katlar arası otomatik iç referans hesabı
+  const inferredNominals = useMemo(
+    () => getColumnInferredNominals(floorMatrixMeasurements, columnCodes),
+    [floorMatrixMeasurements, columnCodes]
+  );
+
+  // Modal açıldığında inputa odaklan
+  useEffect(() => {
+    if (showAddColumnModal) {
+      // Varsayılan öneri (varsa son numaranın 1 fazlası veya 16)
+      const lastCode = columnCodes[columnCodes.length - 1];
+      const lastNum = parseInt(lastCode, 10);
+      const suggested = !isNaN(lastNum) ? String(lastNum + 1) : '16';
+      setNewColumnCode(suggested);
+      setColumnError('');
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.select();
+        }
+      }, 50);
+    }
+  }, [showAddColumnModal]);
+
+  const handleOpenAddModal = () => {
+    setShowAddColumnModal(true);
+  };
+
+  const handleConfirmAddColumn = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = newColumnCode.trim();
+    if (!trimmed) {
+      setColumnError('Lütfen bir sütun numarası veya kodu girin.');
+      return;
+    }
+    if (columnCodes.includes(trimmed)) {
+      setColumnError(`"${trimmed}" numaralı sütun tabloda zaten mevcut!`);
+      return;
+    }
+
+    if (onAddColumn) {
+      onAddColumn(trimmed);
+    }
+    setShowAddColumnModal(false);
+    setNewColumnCode('');
+    setColumnError('');
+
+    // Tabloyu yeni eklenen sütuna doğru otomatik kaydır
+    setTimeout(() => {
+      if (tableRef.current) {
+        tableRef.current.scrollBy({ left: 600, behavior: 'smooth' });
+      }
+    }, 100);
+  };
 
   // Kolonları Yatay Kaydırma
   const scrollHorizontally = (amount: number) => {
@@ -131,21 +204,11 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
     }
   };
 
-  // Toplam girilen ölçüm sayısı
-  let filledCount = 0;
-  stopIndices.forEach((sIdx) => {
-    const row = floorMatrixMeasurements[String(sIdx)] || {};
-    columnCodes.forEach((cCode) => {
-      if (row[cCode] && row[cCode].trim() !== '') filledCount++;
-    });
-  });
-  const totalCells = stopCount * 15;
-
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 sm:p-3 shadow-xl space-y-2">
-      {/* TEK SATIR NAVİGASYON ÇUBUĞU: SOL OK | AŞAĞI OK | YUKARI OK | SAĞ OK | ÖLÇÜLERİ GÖR */}
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 sm:p-3 shadow-xl space-y-2 relative">
+      {/* TEK SATIR NAVİGASYON ÇUBUĞU: SOL OK | AŞAĞI OK | YUKARI OK | SAĞ OK | SÜTUN EKLE (+) | ÖLÇÜLERİ GÖR */}
       <div className="bg-slate-950 border border-slate-800 hover:border-slate-750 rounded-xl p-1.5 sm:p-2 flex items-center justify-between gap-1.5 sm:gap-2 shadow-md">
-        {/* Yön Butonları: SOL OK, AŞAĞI OK, YUKARI OK, SAĞ OK (Satırı Tam Dolduracak Şekilde Büyütülmüş) */}
+        {/* Yön Butonları */}
         <div className="flex-1 grid grid-cols-4 gap-1.5 sm:gap-2">
           {/* 1. Sol Ok (Kolonları Sola Kaydır) */}
           <button
@@ -199,7 +262,7 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
             id="btn-scroll-right"
             onClick={() => scrollHorizontally(280)}
             className="w-full py-2 sm:py-2.5 bg-slate-900 hover:bg-slate-800 active:bg-amber-500 active:text-slate-950 text-amber-400 border border-slate-700 hover:border-amber-400/60 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer shadow-xs"
-            title="Tabloyu Sağa Kaydır (11..15 Sütunları)"
+            title="Tabloyu Sağa Kaydır"
           >
             <span className="font-bold">Sağ Ok</span>
             <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
@@ -221,13 +284,13 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
         )}
       </div>
 
-      {/* EXCEL / MATRIX TABLO ALANI (Dikey Scrollbar Olmadan Tam 6 Durak Sabit Sığar) */}
+      {/* EXCEL / MATRIX TABLO ALANI */}
       <div
         ref={tableRef}
         className="w-full overflow-x-auto border border-slate-800 rounded-xl bg-slate-950 shadow-inner relative scrollbar-thin scrollbar-thumb-slate-700"
       >
         <table className="w-full border-collapse text-xs text-slate-200 min-w-[1280px]">
-          {/* TABLO BAŞLIĞI: RESİMDEKİ BİREBİR GÖRÜNÜM (KAT RUMUZ + 1..15) */}
+          {/* TABLO BAŞLIĞI: (KAT RUMUZ + 1..15 + ÖZEL EKLENEN SÜTUNLAR + [+] SİMGE BUTONU) */}
           <thead className="sticky top-0 z-30 bg-slate-900 border-b-2 border-slate-700 shadow-md">
             {/* 1. Satır: Kolon Numaraları */}
             <tr>
@@ -236,15 +299,17 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
                 DURAK
               </th>
 
-              {/* 2. Sütun: KAT RUMUZ (Maksimum daraltılmış) */}
+              {/* 2. Sütun: KAT RUMUZ */}
               <th className="sticky left-[44px] z-40 bg-slate-900 border-r-2 border-b border-slate-700 p-1 text-center font-black text-amber-400 w-[42px] min-w-[42px] max-w-[46px] leading-tight">
                 <div className="text-[9px] font-black uppercase tracking-tighter">KAT<br/>RMZ</div>
               </th>
 
-              {/* 1..15 Kolon Başlıkları */}
+              {/* 1..15 ve Özel Eklenen Kolon Başlıkları */}
               {columnCodes.map((cCode) => {
                 const isSelected = activeCode === cCode;
                 const def = measurementDefs.find((d) => d.code === cCode);
+                const isCustom = !baseColumnCodes.includes(cCode);
+
                 return (
                   <th
                     key={cCode}
@@ -253,19 +318,50 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
                         onSelectCode(cCode);
                       }
                     }}
-                    className={`border-r border-b border-slate-750 p-1.5 text-center font-black transition-colors cursor-pointer min-w-[70px] w-[70px] ${
+                    className={`border-r border-b border-slate-750 p-1 text-center font-black transition-colors cursor-pointer min-w-[70px] w-[70px] relative group ${
                       isSelected
                         ? 'bg-amber-500 text-slate-950 shadow-inner'
+                        : isCustom
+                        ? 'bg-sky-950/80 hover:bg-sky-900 text-sky-200 border-sky-800'
                         : 'bg-slate-900 hover:bg-slate-800 text-white'
                     }`}
-                    title={def?.title || `Ölçüm ${cCode}`}
+                    title={def?.title || `Ölçüm Sütunu ${cCode}`}
                   >
-                    <div className="flex flex-col items-center justify-center">
+                    <div className="flex flex-col items-center justify-center relative">
                       <span className="text-sm font-black">{cCode}</span>
+
+                      {/* Özel sütunlar için doğrudan kaldır butonu */}
+                      {isCustom && onRemoveColumn && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            onRemoveColumn(cCode);
+                          }}
+                          className="absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-rose-600 hover:bg-rose-500 active:scale-90 text-white flex items-center justify-center transition shadow-md z-10 cursor-pointer border border-rose-400"
+                          title={`"${cCode}" Özel Sütununu Sil`}
+                        >
+                          <X className="w-2.5 h-2.5 stroke-[3]" />
+                        </button>
+                      )}
                     </div>
                   </th>
                 );
               })}
+
+              {/* SADECE SİMGE OLAN "SÜTUN EKLE" BAŞLIK BUTONU (+) */}
+              <th className="border-b border-slate-750 p-1 text-center bg-slate-900/90 w-[54px] min-w-[54px]">
+                <button
+                  type="button"
+                  id="btn-add-column-header"
+                  onClick={handleOpenAddModal}
+                  className="w-8 h-8 mx-auto rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-90 text-white flex items-center justify-center transition-all shadow-md cursor-pointer border border-emerald-400 group"
+                  title="Yeni Sütun Ekle (Rakamı Siz Belirleyin)"
+                >
+                  <Plus className="w-4 h-4 group-hover:scale-125 transition-transform" />
+                </button>
+              </th>
             </tr>
 
             {/* 2. Başlık Satırı: PROJE / NOMİNAL DEĞER SATIRI */}
@@ -279,30 +375,36 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
               {columnCodes.map((cCode) => {
                 const val = projectNominalValues[cCode] || '';
                 const isSelected = activeCode === cCode;
+                const isCustom = !baseColumnCodes.includes(cCode);
+
                 return (
                   <td
                     key={`nominal-${cCode}`}
                     className={`border-r border-slate-800 p-1 text-center ${
-                      isSelected ? 'bg-amber-950/40' : 'bg-slate-950'
+                      isSelected ? 'bg-amber-950/40' : isCustom ? 'bg-sky-950/30' : 'bg-slate-950'
                     }`}
                   >
                     <input
                       type="text"
                       inputMode="decimal"
                       value={val}
-                      onChange={(e) => onNominalChange(cCode, e.target.value.replace(/[^0-9.-]/g, ''))}
+                      onChange={(e) => onNominalChange(cCode, e.target.value.replace(/[^0-9.,-]/g, ''))}
                       onFocus={() => onSelectCode && onSelectCode(cCode)}
-                      placeholder="mm"
-                      className="w-full bg-slate-900/90 border border-slate-750 focus:border-amber-400 rounded px-1 py-1 text-center font-mono font-bold text-xs text-amber-300 outline-none cursor-text"
+                      placeholder="---"
+                      className={`w-full bg-slate-900/90 border focus:border-amber-400 rounded px-1 py-1 text-center font-mono font-bold text-xs outline-none cursor-text ${
+                        isCustom ? 'border-sky-800 text-sky-300' : 'border-slate-750 text-amber-300'
+                      }`}
                       title={`${cCode} nolu sütun için Proje Referans Ölçüsü`}
                     />
                   </td>
                 );
               })}
+              {/* Boş hücre (+) butonu altı */}
+              <td className="bg-slate-950 p-1 text-center" />
             </tr>
           </thead>
 
-          {/* TABLO GÖVDESİ: SADECE SAYFADAKİ 6 DURAK SATIRI GÖRÜNÜR */}
+          {/* TABLO GÖVDESİ */}
           <tbody className="divide-y divide-slate-800/80">
             {visibleStopIndices.map((sIdx, rowIdx) => {
               const floorNum = startFloor + (sIdx - 1);
@@ -318,12 +420,12 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
                     isEven ? 'bg-slate-950 hover:bg-slate-850/60' : 'bg-slate-900/40 hover:bg-slate-850/60'
                   }`}
                 >
-                  {/* 1. Kolon: DURAK (1.DR, 2.DR ...) */}
+                  {/* 1. Kolon: DURAK */}
                   <td className="sticky left-0 z-20 bg-slate-900 border-r border-slate-800 px-1 py-1 text-center font-black text-[11px] text-slate-300 whitespace-nowrap w-[44px] min-w-[44px]">
                     {sIdx}.DR
                   </td>
 
-                  {/* 2. Kolon: KAT RUMUZ (Maksimum Daraltılmış Kompakt Kutu) */}
+                  {/* 2. Kolon: KAT RUMUZ */}
                   <td className="sticky left-[44px] z-20 bg-slate-900 border-r-2 border-slate-700 p-0.5 text-center font-bold text-xs whitespace-nowrap w-[42px] min-w-[42px]">
                     <input
                       type="text"
@@ -335,30 +437,32 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
                     />
                   </td>
 
-                  {/* 1..15 Ölçüm Giriş Hücreleri */}
+                  {/* Ölçüm Giriş Hücreleri (1..15 + Özel Sütunlar) */}
                   {columnCodes.map((cCode, colIdx) => {
                     const cellVal = rowMeasurements[cCode] || '';
                     const nominalVal = projectNominalValues[cCode] || '';
                     const isSelectedCol = activeCode === cCode;
 
-                    // Sapma Kontrolü
+                    // Sapma Kontrolü (CM girişini MM'ye çevirip toleransı mm olarak denetler)
                     let deviationClass = 'bg-slate-900 border-slate-750 text-white';
-                    let deviationBadge = null;
+                    let deviationBadge: string | null = null;
 
-                    if (cellVal && nominalVal) {
-                      const numCell = parseFloat(cellVal);
-                      const numNom = parseFloat(nominalVal);
-                      if (!isNaN(numCell) && !isNaN(numNom)) {
-                        const diff = numCell - numNom;
-                        if (diff === 0) {
-                          deviationClass = 'bg-emerald-950/30 border-emerald-500/60 text-emerald-300';
-                        } else if (Math.abs(diff) <= 2) {
-                          deviationClass = 'bg-amber-950/40 border-amber-500/80 text-amber-300';
-                          deviationBadge = `${diff > 0 ? '+' : ''}${diff}`;
-                        } else {
-                          deviationClass = 'bg-rose-950/50 border-rose-500 text-rose-300 font-black';
-                          deviationBadge = `${diff > 0 ? '+' : ''}${diff}`;
-                        }
+                    const devResult = calculateMmDeviation(
+                      cellVal,
+                      nominalVal,
+                      cCode,
+                      inferredNominals[cCode],
+                      layoutPosition
+                    );
+                    if (devResult) {
+                      if (devResult.isMatch) {
+                        deviationClass = 'bg-emerald-950/30 border-emerald-500/60 text-emerald-300';
+                      } else if (devResult.isWarning) {
+                        deviationClass = 'bg-amber-950/40 border-amber-500/80 text-amber-300';
+                        deviationBadge = devResult.badgeText;
+                      } else if (devResult.isCritical) {
+                        deviationClass = 'bg-rose-950/50 border-rose-500 text-rose-300 font-black ring-1 ring-rose-500';
+                        deviationBadge = devResult.badgeText;
                       }
                     }
 
@@ -376,17 +480,30 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
                             inputMode="decimal"
                             value={cellVal}
                             onChange={(e) =>
-                              onCellChange(sIdx, cCode, e.target.value.replace(/[^0-9.-]/g, ''))
+                              onCellChange(sIdx, cCode, e.target.value.replace(/[^0-9.,-]/g, ''))
                             }
                             onFocus={() => onSelectCode && onSelectCode(cCode)}
                             onKeyDown={(e) => handleKeyDown(e, sIdx, colIdx)}
                             placeholder="---"
                             className={`w-full border focus:border-amber-400 rounded px-1 py-1.5 text-center font-mono font-bold text-xs outline-none transition-all cursor-text ${deviationClass}`}
+                            title={
+                              devResult?.isUnderLimit
+                                ? `DİKKAT: ${cCode} nolu sütun ölçüsü proje/asgari sınırın altında! (Kritik Uyarı)`
+                                : devResult?.isInferred && !devResult.isMatch
+                                ? `${cCode} nolu sütun iç analiz sapması: ${devResult.badgeText} (Referans: ${(devResult.nomMm! / 10).toFixed(1)} cm)`
+                                : undefined
+                            }
                           />
                           {deviationBadge && (
                             <span
                               className="absolute -top-1.5 -right-1 text-[8px] font-black bg-rose-600 text-white px-1 py-0.2 rounded shadow-xs pointer-events-none"
-                              title={`Sapma: ${deviationBadge} mm`}
+                              title={
+                                devResult?.isUnderLimit
+                                  ? `${cCode} nolu sütun sınır altı: ${deviationBadge}`
+                                  : devResult?.isInferred
+                                  ? `İç Analiz Sapması: ${deviationBadge} (Referans: ${(devResult.nomMm! / 10).toFixed(1)} cm)`
+                                  : `Sapma: ${deviationBadge}`
+                              }
                             >
                               {deviationBadge}
                             </span>
@@ -395,6 +512,9 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
                       </td>
                     );
                   })}
+
+                  {/* Sütun Ekle (+) Hizası Boş Hücre */}
+                  <td className="p-1 text-center bg-slate-950/50" />
                 </tr>
               );
             })}
@@ -411,18 +531,98 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
           </span>
           <span className="flex items-center gap-1">
             <span className="w-2.5 h-2.5 rounded bg-amber-500 inline-block" />
-            <span>Tolerans İçi (±1-2 mm)</span>
+            <span>Farklı Ölçü (±1-3 mm)</span>
           </span>
           <span className="flex items-center gap-1">
             <span className="w-2.5 h-2.5 rounded bg-rose-500 inline-block" />
-            <span>Kritik Sapma (&gt;2 mm)</span>
+            <span>Kritik Sapma (&gt;3 mm / Alt Sınır)</span>
           </span>
         </div>
 
-        <div className="text-[10px] sm:text-[11px] text-slate-500">
-          <span>Tüm ölçümler milimetre (mm) cinsindendir.</span>
+        <div className="flex items-center gap-2">
+          {customColumnCodes.length > 0 && (
+            <span className="text-sky-400 font-bold">
+              +{customColumnCodes.length} Özel Sütun Ekli ({customColumnCodes.join(', ')})
+            </span>
+          )}
+          <span className="text-[10px] sm:text-[11px] text-amber-400 font-medium">
+            📐 Ölçüleri cm olarak giriniz (virgül/nokta desteklenir), raporda otomatik mm'ye çevrilir.
+          </span>
         </div>
       </div>
+
+      {/* SÜTUN EKLEME MODALI / DIALOGU */}
+      {showAddColumnModal && (
+        <div
+          className="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+          onClick={() => setShowAddColumnModal(false)}
+        >
+          <div
+            className="bg-slate-900 border border-slate-700 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-black text-white">Yeni Sütun Ekle</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddColumnModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmAddColumn} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  Sütun Numarası / Kodu:
+                </label>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={newColumnCode}
+                  onChange={(e) => {
+                    setNewColumnCode(e.target.value);
+                    setColumnError('');
+                  }}
+                  placeholder="Örn: 16, 18, 20, 25, 1A"
+                  className="w-full bg-slate-950 border border-slate-700 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-base font-black text-amber-300 font-mono text-center outline-none"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  İstediğiniz sütun numarasını veya harf kodunu yazabilirsiniz (15'ten sonra sıralı gitmek zorunda değildir).
+                </p>
+                {columnError && (
+                  <p className="text-xs font-bold text-rose-400 mt-1.5 bg-rose-950/40 border border-rose-800/60 p-2 rounded-lg">
+                    {columnError}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddColumnModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition shadow-lg active:scale-95 flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Sütun Ekle</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

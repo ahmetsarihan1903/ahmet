@@ -7,6 +7,8 @@ import {
   getMeasurementDefsForLayout,
   MEASUREMENTS_MACHINE_CHASSIS,
   getDefaultFloorAlias,
+  calculateMmDeviation,
+  getColumnInferredNominals,
 } from '../constants';
 import {
   AlertTriangle,
@@ -44,18 +46,27 @@ export const RailDoorNonConformitiesScreen: React.FC<RailDoorNonConformitiesScre
   const stopCount = data.stopCount || 1;
   const startFloor = data.startFloor ?? 0;
   const stopIndices = Array.from({ length: stopCount }, (_, i) => i + 1);
-  const columnCodes = Array.from({ length: 15 }, (_, i) => String(i + 1));
+  const baseColumnCodes = Array.from({ length: 15 }, (_, i) => String(i + 1));
+  const columnCodes = [...baseColumnCodes, ...(data.customColumnCodes || [])];
 
-  // Otomatik tespit edilen matris sapmaları (>0 mm ve kritik >2 mm)
+  // Proje nominali girilmemiş sütunlar için katlar arası otomatik iç analiz
+  const inferredNominals = getColumnInferredNominals(
+    data.floorMatrixMeasurements || {},
+    columnCodes
+  );
+
+  // Otomatik tespit edilen matris sapmaları (>0 mm ve kritik >3 mm veya 4 & 12 alt sınır)
   const autoMatrixDeviations: {
     stopIndex: number;
     stopLabel: string;
     colCode: string;
     title: string;
-    project: string;
-    actual: string;
-    diff: number;
+    projectMm: number | null;
+    actualMm: number;
+    diffMm: number;
+    badgeText: string;
     isCritical: boolean;
+    isInferred?: boolean;
   }[] = [];
 
   stopIndices.forEach((sIdx) => {
@@ -67,25 +78,27 @@ export const RailDoorNonConformitiesScreen: React.FC<RailDoorNonConformitiesScre
     columnCodes.forEach((cCode) => {
       const act = row[cCode];
       const nom = data.projectNominalValues?.[cCode];
-      if (act && nom && act.trim() !== '' && nom.trim() !== '') {
-        const numAct = parseFloat(act);
-        const numNom = parseFloat(nom);
-        if (!isNaN(numAct) && !isNaN(numNom)) {
-          const diff = numAct - numNom;
-          if (diff !== 0) {
-            const def = railDefs.find((d) => d.code === cCode);
-            autoMatrixDeviations.push({
-              stopIndex: sIdx,
-              stopLabel,
-              colCode: cCode,
-              title: def?.title || `Sütun ${cCode}`,
-              project: nom,
-              actual: act,
-              diff,
-              isCritical: Math.abs(diff) > 2,
-            });
-          }
-        }
+      const dev = calculateMmDeviation(
+        act,
+        nom,
+        cCode,
+        inferredNominals[cCode],
+        data.layoutPosition
+      );
+      if (dev && !dev.isMatch) {
+        const def = railDefs.find((d) => d.code === cCode);
+        autoMatrixDeviations.push({
+          stopIndex: sIdx,
+          stopLabel,
+          colCode: cCode,
+          title: def?.title || `Sütun ${cCode}`,
+          projectMm: dev.nomMm,
+          actualMm: dev.cellMm,
+          diffMm: dev.diffMm,
+          badgeText: dev.badgeText,
+          isCritical: dev.isCritical,
+          isInferred: dev.isInferred,
+        });
       }
     });
   });
@@ -103,8 +116,8 @@ export const RailDoorNonConformitiesScreen: React.FC<RailDoorNonConformitiesScre
   chassisDefs.forEach((mDef) => {
     const val = data.machineChassisMeasurements?.[mDef.code];
     if (val && val.projectValueMm && val.actualValueMm) {
-      const p = parseFloat(val.projectValueMm);
-      const a = parseFloat(val.actualValueMm);
+      const p = parseFloat(val.projectValueMm.replace(',', '.'));
+      const a = parseFloat(val.actualValueMm.replace(',', '.'));
       if (!isNaN(p) && !isNaN(a)) {
         const diff = a - p;
         if (diff !== 0) {
@@ -221,14 +234,14 @@ export const RailDoorNonConformitiesScreen: React.FC<RailDoorNonConformitiesScre
           </div>
         </div>
 
-        {/* Kritik Sapmalar (>2mm) */}
+        {/* Kritik Sapmalar (>3mm) */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center font-black shrink-0">
             <AlertOctagon className="w-5 h-5" />
           </div>
           <div>
             <div className="text-xl font-black text-rose-400">{criticalAutoDeviations}</div>
-            <div className="text-[11px] text-slate-400 font-medium">Kritik Sapma (&gt; 2 mm)</div>
+            <div className="text-[11px] text-slate-400 font-medium">Kritik Sapma (&gt; 3 mm / Alt Sınır)</div>
           </div>
         </div>
 
@@ -478,8 +491,10 @@ export const RailDoorNonConformitiesScreen: React.FC<RailDoorNonConformitiesScre
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0 font-mono">
-                  <span className="text-slate-400 text-[11px]">Proje: {dev.project} mm</span>
-                  <span className="text-slate-200 text-[11px] font-bold">Saha: {dev.actual} mm</span>
+                  <span className="text-slate-400 text-[11px]">
+                    {dev.isInferred ? `İç Ref: ${dev.projectMm} mm` : `Proje: ${dev.projectMm !== null ? `${dev.projectMm} mm` : '-'}`}
+                  </span>
+                  <span className="text-slate-200 text-[11px] font-bold">Saha: {dev.actualMm} mm</span>
                   <span
                     className={`px-2 py-0.5 rounded font-black text-[11px] ${
                       dev.isCritical
@@ -487,7 +502,7 @@ export const RailDoorNonConformitiesScreen: React.FC<RailDoorNonConformitiesScre
                         : 'bg-amber-950 text-amber-300 border border-amber-600/50'
                     }`}
                   >
-                    {dev.diff > 0 ? `+${dev.diff}` : dev.diff} mm
+                    {dev.badgeText}
                   </span>
                 </div>
               </div>

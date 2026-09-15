@@ -21,6 +21,7 @@ import {
 import { useTheme } from '../context/ThemeContext';
 import { getLastSavedTime, loadActiveDraft, getAuditHistory } from '../utils/storage';
 import { AuditFormData } from '../types';
+import { FontSizeControl } from './FontSizeControl';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -177,7 +178,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </p>
               </div>
 
-              {/* 2. Manual Save Action */}
+              {/* 2. Font Size (Punto Büyütme) Kontrolü */}
+              <FontSizeControl />
+
+              {/* 3. Manual Save Action */}
               <div className="p-3.5 bg-slate-950 light:bg-slate-50 rounded-lg border border-slate-800 light:border-slate-200">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs font-black uppercase tracking-wider text-slate-300 light:text-slate-700 flex items-center gap-1.5">

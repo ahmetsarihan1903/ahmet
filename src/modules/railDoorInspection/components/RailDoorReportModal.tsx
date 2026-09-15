@@ -5,6 +5,9 @@ import {
   getMeasurementDefsForLayout,
   MEASUREMENTS_MACHINE_CHASSIS,
   getDefaultFloorAlias,
+  formatCmToMm,
+  calculateMmDeviation,
+  getColumnInferredNominals,
 } from '../constants';
 import { BetaLogo } from '../../../components/BetaLogo';
 import {
@@ -34,15 +37,25 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
   const stopCount = data.stopCount || 1;
   const startFloor = data.startFloor ?? 0;
   const stopIndices = Array.from({ length: stopCount }, (_, i) => i + 1);
-  const columnCodes = Array.from({ length: 15 }, (_, i) => String(i + 1));
+  const baseColumnCodes = Array.from({ length: 15 }, (_, i) => String(i + 1));
+  const columnCodes = [...baseColumnCodes, ...(data.customColumnCodes || [])];
 
-  // Sapmaları topla
+  // Proje nominali girilmemiş sütunlar için katlar arası otomatik iç analiz
+  const inferredNominals = getColumnInferredNominals(
+    data.floorMatrixMeasurements || {},
+    columnCodes
+  );
+
+  // Sapmaları topla (Tümü MM cinsinden hesaplanır)
   const matrixDeviations: {
     stopLabel: string;
     colCode: string;
-    project: string;
-    actual: string;
-    diff: number;
+    projectMm: number | null;
+    actualMm: number;
+    diffMm: number;
+    badgeText: string;
+    isCritical: boolean;
+    isInferred?: boolean;
   }[] = [];
 
   stopIndices.forEach((sIdx) => {
@@ -54,18 +67,24 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
     columnCodes.forEach((cCode) => {
       const act = row[cCode];
       const nom = data.projectNominalValues?.[cCode];
-      if (act && nom && act.trim() !== '' && nom.trim() !== '') {
-        const numAct = parseFloat(act);
-        const numNom = parseFloat(nom);
-        if (!isNaN(numAct) && !isNaN(numNom) && numAct - numNom !== 0) {
-          matrixDeviations.push({
-            stopLabel,
-            colCode: cCode,
-            project: nom,
-            actual: act,
-            diff: numAct - numNom,
-          });
-        }
+      const dev = calculateMmDeviation(
+        act,
+        nom,
+        cCode,
+        inferredNominals[cCode],
+        data.layoutPosition
+      );
+      if (dev && !dev.isMatch) {
+        matrixDeviations.push({
+          stopLabel,
+          colCode: cCode,
+          projectMm: dev.nomMm,
+          actualMm: dev.cellMm,
+          diffMm: dev.diffMm,
+          badgeText: dev.badgeText,
+          isCritical: dev.isCritical,
+          isInferred: dev.isInferred,
+        });
       }
     });
   });
@@ -81,8 +100,8 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
   chassisDefs.forEach((mDef) => {
     const val = data.machineChassisMeasurements?.[mDef.code];
     if (val && val.projectValueMm && val.actualValueMm) {
-      const p = parseFloat(val.projectValueMm);
-      const a = parseFloat(val.actualValueMm);
+      const p = parseFloat(val.projectValueMm.replace(',', '.'));
+      const a = parseFloat(val.actualValueMm.replace(',', '.'));
       if (!isNaN(p) && !isNaN(a) && a - p !== 0) {
         chassisDeviations.push({
           code: mDef.code,
@@ -114,6 +133,7 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
       `*Kontrol Eden:* ${data.identity.inspector || '-'}`,
       `*Tarih:* ${data.inspectionDateDisplay}`,
       `*Asansör Tipi:* ${typeConfig?.label} (${layoutObj?.label})`,
+      `*Birim:* Tüm Ölçüler Milimetre (mm) Cinsindendir`,
       `*Tespit Edilen Toplam Sapma:* ${totalDeviationsCount} adet`,
     ].join('\n');
 
@@ -243,8 +263,8 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
               <Sliders className="w-3.5 h-3.5 text-amber-600" />
               1. BÖLÜM: RAY & KAPI KAT ÖLÇÜ MATRİSİ (mm)
             </span>
-            <span className="text-[10px] font-normal text-slate-600 lowercase">
-              (1-15 nolu sütun ölçüleri)
+            <span className="text-[10px] font-bold text-amber-700">
+              *Tüm değerler milimetreye (mm) çevrilmiştir
             </span>
           </h3>
 
@@ -260,13 +280,13 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
                     </th>
                   ))}
                 </tr>
-                {/* Proje Nominal Satırı */}
+                {/* Proje Nominal Satırı (mm cinsine dönüştürülmüş) */}
                 <tr className="bg-amber-100/70 text-amber-950 font-black">
                   <th className="border border-slate-400 p-1">PROJE</th>
-                  <th className="border border-slate-400 p-1">NOMİNAL</th>
+                  <th className="border border-slate-400 p-1">NOM (mm)</th>
                   {columnCodes.map((c) => (
-                    <td key={`nom-${c}`} className="border border-slate-400 p-1 font-mono">
-                      {data.projectNominalValues?.[c] || '-'}
+                    <td key={`nom-${c}`} className="border border-slate-400 p-1 font-mono font-bold">
+                      {formatCmToMm(data.projectNominalValues?.[c])}
                     </td>
                   ))}
                 </tr>
@@ -288,21 +308,22 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
                       {columnCodes.map((cCode) => {
                         const cellVal = row[cCode] || '';
                         const nomVal = data.projectNominalValues?.[cCode] || '';
-                        let cellDiff: number | null = null;
-                        if (cellVal && nomVal) {
-                          const nC = parseFloat(cellVal);
-                          const nN = parseFloat(nomVal);
-                          if (!isNaN(nC) && !isNaN(nN)) cellDiff = nC - nN;
-                        }
+                        const dev = calculateMmDeviation(
+                          cellVal,
+                          nomVal,
+                          cCode,
+                          inferredNominals[cCode],
+                          data.layoutPosition
+                        );
 
                         let textClass = 'text-slate-900';
-                        if (cellDiff !== null && cellDiff !== 0) {
-                          textClass = Math.abs(cellDiff) > 2 ? 'text-red-700 font-black bg-red-50' : 'text-amber-800 font-bold bg-amber-50';
+                        if (dev && !dev.isMatch) {
+                          textClass = dev.isCritical ? 'text-red-700 font-black bg-red-50' : 'text-amber-800 font-bold bg-amber-50';
                         }
 
                         return (
                           <td key={`rep-cell-${sIdx}-${cCode}`} className={`border border-slate-400 p-1 font-mono ${textClass}`}>
-                            {cellVal || '---'}
+                            {formatCmToMm(cellVal, '---')}
                           </td>
                         );
                       })}
@@ -337,7 +358,9 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
                 const proj = val?.projectValueMm || '';
                 const act = val?.actualValueMm || '';
                 const hasValues = proj !== '' && act !== '';
-                const diff = hasValues ? parseFloat(act) - parseFloat(proj) : null;
+                const diff = hasValues
+                  ? parseFloat(act.replace(',', '.')) - parseFloat(proj.replace(',', '.'))
+                  : null;
 
                 return (
                   <tr key={mDef.code} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
@@ -382,17 +405,17 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto text-[10px]">
               {matrixDeviations.map((d, i) => (
-                <div key={`m-dev-${i}`} className="flex items-center justify-between p-1 bg-white border border-red-100 rounded">
+                <div key={`m-dev-${i}`} className="flex items-center justify-between p-1.5 bg-white border border-red-100 rounded">
                   <span className="font-bold text-slate-900 truncate pr-2">
                     {d.stopLabel} / Sütun {d.colCode}:
                   </span>
                   <span className="font-mono font-black text-red-700 shrink-0">
-                    P: {d.project} / S: {d.actual} ({d.diff > 0 ? `+${d.diff}` : d.diff} mm)
+                    {d.isInferred ? `İç Ref: ${d.projectMm} mm` : `P: ${d.projectMm !== null ? `${d.projectMm} mm` : '-'}`} / S: {d.actualMm} mm ({d.badgeText})
                   </span>
                 </div>
               ))}
               {chassisDeviations.map((d, i) => (
-                <div key={`c-dev-${i}`} className="flex items-center justify-between p-1 bg-white border border-red-100 rounded">
+                <div key={`c-dev-${i}`} className="flex items-center justify-between p-1.5 bg-white border border-red-100 rounded">
                   <span className="font-bold text-slate-900 truncate pr-2">
                     {d.code} - {d.title}:
                   </span>

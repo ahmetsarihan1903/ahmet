@@ -37,18 +37,28 @@ export const RailDoorSetupScreen: React.FC<RailDoorSetupScreenProps> = ({
     const config = ELEVATOR_TYPE_CONFIGS.find((c) => c.type === newType);
     const defaultLayout = config ? config.allowedLayouts[0].layout : 'CWT_REAR';
 
-    onChange((prev) => ({
-      ...prev,
-      mainType: newType,
-      layoutPosition: defaultLayout,
-    }));
+    onChange((prev) => {
+      const activeImg = prev.layoutImages?.[defaultLayout];
+      return {
+        ...prev,
+        mainType: newType,
+        layoutPosition: defaultLayout,
+        attachedImageName: activeImg?.imageName,
+        attachedImageUrl: activeImg?.imageUrl,
+      };
+    });
   };
 
   const handleLayoutChange = (newLayout: RailLayoutPosition) => {
-    onChange((prev) => ({
-      ...prev,
-      layoutPosition: newLayout,
-    }));
+    onChange((prev) => {
+      const activeImg = prev.layoutImages?.[newLayout];
+      return {
+        ...prev,
+        layoutPosition: newLayout,
+        attachedImageName: activeImg?.imageName,
+        attachedImageUrl: activeImg?.imageUrl,
+      };
+    });
   };
 
   const handleIdentityChange = (field: keyof typeof data.identity, value: string) => {

@@ -33,9 +33,9 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
 
-  const createInitialForm = (): RailDoorInspectionFullData => {
-    const defaultStops = 8;
-    const defaultStartFloor = -1;
+  const createInitialForm = (prev?: Partial<RailDoorInspectionFullData>): RailDoorInspectionFullData => {
+    const defaultStops = prev?.stopCount || 8;
+    const defaultStartFloor = prev?.startFloor !== undefined ? prev.startFloor : -1;
     const floorsList = calculateFloors(defaultStops, defaultStartFloor);
 
     return {
@@ -45,12 +45,12 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
       inspectionDateDisplay: getCurrentDateFormatted(),
 
       identity: {
-        serialNumber: '05.01.25.206',
-        reference: 'AHMET İNŞAAT',
-        location: 'KADIKÖY / İSTANBUL',
-        installerMaster: 'NAZIM KÜÇÜK',
-        projectManager: 'MÜFİT GÖNCE',
-        inspector: 'AHMET SARIHAN',
+        serialNumber: '',
+        reference: '',
+        location: '',
+        installerMaster: prev?.identity?.installerMaster || 'NAZIM KÜÇÜK',
+        projectManager: prev?.identity?.projectManager || 'MÜFİT GÖNCE',
+        inspector: prev?.identity?.inspector || 'AHMET SARIHAN',
       },
 
       stopCount: defaultStops,
@@ -63,8 +63,21 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
       })),
       floorAliases: {},
 
-      mainType: 'MR',
-      layoutPosition: 'CWT_REAR',
+      mainType: prev?.mainType || 'MR',
+      // Seçili asansör tipi & kuyu ağırlık yerleşimi korunur (Ağırlık Sağda / Solda / Arkada)
+      layoutPosition: prev?.layoutPosition || 'CWT_SIDE_RIGHT',
+
+      // Şema bazlı özel teknik resimler (Her kuyu şemasının resmi ayrı saklanır)
+      layoutImages: prev?.layoutImages || {},
+
+      // Özel sütunlar (15'ten sonra kullanıcının eklediği sütunlar)
+      customColumnCodes: prev?.customColumnCodes || [],
+
+      // Seçili teknik resim ve çizim dosyaları / URL'leri korunur
+      attachedImageName: prev?.attachedImageName,
+      attachedImageUrl: prev?.attachedImageUrl,
+      attachedPdfName: prev?.attachedPdfName,
+      attachedPdfDataUrl: prev?.attachedPdfDataUrl,
 
       projectNominalValues: {},
       floorMatrixMeasurements: {},
@@ -152,7 +165,7 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
       console.error(err);
     }
 
-    const newForm = createInitialForm();
+    const newForm = createInitialForm(formData);
     setFormData(newForm);
     setCurrentStep('setup');
     window.scrollTo({ top: 0, behavior: 'smooth' });

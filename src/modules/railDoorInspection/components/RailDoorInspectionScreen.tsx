@@ -122,9 +122,51 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
     });
   };
 
+  // Özel Sütun Ekle (15'ten sonra kullanıcının kendi belirlediği rakam veya kod)
+  const handleAddColumn = (code: string) => {
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    onChange((prev) => {
+      const existing = prev.customColumnCodes || [];
+      if (existing.includes(trimmed)) return prev;
+      return {
+        ...prev,
+        customColumnCodes: [...existing, trimmed],
+      };
+    });
+  };
+
+  // Özel Sütun Kaldır
+  const handleRemoveColumn = (codeToRemove: string) => {
+    onChange((prev) => {
+      const existing = prev.customColumnCodes || [];
+      const updated = existing.filter((c) => c !== codeToRemove);
+
+      // İlgili sütundaki matris ve nominal kayıtlarını da temizle
+      const updatedNominals = { ...(prev.projectNominalValues || {}) };
+      delete updatedNominals[codeToRemove];
+
+      const currentMatrix = { ...(prev.floorMatrixMeasurements || {}) };
+      for (let s = 1; s <= (prev.stopCount || 1); s++) {
+        if (currentMatrix[String(s)]) {
+          const row = { ...currentMatrix[String(s)] };
+          delete row[codeToRemove];
+          currentMatrix[String(s)] = row;
+        }
+      }
+
+      return {
+        ...prev,
+        customColumnCodes: updated,
+        projectNominalValues: updatedNominals,
+        floorMatrixMeasurements: currentMatrix,
+      };
+    });
+  };
+
   // Makine Şase Ölçü Girişleri
   const handleChassisMeasureChange = (code: string, field: 'projectValueMm' | 'actualValueMm', val: string) => {
-    const cleanVal = val.replace(/[^0-9.-]/g, '');
+    const cleanVal = val.replace(/[^0-9.,-]/g, '');
     onChange((prev) => {
       const currentMap = { ...(prev.machineChassisMeasurements || {}) };
       const existing: SingleMeasurementValue = currentMap[code] || {
@@ -268,6 +310,8 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
             floorMatrixMeasurements={data.floorMatrixMeasurements || {}}
             floorAliases={data.floorAliases || {}}
             projectNominalValues={data.projectNominalValues || {}}
+            customColumnCodes={data.customColumnCodes || []}
+            layoutPosition={data.layoutPosition}
             activeCode={selectedMeasureCode}
             onSelectCode={(code) => setSelectedMeasureCode(code)}
             onCellChange={handleMatrixCellChange}
@@ -275,6 +319,8 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
             onNominalChange={handleNominalChange}
             onApplyNominalToAll={handleApplyNominalToAll}
             onClearColumn={handleClearColumn}
+            onAddColumn={handleAddColumn}
+            onRemoveColumn={handleRemoveColumn}
             onOpenReferenceGuide={() => setIsReferenceModalOpen(true)}
           />
 
@@ -464,6 +510,34 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
         layoutPosition={data.layoutPosition}
         activeCode={selectedMeasureCode}
         onSelectCode={(code) => setSelectedMeasureCode(code)}
+        attachedPdfName={data.attachedPdfName}
+        attachedPdfDataUrl={data.attachedPdfDataUrl}
+        onPdfChange={(name, url) => onChange((prev) => ({
+          ...prev,
+          attachedPdfName: name,
+          attachedPdfDataUrl: url,
+        }))}
+        attachedImageName={data.layoutImages?.[data.layoutPosition]?.imageName ?? data.attachedImageName}
+        attachedImageUrl={data.layoutImages?.[data.layoutPosition]?.imageUrl ?? data.attachedImageUrl}
+        onImageChange={(name, url) => {
+          const currentLayout = data.layoutPosition;
+          onChange((prev) => {
+            const updatedLayoutImages = {
+              ...(prev.layoutImages || {}),
+            };
+            if (url) {
+              updatedLayoutImages[currentLayout] = { imageName: name, imageUrl: url };
+            } else {
+              delete updatedLayoutImages[currentLayout];
+            }
+            return {
+              ...prev,
+              layoutImages: updatedLayoutImages,
+              attachedImageName: name,
+              attachedImageUrl: url,
+            };
+          });
+        }}
       />
     </div>
   );
