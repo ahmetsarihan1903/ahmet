@@ -33,7 +33,7 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
 
-  const createInitialForm = (prev?: Partial<RailDoorInspectionFullData>): RailDoorInspectionFullData => {
+  const createInitialForm = (prev?: RailDoorInspectionFullData): RailDoorInspectionFullData => {
     const defaultStops = prev?.stopCount || 8;
     const defaultStartFloor = prev?.startFloor !== undefined ? prev.startFloor : -1;
     const floorsList = calculateFloors(defaultStops, defaultStartFloor);
@@ -48,9 +48,9 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
         serialNumber: '',
         reference: '',
         location: '',
-        installerMaster: prev?.identity?.installerMaster || 'NAZIM KÜÇÜK',
-        projectManager: prev?.identity?.projectManager || 'MÜFİT GÖNCE',
-        inspector: prev?.identity?.inspector || 'AHMET SARIHAN',
+        installerMaster: '',
+        projectManager: '',
+        inspector: '',
       },
 
       stopCount: defaultStops,
@@ -64,24 +64,28 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
       floorAliases: {},
 
       mainType: prev?.mainType || 'MR',
-      // Seçili asansör tipi & kuyu ağırlık yerleşimi korunur (Ağırlık Sağda / Solda / Arkada)
       layoutPosition: prev?.layoutPosition || 'CWT_SIDE_RIGHT',
 
-      // Şema bazlı özel teknik resimler (Her kuyu şemasının resmi ayrı saklanır)
+      // Keep registered/uploaded PDF and blueprint images!
       layoutImages: prev?.layoutImages || {},
-
-      // Özel sütunlar (15'ten sonra kullanıcının eklediği sütunlar)
       customColumnCodes: prev?.customColumnCodes || [],
 
-      // Seçili teknik resim ve çizim dosyaları / URL'leri korunur
       attachedImageName: prev?.attachedImageName,
       attachedImageUrl: prev?.attachedImageUrl,
       attachedPdfName: prev?.attachedPdfName,
       attachedPdfDataUrl: prev?.attachedPdfDataUrl,
 
+      // Clear measurements and project nominals for new form
       projectNominalValues: {},
       floorMatrixMeasurements: {},
       machineChassisMeasurements: {},
+      chaseMeasurementsTable1: {},
+      consoleMeasurementsTable2: {
+        uBolmeSide: {},
+        tekRaySide: {},
+      },
+      pitDepth: '',
+      headroom: '',
       railDoorMeasurements: {},
 
       generalNotes: '',

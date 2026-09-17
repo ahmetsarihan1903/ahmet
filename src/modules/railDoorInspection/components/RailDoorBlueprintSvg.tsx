@@ -61,9 +61,16 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
     };
   }, [showFullModal]);
 
-  const currentImageName = attachedImageName || attachedPdfName;
-  const currentImageUrl = attachedImageUrl || attachedPdfDataUrl;
+  const defaultLayoutImageMap: Record<string, string> = {
+    CWT_SIDE_RIGHT: '/agirlik_yanda_sagda.svg',
+    CWT_SIDE_LEFT: '/agirlik_yanda_solda.svg',
+    CWT_REAR: '/agirlik_arkada.svg',
+  };
+
+  const isCustomUploaded = Boolean(attachedImageUrl || attachedPdfDataUrl);
   const layoutTitle = LAYOUT_TITLES[layout] || 'Kuyu Yerleşimi';
+  const currentImageName = attachedImageName || attachedPdfName || `${layoutTitle} Teknik Çizimi`;
+  const currentImageUrl = attachedImageUrl || attachedPdfDataUrl || defaultLayoutImageMap[layout];
 
   const handleFileProcess = async (file: File | Blob, customName?: string) => {
     setIsProcessing(true);
@@ -262,20 +269,20 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
               <span className="text-xs sm:text-sm font-black text-white tracking-wide uppercase">
                 {layoutTitle} Şeması
               </span>
-              {currentImageUrl ? (
+              {isCustomUploaded ? (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  📁 Bu Şemaya Özel Resim Yüklü
+                  📁 Özel Proje Resmi Yüklü
                 </span>
               ) : (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                  📐 Dahili Standart Şema
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  📐 Standart CAD Proje Çizimi
                 </span>
               )}
             </div>
             <span className="text-[10px] text-slate-400 block mt-0.5">
-              {currentImageUrl
-                ? `Dosya: ${currentImageName || 'Özel Proje Çizimi'} (Sadece bu seçimde gösterilir)`
-                : 'İsterseniz bu yerleşim için kendi teknik resminizi yükleyebilirsiniz'}
+              {isCustomUploaded
+                ? `Dosya: ${currentImageName} (Sadece bu seçimde gösterilir)`
+                : `${layoutTitle} için standart teknik CAD projesi referans alınmaktadır.`}
             </span>
           </div>
         </div>
@@ -285,7 +292,7 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
           {/* Tekil Basit Dosya/Fotoğraf Yükleme Butonu */}
           <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 text-xs font-black transition cursor-pointer shadow-md">
             <Upload className="w-3.5 h-3.5 text-slate-950" />
-            <span>{currentImageUrl ? 'Resmi Değiştir' : '📁 Resim / Fotoğraf Ekle'}</span>
+            <span>{isCustomUploaded ? 'Resmi Değiştir' : '📁 Özel Resim Ekle'}</span>
             <input
               type="file"
               accept="image/*,.svg,image/svg+xml,.pdf"
@@ -294,19 +301,20 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
             />
           </label>
 
+          {isCustomUploaded && (
+            <button
+              type="button"
+              onClick={handleClearImage}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 text-xs font-bold transition cursor-pointer"
+              title="Özel resmi kaldırıp standart teknik çizime dön"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Sıfırla</span>
+            </button>
+          )}
+
           {currentImageUrl && (
             <>
-              {/* Resmi Kaldır Butonu */}
-              <button
-                type="button"
-                onClick={handleClearImage}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/40 text-xs font-bold transition cursor-pointer"
-                title="Bu şemanın özel resmini kaldırıp standart şemaya dön"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Kaldır</span>
-              </button>
-
               {/* Zoom Araçları */}
               <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5">
                 <button

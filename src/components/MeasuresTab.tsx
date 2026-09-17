@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Ruler, Trash2, Edit2, Check, X, AlertCircle } from 'lucide-react';
+import { Plus, Ruler, Trash2, Edit2, Check, X, ShieldCheck, Calendar, Lock } from 'lucide-react';
 import { MeasureItem } from '../types';
 import { SmartTextInput } from './SmartTextInput';
 
@@ -44,6 +44,7 @@ export const MeasuresTab: React.FC<MeasuresTabProps> = ({
       name: name.trim(),
       value: value.trim(),
       notes: notes.trim(),
+      isFixed: false,
     };
 
     onAddMeasure(newMeasure);
@@ -60,15 +61,23 @@ export const MeasuresTab: React.FC<MeasuresTabProps> = ({
     setEditNotes(m.notes || '');
   };
 
-  const handleSaveEdit = (id: string) => {
-    if (!editName.trim() || !editValue.trim()) return;
+  const handleSaveEdit = (id: string, isFixed?: boolean) => {
+    if (!editName.trim()) return;
 
     onUpdateMeasure(id, {
-      name: editName.trim(),
+      name: isFixed ? undefined : editName.trim(), // Keep fixed item title immutable
       value: editValue.trim(),
       notes: editNotes.trim(),
     });
     setEditingId(null);
+  };
+
+  const handleQuickValueChange = (id: string, newValue: string) => {
+    onUpdateMeasure(id, { value: newValue });
+  };
+
+  const handleQuickNotesChange = (id: string, newNotes: string) => {
+    onUpdateMeasure(id, { notes: newNotes });
   };
 
   return (
@@ -77,21 +86,21 @@ export const MeasuresTab: React.FC<MeasuresTabProps> = ({
       <div className="bg-slate-900 p-3 sm:p-4 rounded border border-slate-800">
         <div className="flex items-center gap-2 text-slate-200 font-bold text-xs sm:text-sm mb-1">
           <Ruler className="w-4 h-4 text-blue-400" />
-          <span className="uppercase tracking-wider">Saha Ölçü Kontrolleri</span>
+          <span className="uppercase tracking-wider">Saha Ölçü & Mesafe Kontrolleri</span>
         </div>
         <p className="text-xs text-slate-400 leading-relaxed">
-          Kuyu dibi, ray açıklıkları, kuyu üstü ve kabin boyutları gibi sahada alınan ölçümleri giriniz.
-          Girilen değerler doğrudan rapora işlenir.
+          Bakım günü, limit kesiciler, tampon mesafeleri ve sahada alınan diğer ölçümleri giriniz.
+          Girilen tüm değerler ve açıklamalar kalite kontrol raporuna doğrudan aktarılır.
         </p>
       </div>
 
-      {/* Adding form modal / inline box */}
-      {isAdding ? (
+      {/* Adding form inline modal box */}
+      {isAdding && (
         <div className="bg-slate-900 p-3.5 rounded border border-blue-500/60 shadow-lg space-y-3 animate-fadeIn">
           <div className="flex items-center justify-between pb-2 border-b border-slate-800">
             <h3 className="font-bold text-xs uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
               <Plus className="w-3.5 h-3.5 text-blue-400" />
-              <span>Yeni Saha Ölçüsü Ekle</span>
+              <span>Yeni Ekstra Saha Ölçüsü Ekle</span>
             </h3>
             <button
               type="button"
@@ -105,28 +114,28 @@ export const MeasuresTab: React.FC<MeasuresTabProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <SmartTextInput
               id="input-measure-name"
-              label="Ölçü Adı"
+              label="ÖLÇÜ ADI"
               value={name}
               onChange={setName}
-              placeholder="Örn: Ray Arası Açıklığı, Kuyu Dibi"
+              placeholder="Örn: Ray Arası Açıklığı, Halat Çapı"
               required
             />
             <SmartTextInput
               id="input-measure-value"
-              label="Ölçülen Değer"
+              label="ÖLÇÜLEN DEĞER"
               value={value}
               onChange={setValue}
-              placeholder="Örn: 23 cm, 1450 mm"
+              placeholder="Örn: 23 cm, 1450 mm, Uygun"
               required
             />
           </div>
 
           <SmartTextInput
             id="input-measure-notes"
-            label="Açıklama (İsteğe Bağlı)"
+            label="AÇIKLAMA (İSTEĞE BAĞLI)"
             value={notes}
             onChange={setNotes}
-            placeholder="Örn: Sol ve sağ taraf kontrol edildi, sapma yok."
+            placeholder="Örn: Sol ve sağ taraf kontrol edildi, standart dahilinde."
             isTextarea
             rows={2}
           />
@@ -154,63 +163,66 @@ export const MeasuresTab: React.FC<MeasuresTabProps> = ({
             </button>
           </div>
         </div>
-      ) : null}
+      )}
 
-      {/* List of Entered Measures */}
-      {measures.length === 0 && !isAdding ? (
-        <div className="bg-slate-900 p-5 rounded border border-dashed border-slate-800 text-center space-y-2.5">
-          <div className="w-10 h-10 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center mx-auto border border-slate-700">
-            <Ruler className="w-5 h-5" />
-          </div>
-          <div>
-            <h4 className="font-bold text-xs sm:text-sm text-slate-200 uppercase tracking-wider">Henüz ölçü eklenmedi</h4>
-            <p className="text-[11px] text-slate-400 mt-0.5 max-w-xs mx-auto">
-              Sahada alınan mekanik veya elektriksel ölçüleri listelemek için aşağıdaki butona basınız.
-            </p>
-          </div>
-          <button
-            type="button"
-            id="btn-add-measure-empty"
-            onClick={handleStartAdd}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded shadow-md transition-all uppercase tracking-wider cursor-pointer active:scale-95"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>[ + ÖLÇÜ EKLE ]</span>
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {measures.map((m, idx) => (
+      {/* List of Entered Measures (Fixed + Custom) */}
+      <div className="space-y-3">
+        {measures.map((m, idx) => {
+          const isFixed = m.isFixed || m.id.startsWith('fixed_');
+          const isBakimGunu = m.id === 'fixed_bakim_gunu' || m.name.toUpperCase().includes('BAKIM GÜNÜ');
+
+          return (
             <div
               key={m.id}
-              className="bg-slate-900 p-3 sm:p-3.5 rounded border border-slate-800 transition-all"
+              className={`bg-slate-900 p-3 sm:p-4 rounded border transition-all ${
+                isFixed
+                  ? 'border-slate-800 hover:border-blue-500/50'
+                  : 'border-slate-800 hover:border-slate-700'
+              }`}
             >
               {editingId === m.id ? (
                 <div className="space-y-2.5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <SmartTextInput
-                      id={`edit-mname-${m.id}`}
-                      label="Ölçü Adı"
-                      value={editName}
-                      onChange={setEditName}
-                      required
-                    />
+                    {isFixed ? (
+                      <div>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                          ÖLÇÜ ADI (Sabit Madde)
+                        </label>
+                        <div className="py-2 px-3 bg-slate-950 rounded border border-slate-800 text-xs font-bold text-slate-200 flex items-center justify-between">
+                          <span>{m.name}</span>
+                          <Lock className="w-3.5 h-3.5 text-slate-400" />
+                        </div>
+                      </div>
+                    ) : (
+                      <SmartTextInput
+                        id={`edit-mname-${m.id}`}
+                        label="ÖLÇÜ ADI"
+                        value={editName}
+                        onChange={setEditName}
+                        required
+                      />
+                    )}
+
                     <SmartTextInput
                       id={`edit-mval-${m.id}`}
-                      label="Ölçülen Değer"
+                      label="ÖLÇÜLEN DEĞER"
                       value={editValue}
                       onChange={setEditValue}
+                      placeholder={isBakimGunu ? 'Örn: 15.04.2025 veya Her Ayın 15i' : 'Örn: 25 cm, 140 mm'}
                       required
                     />
                   </div>
+
                   <SmartTextInput
                     id={`edit-mnotes-${m.id}`}
-                    label="Açıklama"
+                    label="AÇIKLAMA (İSTEĞE BAĞLI)"
                     value={editNotes}
                     onChange={setEditNotes}
+                    placeholder="Ekstra açıklama veya saha notu..."
                     isTextarea
                     rows={2}
                   />
+
                   <div className="flex items-center justify-end gap-2 pt-1">
                     <button
                       type="button"
@@ -221,72 +233,99 @@ export const MeasuresTab: React.FC<MeasuresTabProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleSaveEdit(m.id)}
+                      onClick={() => handleSaveEdit(m.id, isFixed)}
                       className="px-3 py-1 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded cursor-pointer"
                     >
-                      Güncelle
+                      Kaydet
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-mono text-slate-400">
+                <div className="space-y-2.5">
+                  {/* Row 1: Header - ÖLÇÜ ADI */}
+                  <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <span className="text-[10px] font-mono text-slate-400 font-bold bg-slate-800/80 px-1.5 py-0.5 rounded">
                         #{idx + 1}
                       </span>
-                      <h4 className="text-xs sm:text-sm font-semibold text-slate-200">{m.name}</h4>
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                          ÖLÇÜ ADI
+                        </span>
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-100 truncate">
+                          {m.name}
+                        </h4>
+                      </div>
+                      {isFixed && (
+                        <span className="px-1.5 py-0.5 text-[9px] font-bold bg-blue-950/60 text-blue-400 border border-blue-500/30 rounded uppercase tracking-wider">
+                          Sabit Ölçü
+                        </span>
+                      )}
                     </div>
-                    <div className="mt-1 flex items-baseline gap-2">
-                      <span className="text-[11px] text-slate-400 uppercase font-mono">Değer:</span>
-                      <span className="text-xs font-mono font-bold text-blue-300 bg-blue-500/20 px-2 py-0.5 rounded border border-blue-400/40">
-                        {m.value}
-                      </span>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleStartEdit(m)}
+                        title="Düzenle"
+                        className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded transition-colors cursor-pointer"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                      {!isFixed && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteMeasure(m.id)}
+                          title="Bu Ekstra Ölçüyü Sil"
+                          className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
-                    {m.notes && (
-                      <p className="mt-1.5 text-xs text-slate-300 bg-slate-950 p-2 rounded border border-slate-800 break-words">
-                        {m.notes}
-                      </p>
-                    )}
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleStartEdit(m)}
-                      title="Düzenle"
-                      className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded transition-colors cursor-pointer"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDeleteMeasure(m.id)}
-                      title="Sil"
-                      className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                  {/* Row 2: Form Inputs with explicit headers ÖLÇÜLEN DEĞER & AÇIKLAMA (İSTEĞE BAĞLI) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-0.5">
+                    <SmartTextInput
+                      id={`measure-val-${m.id}`}
+                      label="ÖLÇÜLEN DEĞER"
+                      value={m.value || ''}
+                      onChange={(val) => handleQuickValueChange(m.id, val)}
+                      placeholder={
+                        isBakimGunu
+                          ? 'Örn: 15.04.2025 veya Her Ayın 15i'
+                          : 'Örn: 25 cm, 150 mm'
+                      }
+                      required
+                    />
+                    <SmartTextInput
+                      id={`measure-notes-${m.id}`}
+                      label="AÇIKLAMA (İSTEĞE BAĞLI)"
+                      value={m.notes || ''}
+                      onChange={(n) => handleQuickNotesChange(m.id, n)}
+                      placeholder="Saha notu veya açıklama yazınız..."
+                    />
                   </div>
                 </div>
               )}
             </div>
-          ))}
+          );
+        })}
+      </div>
 
-          {/* Bottom Add button */}
-          {!isAdding && (
-            <div className="pt-1.5">
-              <button
-                type="button"
-                id="btn-add-extra-measure"
-                onClick={handleStartAdd}
-                className="w-full py-2.5 px-3 border border-dashed border-slate-700 hover:border-slate-500 bg-slate-900 hover:bg-slate-850 rounded text-slate-300 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5 text-blue-400" />
-                <span>[ + ÖLÇÜ EKLE ]</span>
-              </button>
-            </div>
-          )}
+      {/* Bottom Add button */}
+      {!isAdding && (
+        <div className="pt-2">
+          <button
+            type="button"
+            id="btn-add-extra-measure"
+            onClick={handleStartAdd}
+            className="w-full py-3 px-3 border border-dashed border-slate-700 hover:border-slate-500 bg-slate-900 hover:bg-slate-850 rounded text-slate-300 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5 text-blue-400" />
+            <span>[ + ÖLÇÜ EKLE ]</span>
+          </button>
         </div>
       )}
     </div>

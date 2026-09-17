@@ -27,7 +27,7 @@ import { getBetaLogoDataUrl } from '../utils/logoUtils';
 interface ReportViewProps {
   data: AuditFormData;
   onEditAudit: () => void;
-  onNewInspection: () => void;
+  onNewInspection?: () => void;
 }
 
 // Convert special Turkish characters for standard jsPDF Latin fonts to prevent corrupted glyphs
@@ -118,32 +118,33 @@ export const ReportView: React.FC<ReportViewProps> = ({
     const margin = 12;
 
     // 1. TOP HEADER BANNER (Navy #0A2647)
+    const bannerHeight = 22;
     doc.setFillColor(10, 38, 71); // #0A2647
-    doc.rect(margin, margin, pageWidth - margin * 2, 22, 'F');
+    doc.rect(margin, margin, pageWidth - margin * 2, bannerHeight, 'F');
 
-    // Official Beta Asansör Logo
+    // Official Beta Asansör Logo inside navy banner
     const logoDataUrl = getBetaLogoDataUrl();
     if (logoDataUrl) {
       try {
-        doc.addImage(logoDataUrl, 'PNG', margin + 3, margin + 2.5, 12, 14.4);
+        doc.addImage(logoDataUrl, 'PNG', margin + 2.5, margin + 2.6, 14, 16.8);
       } catch {
         doc.setFillColor(0, 136, 206);
-        doc.rect(margin + 3, margin + 2.5, 12, 14.4, 'F');
+        doc.rect(margin + 2.5, margin + 2.6, 14, 16.8, 'F');
       }
     }
 
-    // Header Text
-    doc.setFontSize(14);
+    // Header Title and Subtitle Text
+    doc.setFontSize(13.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
-    doc.text('BETA ASANSOR - KALITE KONTROL RAPORU', margin + 18, margin + 9);
+    doc.text('BETA ASANSOR - KALITE KONTROL RAPORU', margin + 19, margin + 9.5);
 
-    doc.setFontSize(10);
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(203, 213, 225); // Slate 300
     doc.text(
       'Resmi Son Muayene ve Saha Uygunluk Belgesi | Kalite Guvence Birimi',
-      margin + 18,
+      margin + 19,
       margin + 16
     );
 
@@ -384,9 +385,9 @@ export const ReportView: React.FC<ReportViewProps> = ({
         head: [
           [
             { content: '#', styles: { halign: 'center' as const, cellWidth: 8 } },
-            { content: 'OLCU TANIMI', styles: { cellWidth: 80 } },
+            { content: 'OLCU ADI', styles: { cellWidth: 80 } },
             { content: 'OLCULEN DEGER', styles: { halign: 'center' as const, cellWidth: 40 } },
-            { content: 'ACIKLAMA / NOTLAR', styles: { cellWidth: 58 } },
+            { content: 'ACIKLAMA (ISTEGE BAGLI)', styles: { cellWidth: 58 } },
           ],
         ],
         body: measureTableRows,
@@ -774,48 +775,14 @@ export const ReportView: React.FC<ReportViewProps> = ({
               )}
             </button>
 
-            {/* 3. PDF Aç / Önizle */}
-            <button
-              type="button"
-              id="btn-preview-pdf"
-              onClick={handlePreviewPDF}
-              className="min-h-[42px] px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border-2 border-slate-600 cursor-pointer"
-              title="PDF Belgesini Tarayıcıda Aç"
-            >
-              <FileText className="w-3.5 h-3.5 text-blue-400" />
-              <span>PDF Aç</span>
-            </button>
-
-            {/* 4. Yazdır */}
-            <button
-              type="button"
-              id="btn-print-report"
-              onClick={handlePrint}
-              className="min-h-[42px] px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border-2 border-slate-600 cursor-pointer"
-              title="Sayfayı Yazdır"
-            >
-              <Printer className="w-3.5 h-3.5 text-slate-300" />
-              <span>Yazdır</span>
-            </button>
-
-            {/* 5. Düzenle */}
+            {/* 3. Düzenle */}
             <button
               type="button"
               onClick={onEditAudit}
-              className="min-h-[42px] px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border-2 border-slate-600 cursor-pointer"
+              className="min-h-[42px] px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border-2 border-slate-600 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
               <span>Düzenle</span>
-            </button>
-
-            {/* 6. Yeni Form */}
-            <button
-              type="button"
-              onClick={onNewInspection}
-              className="min-h-[42px] px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border-2 border-slate-600 cursor-pointer"
-            >
-              <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Yeni Denetim</span>
             </button>
           </div>
         </div>
@@ -981,9 +948,9 @@ export const ReportView: React.FC<ReportViewProps> = ({
                 <thead className="bg-slate-200 border-b-2 border-slate-300 text-slate-900 font-black uppercase text-[10px]">
                   <tr>
                     <th className="p-2 border-r border-slate-300 w-10 text-center">#</th>
-                    <th className="p-2 border-r border-slate-300">Ölçü Tanımı</th>
+                    <th className="p-2 border-r border-slate-300">Ölçü Adı</th>
                     <th className="p-2 border-r border-slate-300 w-44 text-center">Ölçülen Değer</th>
-                    <th className="p-2">Açıklama / Notlar</th>
+                    <th className="p-2">Açıklama (İsteğe Bağlı)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-300">

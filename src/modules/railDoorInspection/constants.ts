@@ -330,9 +330,11 @@ export function calculateMmDeviation(
   if (cellMm === null) return null;
 
   const isSideCwt = !layoutPosition || layoutPosition === 'CWT_SIDE_RIGHT' || layoutPosition === 'CWT_SIDE_LEFT';
+  const isRearCwt = layoutPosition === 'CWT_REAR';
 
-  // Ağırlık Yanda (Sağ veya Sol) için 4 Numaralı Sütun Özel Kuralı:
-  if (isSideCwt && String(colCode) === '4') {
+  // 4 Numaralı Sütun Senaryosu (Ağırlık Yanda için col 4, Ağırlık Arkada için col 10)
+  const isCol4Rule = (isSideCwt && String(colCode) === '4') || (isRearCwt && String(colCode) === '10');
+  if (isCol4Rule) {
     const thresholdMm = nomMm !== null ? nomMm : (inferredNominalMm ?? 120);
 
     if (cellMm < thresholdMm) {
@@ -366,8 +368,9 @@ export function calculateMmDeviation(
     };
   }
 
-  // Ağırlık Yanda (Sağ veya Sol) için 12 Numaralı Sütun Özel Kuralı:
-  if (isSideCwt && String(colCode) === '12') {
+  // 12 Numaralı Sütun Senaryosu (Ağırlık Yanda için col 12, Ağırlık Arkada için col 3 ve 4)
+  const isCol12Rule = (isSideCwt && String(colCode) === '12') || (isRearCwt && (String(colCode) === '3' || String(colCode) === '4'));
+  if (isCol12Rule) {
     const thresholdMm = nomMm !== null ? nomMm : (inferredNominalMm ?? null);
     if (thresholdMm !== null) {
       if (cellMm < thresholdMm) {

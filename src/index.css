@@ -23,50 +23,104 @@ html.light .app-root {
   color: #0f172a !important; /* slate-900 */
 }
 
-/* Kartlar ve Yüzeyler */
-html.light .bg-slate-950 {
+/* Header her zaman kurumsal lacivert zemin (#0A2647) olduğundan içindeki metin ve butonlar açık renkte kalmalıdır */
+html.light header,
+html.light header *,
+html.light .bg-\[\#0A2647\],
+html.light .bg-\[\#0A2647\] * {
+  color: inherit;
+}
+
+html.light header .text-white,
+html.light .bg-\[\#0A2647\] .text-white {
+  color: #ffffff !important;
+}
+
+html.light header .text-slate-200,
+html.light header .text-slate-300,
+html.light .bg-\[\#0A2647\] .text-slate-200,
+html.light .bg-\[\#0A2647\] .text-slate-300 {
+  color: #f1f5f9 !important;
+}
+
+html.light header .text-slate-400,
+html.light .bg-\[\#0A2647\] .text-slate-400 {
+  color: #cbd5e1 !important;
+}
+
+html.light header button,
+html.light .bg-\[\#0A2647\] button {
+  border-color: #475569 !important;
+}
+
+html.light header button.bg-slate-800\/90,
+html.light header button.bg-slate-800,
+html.light header button.bg-slate-900 {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+/* Genel Sayfa Kartları ve Yüzeyler (Gündüz Modu) */
+html.light .bg-slate-950:not(header *):not(.bg-\[\#0A2647\] *) {
   background-color: #f8fafc !important; /* slate-50 */
 }
 
-html.light .bg-slate-900 {
+html.light .bg-slate-900:not(header *):not(.bg-\[\#0A2647\] *) {
   background-color: #ffffff !important; /* white */
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
 }
 
-html.light .bg-slate-800 {
+html.light .bg-slate-850:not(header *):not(.bg-\[\#0A2647\] *) {
+  background-color: #f1f5f9 !important; /* slate-100 */
+}
+
+html.light .bg-slate-800:not(header *):not(.bg-\[\#0A2647\] *) {
   background-color: #e2e8f0 !important; /* slate-200 */
 }
 
-html.light .bg-slate-850 {
-  background-color: #f1f5f9 !important;
-}
-
 /* Kenarlıklar */
-html.light .border-slate-800,
-html.light .border-slate-700 {
+html.light .border-slate-800:not(header *):not(.bg-\[\#0A2647\] *),
+html.light .border-slate-700:not(header *):not(.bg-\[\#0A2647\] *) {
   border-color: #cbd5e1 !important; /* slate-300 */
 }
 
-html.light .border-slate-600 {
+html.light .border-slate-600:not(header *):not(.bg-\[\#0A2647\] *) {
   border-color: #94a3b8 !important; /* slate-400 */
 }
 
-/* Tipografi & Metin Renkleri */
-html.light .text-slate-100,
-html.light .text-slate-200 {
+/* Tipografi & Metin Renkleri (Gündüz Modu - Yüksek Kontrast) */
+html.light .text-slate-100:not(header *):not(.bg-\[\#0A2647\] *),
+html.light .text-slate-200:not(header *):not(.bg-\[\#0A2647\] *) {
   color: #0f172a !important; /* slate-900 */
 }
 
-html.light .text-slate-300 {
+html.light .text-slate-300:not(header *):not(.bg-\[\#0A2647\] *) {
   color: #1e293b !important; /* slate-800 */
 }
 
-html.light .text-slate-400 {
+html.light .text-slate-400:not(header *):not(.bg-\[\#0A2647\] *) {
+  color: #334155 !important; /* slate-700 - kristal netliğinde okunabilir */
+}
+
+html.light .text-slate-500:not(header *):not(.bg-\[\#0A2647\] *) {
   color: #475569 !important; /* slate-600 */
 }
 
-html.light .text-slate-500 {
-  color: #64748b !important; /* slate-500 */
+/* Gündüz Modu Renkli Rozet ve Vurgu Metinleri (Yüksek Kontrastlı Koyu Tonlar) */
+html.light .text-sky-300:not(header *):not(.bg-\[\#0A2647\] *) {
+  color: #0369a1 !important; /* sky-700 */
+}
+
+html.light .text-amber-300:not(header *):not(.bg-\[\#0A2647\] *) {
+  color: #92400e !important; /* amber-800 */
+}
+
+html.light .text-orange-300:not(header *):not(.bg-\[\#0A2647\] *) {
+  color: #9a3412 !important; /* orange-800 */
+}
+
+html.light .text-emerald-300:not(header *):not(.bg-\[\#0A2647\] *) {
+  color: #065f46 !important; /* emerald-800 */
 }
 
 /* Form Elemanları (Input & Select & Textarea) */
@@ -80,7 +134,13 @@ html.light select {
 
 html.light input::placeholder,
 html.light textarea::placeholder {
-  color: #94a3b8 !important;
+  color: #64748b !important;
+}
+
+/* Modal Arka Planları */
+html.light .bg-slate-950\/80,
+html.light .bg-black\/80 {
+  background-color: rgba(15, 23, 42, 0.6) !important;
 }
 
 /* Sticky Nav Bar in Step 3 */

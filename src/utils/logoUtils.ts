@@ -46,7 +46,12 @@ export function getBetaLogoDataUrl(): string {
     ctx.arc(442, 62, 23, 0, Math.PI * 2);
     ctx.stroke();
 
-    // 3. Fallback drawing if Path2D exists, otherwise clean solid raster
+    // 3. Bottom White Box (#FFFFFF)
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 495, 500, 105);
+
+    // 4. Vector Paths with Safe Fallback
+    let vectorSuccess = false;
     if (typeof Path2D !== 'undefined') {
       try {
         ctx.fillStyle = '#FFFFFF';
@@ -62,9 +67,6 @@ export function getBetaLogoDataUrl(): string {
         ctx.fill(pathT);
         ctx.fill(pathA);
 
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 495, 500, 105);
-
         ctx.fillStyle = '#1D1D1B';
         const pathAsansor = new Path2D('M22 580 l28 -74 h15 l28 74 h-16 l-5.5 -16 h-27 l-5.5 16 H22 z M48.5 551 h19 l-9.5 -28.5 z M104 564 c4 4.5 9.5 7 16 7 c7 0 11.5 -3 11.5 -7.5 c0 -5 -4.5 -6.5 -13.5 -9 c-14 -3.5 -23.5 -8.5 -23.5 -20 c0 -12 10 -19.5 24.5 -19.5 c10.5 0 19 4 24 10.5 l-9.5 9.5 c-4 -4 -8.5 -6 -14.5 -6 c-6 0 -10 2.5 -10 6.5 c0 4 4.5 5.5 13 8 c15 4 24 9 24 21 c0 13 -10.5 20.5 -26 20.5 c-12 0 -22.5 -4.5 -28 -12 z M168 580 l28 -74 h15 l28 74 h-16 l-5.5 -16 h-27 l-5.5 16 H168 z M194.5 551 h19 l-9.5 -28.5 z M250 506 h15 l29 44 v-44 h14 v74 h-14 l-30 -45 v45 h-14 z M322 564 c4 4.5 9.5 7 16 7 c7 0 11.5 -3 11.5 -7.5 c0 -5 -4.5 -6.5 -13.5 -9 c-14 -3.5 -23.5 -8.5 -23.5 -20 c0 -12 10 -19.5 24.5 -19.5 c10.5 0 19 4 24 10.5 l-9.5 9.5 c-4 -4 -8.5 -6 -14.5 -6 c-6 0 -10 2.5 -10 6.5 c0 4 4.5 5.5 13 8 c15 4 24 9 24 21 c0 13 -10.5 20.5 -26 20.5 c-12 0 -22.5 -4.5 -28 -12 z M380 543 c0 -22 10 -38 27 -38 c17 0 27 16 27 38 c0 22 -10 38 -27 38 c-17 0 -27 -16 -27 -38 z M419 543 c0 -15 -5 -24 -12 -24 c-7 0 -12 9 -12 24 c0 15 5 24 12 24 c7 0 12 -9 12 -24 z M447 506 h26 c12 0 19 6 19 16 c0 8 -4.5 13 -12 15 l13 23 h-17 l-11 -21 h-4 v21 h-14 z M461 520 v12 h11 c4.5 0 7 -2 7 -6 c0 -4 -2.5 -6 -7 -6 z');
         ctx.fill(pathAsansor);
@@ -73,19 +75,22 @@ export function getBetaLogoDataUrl(): string {
         ctx.arc(394, 500, 3.5, 0, Math.PI * 2);
         ctx.arc(410, 500, 3.5, 0, Math.PI * 2);
         ctx.fill();
+        vectorSuccess = true;
       } catch {
-        // Fallback typography if Path2D is not supported
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 120px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('beta', 250, 320);
-
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 495, 500, 105);
-        ctx.fillStyle = '#1D1D1B';
-        ctx.font = 'bold 50px sans-serif';
-        ctx.fillText('ASANSÖR', 250, 565);
+        vectorSuccess = false;
       }
+    }
+
+    if (!vectorSuccess) {
+      // Fallback typography if Path2D is not supported
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 120px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('beta', 250, 320);
+
+      ctx.fillStyle = '#1D1D1B';
+      ctx.font = 'bold 50px sans-serif';
+      ctx.fillText('ASANSÖR', 250, 565);
     }
 
     cachedLogoDataUrl = canvas.toDataURL('image/png');

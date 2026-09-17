@@ -50,9 +50,10 @@ export const Header: React.FC<HeaderProps> = ({
               id="btn-back-to-hub"
               onClick={onBackToMainMenu}
               title="Ana Menü / Modül Seçimine Dön"
-              className="px-2 py-1.5 bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white rounded border border-slate-600 text-xs font-bold flex items-center gap-1 shrink-0 transition-colors shadow-xs"
+              className="px-2.5 py-1.5 bg-slate-800/95 hover:bg-slate-700 text-white rounded border border-slate-500 text-xs font-black flex items-center gap-1 shrink-0 transition-colors shadow-sm cursor-pointer"
             >
-              <span className="text-orange-400">‹</span> Menü
+              <span className="text-orange-400 font-bold text-sm">‹</span>
+              <span>Menü</span>
             </button>
           )}
           <BetaLogo size="sm" className="shadow-xs shrink-0" />
@@ -135,9 +136,9 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onOpenSettings}
             title="Ayarlar & Menü (Görünüm, Veri Güncelleme, Geçmiş)"
             aria-label="Ayarlar"
-            className="p-2 bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white rounded border border-slate-600 hover:border-slate-400 transition-colors cursor-pointer flex items-center justify-center"
+            className="p-2 bg-slate-800/95 hover:bg-slate-700 text-white rounded border border-slate-500 hover:border-slate-300 transition-colors cursor-pointer flex items-center justify-center shadow-sm"
           >
-            <Settings className="w-4 h-4" />
+            <Settings className="w-4 h-4 text-white" />
           </button>
         </div>
       </div>

@@ -415,7 +415,7 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
             <div className="bg-slate-900 p-3 rounded border border-slate-800 text-xs text-slate-300">
               <span className="font-bold text-slate-200 block">Otomatik Oluşturulan Kat Kapısı Matrisi</span>
               <span className="text-slate-400 text-[11px] block mt-0.5">
-                Kabin kapısı ve tüm katların durak kapı kontrolleri listelenmiştir. Uygunsuzluk tespit edilen katın [ UD ] butonuna basınız. Genel veya ekstra kapı notları için aşağıdaki <strong>[ + Ekstra Madde Ekle ]</strong> butonunu kullanabilirsiniz.
+                Kabin kapısı ve tüm katların durak kapı kontrolleri listelenmiştir. Bir kapı maddesine <strong>2 saniye basılı tutarak</strong> yeşil UYGUN olarak işaretleyebilir veya uygunsuzluk tespit edilen katın <strong>[ UD ]</strong> butonuna basabilirsiniz.
               </span>
             </div>
             {doorsItems.map((item, idx) => (
@@ -423,7 +423,9 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
                 key={item.id}
                 item={item}
                 index={idx}
+                allowLongPressPass={true}
                 onToggleUD={(id) => onToggleUD('doors', id)}
+                onTogglePassed={(id) => onTogglePassed('doors', id)}
                 onDescriptionChange={(id, desc) => onDescriptionChange('doors', id, desc)}
                 onDeleteCustomItem={(id) => onDeleteCustomItem('doors', id)}
               />

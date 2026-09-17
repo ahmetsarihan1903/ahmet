@@ -7,7 +7,7 @@ interface FontSizeControlProps {
 }
 
 export const FontSizeControl: React.FC<FontSizeControlProps> = ({ className = '' }) => {
-  const { fontScale, setFontScale, increaseFontSize, decreaseFontSize, resetFontSize } = useTheme();
+  const { fontScale, setFontScale, increaseFontSize, decreaseFontSize, resetFontSize, isDark } = useTheme();
 
   const presets = [
     { label: 'Standart', sub: 'Mevcut Punto', value: 100 },
@@ -18,16 +18,22 @@ export const FontSizeControl: React.FC<FontSizeControlProps> = ({ className = ''
 
   return (
     <div
-      className={`p-3.5 bg-slate-950 light:bg-slate-50 rounded-lg border border-slate-800 light:border-slate-200 ${className}`}
+      className={`p-3.5 rounded-lg border ${
+        isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
+      } ${className}`}
     >
       {/* Başlık & Mevcut Durum */}
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-black uppercase tracking-wider text-slate-300 light:text-slate-700 flex items-center gap-1.5">
-          <Type className="w-3.5 h-3.5 text-orange-400 light:text-orange-600" />
+        <span className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${
+          isDark ? 'text-slate-200' : 'text-slate-800'
+        }`}>
+          <Type className={`w-3.5 h-3.5 ${isDark ? 'text-orange-400' : 'text-orange-600'}`} />
           Yazı Boyutu (Punto Büyütme)
         </span>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 light:bg-slate-200 text-slate-300 light:text-slate-700 font-mono">
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded font-mono ${
+            isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-800'
+          }`}>
             %{fontScale} {fontScale === 100 ? '(Mevcut)' : ''}
           </span>
           {fontScale > 100 && (
@@ -35,7 +41,11 @@ export const FontSizeControl: React.FC<FontSizeControlProps> = ({ className = ''
               type="button"
               onClick={resetFontSize}
               title="Varsayılan puntoya dön"
-              className="p-1 rounded bg-slate-800 light:bg-slate-200 hover:bg-slate-700 light:hover:bg-slate-300 text-slate-400 hover:text-slate-200 transition cursor-pointer"
+              className={`p-1 rounded transition cursor-pointer ${
+                isDark
+                  ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200'
+                  : 'bg-slate-200 hover:bg-slate-300 text-slate-600 hover:text-slate-900'
+              }`}
             >
               <RotateCcw className="w-3 h-3" />
             </button>
@@ -55,13 +65,15 @@ export const FontSizeControl: React.FC<FontSizeControlProps> = ({ className = ''
               className={`py-2 px-2 rounded-lg border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
                 isSelected
                   ? 'bg-orange-600 text-white border-orange-500 shadow-md font-black scale-[1.02]'
-                  : 'bg-slate-900 light:bg-white text-slate-300 light:text-slate-700 border-slate-800 light:border-slate-300 hover:border-slate-600 hover:bg-slate-850'
+                  : isDark
+                  ? 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-600 hover:bg-slate-850'
+                  : 'bg-white text-slate-800 border-slate-300 hover:border-slate-400 hover:bg-slate-100 shadow-xs'
               }`}
             >
               <span className="text-xs font-bold leading-tight">{preset.label}</span>
               <span
                 className={`text-[9px] mt-0.5 ${
-                  isSelected ? 'text-orange-100 font-semibold' : 'text-slate-400 light:text-slate-500'
+                  isSelected ? 'text-orange-100 font-semibold' : isDark ? 'text-slate-400' : 'text-slate-500'
                 }`}
               >
                 {preset.sub}
@@ -72,7 +84,9 @@ export const FontSizeControl: React.FC<FontSizeControlProps> = ({ className = ''
       </div>
 
       {/* İnce Ayar Kademeli Büyüt / Küçült Çubuğu */}
-      <div className="flex items-center gap-2 p-2 bg-slate-900 light:bg-white rounded-lg border border-slate-800 light:border-slate-300">
+      <div className={`flex items-center gap-2 p-2 rounded-lg border ${
+        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-xs'
+      }`}>
         <button
           type="button"
           onClick={decreaseFontSize}
@@ -81,7 +95,9 @@ export const FontSizeControl: React.FC<FontSizeControlProps> = ({ className = ''
           className={`p-1.5 rounded-md flex items-center justify-center gap-1 text-xs font-bold transition-all ${
             fontScale <= 100
               ? 'opacity-30 cursor-not-allowed text-slate-400'
-              : 'bg-slate-800 light:bg-slate-100 hover:bg-slate-700 text-slate-200 light:text-slate-800 cursor-pointer active:scale-95'
+              : isDark
+              ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer active:scale-95'
+              : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 cursor-pointer active:scale-95'
           }`}
         >
           <ZoomOut className="w-3.5 h-3.5" />
@@ -98,7 +114,9 @@ export const FontSizeControl: React.FC<FontSizeControlProps> = ({ className = ''
               className={`h-2 flex-1 rounded-full cursor-pointer transition-all ${
                 fontScale >= level
                   ? 'bg-orange-500 shadow-xs'
-                  : 'bg-slate-800 light:bg-slate-200 hover:bg-slate-700'
+                  : isDark
+                  ? 'bg-slate-800 hover:bg-slate-700'
+                  : 'bg-slate-200 hover:bg-slate-300'
               }`}
             />
           ))}
@@ -121,8 +139,10 @@ export const FontSizeControl: React.FC<FontSizeControlProps> = ({ className = ''
       </div>
 
       {/* Canlı Önizleme Kutucuğu */}
-      <div className="mt-2 p-2 bg-slate-900/60 light:bg-slate-100/80 rounded border border-slate-800/80 light:border-slate-300/80">
-        <p className="text-[11px] text-slate-300 light:text-slate-700 leading-snug">
+      <div className={`mt-2 p-2 rounded border ${
+        isDark ? 'bg-slate-900/60 border-slate-800/80 text-slate-300' : 'bg-slate-100 border-slate-300 text-slate-800'
+      }`}>
+        <p className="text-[11px] leading-snug">
           👁️ <span className="font-bold">Canlı Önizleme:</span> Ray, kapı ve denetim ölçü maddeleri bu boyutta görüntülenecektir.
         </p>
       </div>

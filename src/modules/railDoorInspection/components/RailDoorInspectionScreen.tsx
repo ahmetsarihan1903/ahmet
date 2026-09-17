@@ -21,6 +21,8 @@ import {
   BookOpen,
   CheckCircle2,
   FileCheck2,
+  Trash2,
+  X,
 } from 'lucide-react';
 
 interface RailDoorInspectionScreenProps {
@@ -43,6 +45,7 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
   const [activeTab, setActiveTab] = useState<InspectionActiveTab>('RAIL_DOOR');
   const [selectedMeasureCode, setSelectedMeasureCode] = useState<string | undefined>('1');
   const [isReferenceModalOpen, setIsReferenceModalOpen] = useState(false);
+  const [isChassisModalOpen, setIsChassisModalOpen] = useState(false);
 
   // Aktif sekmeye göre ölçü tanımları
   const railDoorDefs = getMeasurementDefsForLayout(data.layoutPosition);
@@ -194,6 +197,38 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
     return act - proj;
   };
 
+  // Makine Şase Tablosu 1 (A, B, C, D, E, F(11), 10, G, H, I) Sütunları
+  const chaseCols = ['A', 'B', 'C', 'D', 'E', 'F(11)', '10', 'G', 'H', 'I'];
+
+  const handleChaseTableChange = (col: string, val: string) => {
+    const cleanVal = val.replace(/[^0-9.,-]/g, '');
+    onChange((prev) => {
+      const t1 = { ...(prev.chaseMeasurementsTable1 || {}) };
+      t1[col] = cleanVal;
+      return {
+        ...prev,
+        chaseMeasurementsTable1: t1,
+      };
+    });
+  };
+
+  // Konsol Mesafeleri Değişiklik İşleyicisi
+  const handleConsoleCellChange = (section: 'uBolmeSide' | 'tekRaySide', col: string, val: string) => {
+    const cleanVal = val.replace(/[^0-9.,-]/g, '');
+    onChange((prev) => {
+      const current = prev.consoleMeasurementsTable2 || { uBolmeSide: {}, tekRaySide: {} };
+      const updatedSection = { ...current[section] };
+      updatedSection[col] = cleanVal;
+      return {
+        ...prev,
+        consoleMeasurementsTable2: {
+          ...current,
+          [section]: updatedSection,
+        },
+      };
+    });
+  };
+
   // Sekme bazlı doluluk oranları
   let railFilledCount = 0;
   for (let s = 1; s <= (data.stopCount || 1); s++) {
@@ -204,8 +239,8 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
   }
   const totalRailExpected = (data.stopCount || 1) * 15;
 
-  const chassisFilledCount = (Object.values(data.machineChassisMeasurements || {}) as SingleMeasurementValue[]).filter(
-    (m) => m.actualValueMm && m.actualValueMm.trim() !== ''
+  const chassisFilledCount = Object.values(data.chaseMeasurementsTable1 || {}).filter(
+    (v) => typeof v === 'string' && v.trim() !== ''
   ).length;
 
   return (
@@ -338,159 +373,189 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
           </div>
         </div>
       ) : activeTab === 'MACHINE_CHASSIS' ? (
-        /* 2. SEKME: 2. MAKİNE ŞASE ÖLÇÜLERİ GÖRÜNÜMÜ */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
-          {/* Sol: Makine Şase Şeması */}
-          <div className="lg:col-span-5 space-y-3">
-            <MachineChassisSvg
-              activeCode={selectedMeasureCode}
-              onSelectCode={(code) => setSelectedMeasureCode(code)}
-            />
+        /* 2. SEKME: 2. MAKİNE ŞASE & KONSOL MESAFELERİ */
+        <div className="space-y-5 animate-fadeIn">
+          {/* Üst Bilgi & ÖLÇÜ GÖR Butonu */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+            <div>
+              <h3 className="text-sm font-black text-white flex items-center gap-2">
+                <Wrench className="w-4 h-4 text-amber-400" />
+                <span>Makine Şase ve Konsol Mesafeleri Kontrolü</span>
+              </h3>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Şase eksen ölçülerini ve konsol mesafelerini aşağıdan giriniz.
+              </p>
+            </div>
+            <button
+              type="button"
+              id="btn-open-chassis-modal"
+              onClick={() => setIsChassisModalOpen(true)}
+              className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <BookOpen className="w-4 h-4 text-amber-400" />
+              <span>ŞASE ÖLÇÜLERİNİ GÖR</span>
+            </button>
+          </div>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center gap-2.5 text-xs text-slate-300">
-              <Info className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>
-                Makine dairesi / kuyu tavanı şase ve tahrik kasnağı kaçıklıklarını giriniz.
-              </span>
+          {/* Kuyudibi ve Son Kat Ölçüleri */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+            <div className="space-y-1.5">
+              <label className="text-xs font-black text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span>Kuyudibi Ölçüsü (cm)</span>
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={data.pitDepth || ''}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9.,-]/g, '');
+                  onChange((prev) => ({ ...prev, pitDepth: val }));
+                }}
+                placeholder="---"
+                className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-3 py-2.5 text-white font-mono font-bold text-xs outline-none"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-black text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span>Son Kat Ölçüsü (cm)</span>
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={data.headroom || ''}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9.,-]/g, '');
+                  onChange((prev) => ({ ...prev, headroom: val }));
+                }}
+                placeholder="---"
+                className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-3 py-2.5 text-white font-mono font-bold text-xs outline-none"
+              />
             </div>
           </div>
 
-          {/* Sağ: Makine Şase Ölçü Giriş Listesi */}
-          <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 text-xs font-black bg-amber-500 text-slate-950 rounded uppercase">
-                    Makine Şase
-                  </span>
-                  <h3 className="text-sm font-black text-white">
-                    Makine Şase Ölçü Karşılaştırma ve Sapma
-                  </h3>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Proje ölçüsü ile gerçekleşen saha ölçüsünü giriniz. Sapmalar otomatik renklenir.
-                </p>
-              </div>
-            </div>
+          {/* 1. TABLO: ŞASE ÖLÇÜLERİ KONTROLÜ (A, B, C, D, E, F(11), G, H, I Yanyana, Tek Satır) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
+            <h4 className="text-xs font-black text-slate-200 uppercase tracking-wider flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              <span>1. Şase Ölçüleri Kontrolü (mm)</span>
+            </h4>
 
-            {/* Şase Ölçüm Satırları */}
-            <div className="space-y-2.5">
-              {machineChassisDefs.map((mDef) => {
-                const currentMeasure = data.machineChassisMeasurements?.[mDef.code] || {
-                  code: mDef.code,
-                  projectValueMm: '',
-                  actualValueMm: '',
-                };
-
-                const deviation = calculateDeviation(
-                  currentMeasure.projectValueMm,
-                  currentMeasure.actualValueMm
-                );
-
-                const hasDeviation = deviation !== null && deviation !== 0;
-                const isExactMatch = deviation !== null && deviation === 0;
-                const isSelectedRow = selectedMeasureCode === mDef.code;
-
-                return (
-                  <div
-                    key={mDef.code}
-                    onFocus={() => setSelectedMeasureCode(mDef.code)}
-                    onClick={() => setSelectedMeasureCode(mDef.code)}
-                    className={`p-2.5 sm:p-3 rounded-xl border transition-all ${
-                      hasDeviation
-                        ? 'bg-amber-950/20 border-amber-500/50 shadow-xs'
-                        : isExactMatch
-                        ? 'bg-emerald-950/20 border-emerald-600/40'
-                        : isSelectedRow
-                        ? 'bg-slate-850 border-sky-500/60'
-                        : 'bg-slate-950 border-slate-800 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-8 h-8 rounded-lg bg-slate-800 text-amber-400 border border-slate-700 flex items-center justify-center text-xs font-black shrink-0">
-                          {mDef.code}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold text-slate-200 truncate">
-                            {mDef.title}
-                          </div>
-                          {mDef.hint && (
-                            <div className="text-[10px] text-slate-400 truncate">
-                              {mDef.hint}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="w-24 sm:w-28">
-                          <span className="text-[9px] font-bold text-slate-400 block mb-0.5">
-                            Proje (mm)
-                          </span>
+            <div className="overflow-x-auto">
+              <table className="w-full text-center border-collapse border border-slate-700 text-xs">
+                <thead>
+                  <tr className="bg-slate-950 text-amber-400 font-black">
+                    {chaseCols.map((col) => (
+                      <th key={col} className="border border-slate-700 p-2.5 font-mono">
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="bg-slate-950/60">
+                    {chaseCols.map((col) => {
+                      const val = data.chaseMeasurementsTable1?.[col] || '';
+                      return (
+                        <td key={`chase-input-${col}`} className="border border-slate-700 p-1.5">
                           <input
                             type="text"
                             inputMode="decimal"
-                            value={currentMeasure.projectValueMm}
-                            onChange={(e) => handleChassisMeasureChange(mDef.code, 'projectValueMm', e.target.value)}
-                            placeholder="Örn: 1200"
-                            className="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono text-center font-bold outline-none"
+                            value={val}
+                            onChange={(e) => handleChaseTableChange(col, e.target.value)}
+                            placeholder="---"
+                            className="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg py-2 text-center text-white font-mono font-bold text-xs outline-none"
                           />
-                        </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-                        <div className="w-24 sm:w-28">
-                          <span className="text-[9px] font-bold text-amber-400 block mb-0.5">
-                            Saha (mm)
-                          </span>
+          {/* 2. TABLO: KONSOL MESAFELERİ (K, L, M, N sütunları x 2 satır: U Bölme Tarafı, Tek Ray Tarafı) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
+            <h4 className="text-xs font-black text-slate-200 uppercase tracking-wider flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              <span>2. Konsol Mesafeleri Kontrolü (cm cinsinden giriniz)</span>
+            </h4>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-center border-collapse border border-slate-700 text-xs">
+                <thead>
+                  <tr className="bg-slate-950 text-slate-400 font-black">
+                    <th className="border border-slate-700 p-2.5 text-left w-36">BÖLGE / TARAF</th>
+                    {['K', 'L', 'M', 'N'].map((col) => (
+                      <th key={`console-col-${col}`} className="border border-slate-700 p-2.5 font-mono text-amber-400">
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* Satır 1: U Bölme Tarafı */}
+                  <tr className="bg-slate-950/60">
+                    <td className="border border-slate-700 p-2.5 text-left font-black text-slate-200 bg-slate-900/80">
+                      1. U Bölme Tarafı
+                    </td>
+                    {['K', 'L', 'M', 'N'].map((col) => {
+                      const val = data.consoleMeasurementsTable2?.uBolmeSide?.[col] || '';
+                      return (
+                        <td key={`ubolme-${col}`} className="border border-slate-700 p-1.5">
                           <input
                             type="text"
                             inputMode="decimal"
-                            value={currentMeasure.actualValueMm}
-                            onChange={(e) => handleChassisMeasureChange(mDef.code, 'actualValueMm', e.target.value)}
-                            placeholder="Örn: 1202"
-                            className="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono text-center font-bold outline-none"
+                            value={val}
+                            onChange={(e) => handleConsoleCellChange('uBolmeSide', col, e.target.value)}
+                            placeholder="---"
+                            className="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg py-2 text-center text-white font-mono font-bold text-xs outline-none"
                           />
-                        </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
 
-                        <div className="w-20 sm:w-24 text-center">
-                          <span className="text-[9px] font-bold text-slate-400 block mb-0.5">
-                            Sapma
-                          </span>
-                          {deviation !== null ? (
-                            <span
-                              className={`inline-block px-2 py-1 rounded text-xs font-mono font-black ${
-                                hasDeviation
-                                  ? Math.abs(deviation) > 2
-                                    ? 'bg-rose-950 text-rose-300 border border-rose-600/50'
-                                    : 'bg-amber-950 text-amber-300 border border-amber-600/50'
-                                  : 'bg-emerald-950 text-emerald-300 border border-emerald-600/50'
-                              }`}
-                            >
-                              {deviation > 0 ? `+${deviation}` : deviation} mm
-                            </span>
-                          ) : (
-                            <span className="text-xs text-slate-600 font-mono">-</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                  {/* Satır 2: Tek Ray Tarafı */}
+                  <tr className="bg-slate-950/40">
+                    <td className="border border-slate-700 p-2.5 text-left font-black text-slate-200 bg-slate-900/80">
+                      2. Tek Ray Tarafı
+                    </td>
+                    {['K', 'L', 'M', 'N'].map((col) => {
+                      const val = data.consoleMeasurementsTable2?.tekRaySide?.[col] || '';
+                      return (
+                        <td key={`tekray-${col}`} className="border border-slate-700 p-1.5">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={val}
+                            onChange={(e) => handleConsoleCellChange('tekRaySide', col, e.target.value)}
+                            placeholder="---"
+                            className="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 rounded-lg py-2 text-center text-white font-mono font-bold text-xs outline-none"
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tbody>
+              </table>
             </div>
+          </div>
 
-            {/* Alt Tek Satır: SADECE RAPOR BUTONU */}
-            <div className="pt-3 border-t border-slate-800">
-              <button
-                type="button"
-                id="btn-view-report-chassis"
-                onClick={onViewReport}
-                className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer tracking-wide uppercase"
-              >
-                <FileCheck2 className="w-5 h-5 text-slate-950" />
-                <span>Raporu Önizle ve Yazdır</span>
-              </button>
-            </div>
+          {/* RAPOR BUTONU */}
+          <div className="pt-2">
+            <button
+              type="button"
+              id="btn-view-report-chassis"
+              onClick={onViewReport}
+              className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer tracking-wide uppercase"
+            >
+              <FileCheck2 className="w-5 h-5 text-slate-950" />
+              <span>Raporu Önizle ve Yazdır</span>
+            </button>
           </div>
         </div>
       ) : (
@@ -539,6 +604,40 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
           });
         }}
       />
+      {/* 2. Makine Şase ve Askı Şeması Referans Modalı */}
+      {isChassisModalOpen && (
+        <div
+          id="machine-chassis-modal-backdrop"
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn cursor-pointer overflow-y-auto"
+          onClick={() => setIsChassisModalOpen(false)}
+        >
+          <div
+            id="machine-chassis-modal-card"
+            className="relative bg-slate-900 border border-slate-700/80 rounded-2xl p-3 sm:p-5 max-w-xl w-full shadow-2xl cursor-default my-auto flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Wrench className="w-5 h-5 text-amber-400" />
+                <span className="text-xs sm:text-sm font-black text-white tracking-wide uppercase">
+                  Makine Şase ve Askı Eksenleri Referans Şeması
+                </span>
+              </div>
+              <button
+                type="button"
+                id="btn-close-chassis-modal"
+                onClick={() => setIsChassisModalOpen(false)}
+                className="p-1 sm:p-1.5 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white rounded-xl border border-slate-700 transition-colors cursor-pointer shadow flex items-center gap-1 text-xs font-bold px-2.5"
+              >
+                <X className="w-4 h-4" />
+                <span>Kapat</span>
+              </button>
+            </div>
+
+            <MachineChassisSvg />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

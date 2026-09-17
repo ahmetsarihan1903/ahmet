@@ -95,8 +95,21 @@ export interface RailDoorInspectionFullData {
   // [stopIndex (1..N)]: { [colCode (1..15)]: '1205' }
   floorMatrixMeasurements: Record<string, Record<string, string>>;
 
-  // 6. Makine Şase Ölçümleri (M1..M9)
+  // 6. Makine Şase Ölçümleri (Eski uyumluluk)
   machineChassisMeasurements: Record<string, SingleMeasurementValue>;
+
+  // Yeni Şase Ölçüleri Tablosu 1 (A, B, C, D, E, F(11), G, H, I)
+  chaseMeasurementsTable1?: Record<string, string>;
+
+  // Konsol Mesafeleri Tablosu (K, L, M, N sütunları x 2 satır: U Bölme Tarafı, Tek Ray Tarafı)
+  consoleMeasurementsTable2?: {
+    uBolmeSide: Record<string, string>; // K, L, M, N
+    tekRaySide: Record<string, string>; // K, L, M, N
+  };
+
+  // Kuyudibi Ölçüsü ve Son Kat Ölçüsü
+  pitDepth?: string;
+  headroom?: string;
   
   // 7. Uygunsuzluk Kayıtları
   nonConformities?: RailDoorNonConformityItem[];

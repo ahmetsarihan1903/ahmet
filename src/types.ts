@@ -27,6 +27,7 @@ export interface MeasureItem {
   name: string;
   value: string;
   notes?: string;
+  isFixed?: boolean;
 }
 
 export interface AuditFormData {

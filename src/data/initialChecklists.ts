@@ -1,4 +1,4 @@
-import { InspectionItem, ElevatorType } from '../types';
+import { InspectionItem, ElevatorType, MeasureItem } from '../types';
 
 export const CONTROL_PANEL_ITEMS: InspectionItem[] = [
   'Kumanda panosu montajı (terazisi, deformasyon, kapı açılması ve kapanması)',
@@ -163,4 +163,42 @@ export const CABIN_AND_BUTTONS_ITEMS: InspectionItem[] = [
   description: '',
   category: 'Kabin İçi ve Kat Butonları',
 }));
+
+export const DEFAULT_FIXED_MEASURES: MeasureItem[] = [
+  {
+    id: 'fixed_bakim_gunu',
+    name: 'BAKIM GÜNÜ TARİHİ',
+    value: '',
+    notes: '',
+    isFixed: true,
+  },
+  {
+    id: 'fixed_ust_limit',
+    name: 'ÜST LİMİT KESİCİ MESAFESİ',
+    value: '',
+    notes: '',
+    isFixed: true,
+  },
+  {
+    id: 'fixed_alt_limit',
+    name: 'ALT LİMİT KESİCİ MESAFESİ',
+    value: '',
+    notes: '',
+    isFixed: true,
+  },
+  {
+    id: 'fixed_kabin_tampon',
+    name: 'KABİN TAMPON MESAFESİ',
+    value: '',
+    notes: '',
+    isFixed: true,
+  },
+  {
+    id: 'fixed_agirlik_tampon',
+    name: 'AĞIRLIK TAMPON MESAFESİ',
+    value: '',
+    notes: '',
+    isFixed: true,
+  },
+];
 

@@ -6,6 +6,7 @@ import {
   COUNTERWEIGHT_ITEMS,
   SHAFT_AND_PIT_ITEMS,
   CABIN_AND_BUTTONS_ITEMS,
+  DEFAULT_FIXED_MEASURES,
   getMotorChassisItems,
 } from '../../data/initialChecklists';
 import { generateDoorInspectionItems } from '../../utils/floorMatrix';
@@ -21,6 +22,36 @@ import {
   saveCompletedAuditToHistory,
   saveManualAuditSnapshot,
 } from '../../utils/storage';
+
+// Helper to sync draft measures with default fixed measures
+function syncMeasuresWithMaster(draftMeasures: MeasureItem[] | undefined): MeasureItem[] {
+  if (!draftMeasures || draftMeasures.length === 0) {
+    return JSON.parse(JSON.stringify(DEFAULT_FIXED_MEASURES));
+  }
+
+  const draftMap = new Map(draftMeasures.map((m) => [m.id, m]));
+  const nameMap = new Map(draftMeasures.map((m) => [m.name.trim().toUpperCase(), m]));
+
+  const syncedFixed: MeasureItem[] = DEFAULT_FIXED_MEASURES.map((fixed) => {
+    const existing = draftMap.get(fixed.id) || nameMap.get(fixed.name.trim().toUpperCase());
+    if (existing) {
+      return {
+        ...fixed,
+        value: existing.value || '',
+        notes: existing.notes || '',
+      };
+    }
+    return { ...fixed };
+  });
+
+  const fixedIds = new Set(DEFAULT_FIXED_MEASURES.map((f) => f.id));
+  const fixedNames = new Set(DEFAULT_FIXED_MEASURES.map((f) => f.name.trim().toUpperCase()));
+  const customMeasures = draftMeasures.filter(
+    (m) => !fixedIds.has(m.id) && !fixedNames.has(m.name.trim().toUpperCase())
+  );
+
+  return [...syncedFixed, ...customMeasures];
+}
 
 // Helper to sync draft items with master checklist definitions
 function syncItemsWithMaster(draftItems: InspectionItem[], masterItems: InspectionItem[]): InspectionItem[] {
@@ -73,6 +104,7 @@ function syncDraftWithMaster(draft: AuditFormData): AuditFormData {
 
   return {
     ...draft,
+    measures: syncMeasuresWithMaster(draft.measures),
     controlPanelItems: syncItemsWithMaster(draft.controlPanelItems, cpMaster),
     motorChassisItems: syncItemsWithMaster(draft.motorChassisItems, motorMaster),
     cabinTopItems: syncItemsWithMaster(draft.cabinTopItems, ctMaster),
@@ -129,7 +161,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
       endTime: null,
       endTimestamp: null,
       totalDurationFormatted: null,
-      measures: [],
+      measures: JSON.parse(JSON.stringify(DEFAULT_FIXED_MEASURES)),
       controlPanelItems: customSynced?.controlPanel?.length
         ? JSON.parse(JSON.stringify(customSynced.controlPanel))
         : JSON.parse(JSON.stringify(CONTROL_PANEL_ITEMS)),
@@ -306,6 +338,8 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
           return { ...prev, shaftAndPitItems: updateList(prev.shaftAndPitItems) };
         case 'cabinAndButtons':
           return { ...prev, cabinAndFloorButtonsItems: updateList(prev.cabinAndFloorButtonsItems) };
+        case 'doors':
+          return { ...prev, doorsItems: updateList(prev.doorsItems) };
         default:
           return prev;
       }
@@ -489,7 +523,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
       endTime: null,
       endTimestamp: null,
       totalDurationFormatted: null,
-      measures: [],
+      measures: JSON.parse(JSON.stringify(DEFAULT_FIXED_MEASURES)),
       controlPanelItems: customSynced?.controlPanel?.length
         ? JSON.parse(JSON.stringify(customSynced.controlPanel))
         : JSON.parse(JSON.stringify(CONTROL_PANEL_ITEMS)),
@@ -641,6 +675,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
         onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
         onManualSave={handleManualSave}
         onEditInspectionInfo={() => setFormData((p) => ({ ...p, currentStep: 'welcome' }))}
+        onNewInspection={handleNewInspection}
         onRestoreDraftOrAudit={(audit) => {
           setFormData(audit);
           setSaveToastMessage('Taslak / Rapor başarıyla geri yüklendi');

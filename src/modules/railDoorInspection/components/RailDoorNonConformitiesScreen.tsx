@@ -3,25 +3,12 @@ import {
   RailDoorInspectionFullData,
   RailDoorNonConformityItem,
 } from '../types';
+import { getDefaultFloorAlias } from '../constants';
 import {
-  getMeasurementDefsForLayout,
-  MEASUREMENTS_MACHINE_CHASSIS,
-  getDefaultFloorAlias,
-  calculateMmDeviation,
-  getColumnInferredNominals,
-} from '../constants';
-import {
-  AlertTriangle,
   Plus,
   Trash2,
-  CheckCircle2,
   Clock,
-  AlertOctagon,
   FileCheck2,
-  ShieldCheck,
-  Building,
-  Wrench,
-  Sliders,
   Check,
 } from 'lucide-react';
 
@@ -41,103 +28,9 @@ export const RailDoorNonConformitiesScreen: React.FC<RailDoorNonConformitiesScre
   const [newSeverity, setNewSeverity] = useState<'low' | 'medium' | 'high' | 'critical'>('high');
   const [newDescription, setNewDescription] = useState('');
 
-  const railDefs = getMeasurementDefsForLayout(data.layoutPosition);
-  const chassisDefs = MEASUREMENTS_MACHINE_CHASSIS;
   const stopCount = data.stopCount || 1;
   const startFloor = data.startFloor ?? 0;
   const stopIndices = Array.from({ length: stopCount }, (_, i) => i + 1);
-  const baseColumnCodes = Array.from({ length: 15 }, (_, i) => String(i + 1));
-  const columnCodes = [...baseColumnCodes, ...(data.customColumnCodes || [])];
-
-  // Proje nominali girilmemiş sütunlar için katlar arası otomatik iç analiz
-  const inferredNominals = getColumnInferredNominals(
-    data.floorMatrixMeasurements || {},
-    columnCodes
-  );
-
-  // Otomatik tespit edilen matris sapmaları (>0 mm ve kritik >3 mm veya 4 & 12 alt sınır)
-  const autoMatrixDeviations: {
-    stopIndex: number;
-    stopLabel: string;
-    colCode: string;
-    title: string;
-    projectMm: number | null;
-    actualMm: number;
-    diffMm: number;
-    badgeText: string;
-    isCritical: boolean;
-    isInferred?: boolean;
-  }[] = [];
-
-  stopIndices.forEach((sIdx) => {
-    const floorNum = startFloor + (sIdx - 1);
-    const alias = data.floorAliases?.[sIdx] ?? getDefaultFloorAlias(floorNum);
-    const stopLabel = `${sIdx}.DR (${alias})`;
-    const row = data.floorMatrixMeasurements?.[String(sIdx)] || {};
-
-    columnCodes.forEach((cCode) => {
-      const act = row[cCode];
-      const nom = data.projectNominalValues?.[cCode];
-      const dev = calculateMmDeviation(
-        act,
-        nom,
-        cCode,
-        inferredNominals[cCode],
-        data.layoutPosition
-      );
-      if (dev && !dev.isMatch) {
-        const def = railDefs.find((d) => d.code === cCode);
-        autoMatrixDeviations.push({
-          stopIndex: sIdx,
-          stopLabel,
-          colCode: cCode,
-          title: def?.title || `Sütun ${cCode}`,
-          projectMm: dev.nomMm,
-          actualMm: dev.cellMm,
-          diffMm: dev.diffMm,
-          badgeText: dev.badgeText,
-          isCritical: dev.isCritical,
-          isInferred: dev.isInferred,
-        });
-      }
-    });
-  });
-
-  // Otomatik tespit edilen şase sapmaları
-  const autoChassisDeviations: {
-    code: string;
-    title: string;
-    project: string;
-    actual: string;
-    diff: number;
-    isCritical: boolean;
-  }[] = [];
-
-  chassisDefs.forEach((mDef) => {
-    const val = data.machineChassisMeasurements?.[mDef.code];
-    if (val && val.projectValueMm && val.actualValueMm) {
-      const p = parseFloat(val.projectValueMm.replace(',', '.'));
-      const a = parseFloat(val.actualValueMm.replace(',', '.'));
-      if (!isNaN(p) && !isNaN(a)) {
-        const diff = a - p;
-        if (diff !== 0) {
-          autoChassisDeviations.push({
-            code: mDef.code,
-            title: mDef.title,
-            project: val.projectValueMm,
-            actual: val.actualValueMm,
-            diff,
-            isCritical: Math.abs(diff) > 2,
-          });
-        }
-      }
-    }
-  });
-
-  const totalAutoDeviations = autoMatrixDeviations.length + autoChassisDeviations.length;
-  const criticalAutoDeviations =
-    autoMatrixDeviations.filter((d) => d.isCritical).length +
-    autoChassisDeviations.filter((d) => d.isCritical).length;
 
   const nonConformities = data.nonConformities || [];
 
@@ -165,23 +58,6 @@ export const RailDoorNonConformitiesScreen: React.FC<RailDoorNonConformitiesScre
     setNewDescription('');
   };
 
-  // Hızlı hazır şablon ekleme
-  const handleAddPreset = (title: string, severity: 'low' | 'medium' | 'high' | 'critical') => {
-    const newItem: RailDoorNonConformityItem = {
-      id: 'nc_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-      floor: newFloor,
-      title,
-      severity,
-      status: 'open',
-      createdAt: Date.now(),
-    };
-
-    onUpdateData((prev) => ({
-      ...prev,
-      nonConformities: [...(prev.nonConformities || []), newItem],
-    }));
-  };
-
   // Silme
   const handleDeleteItem = (id: string) => {
     onUpdateData((prev) => ({
@@ -204,60 +80,9 @@ export const RailDoorNonConformitiesScreen: React.FC<RailDoorNonConformitiesScre
     }));
   };
 
-  // Genel Notlar ve Onay Değişimi
-  const handleGeneralNotesChange = (notes: string) => {
-    onUpdateData((prev) => ({
-      ...prev,
-      generalNotes: notes,
-    }));
-  };
-
-  const handleApprovalToggle = () => {
-    onUpdateData((prev) => ({
-      ...prev,
-      isApproved: !prev.isApproved,
-    }));
-  };
-
   return (
     <div className="space-y-4 sm:space-y-5 animate-fadeIn">
-      {/* 1. ÖZET İSTATİSTİK KARTLARI */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
-        {/* Toplam Sapma */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center font-black shrink-0">
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xl font-black text-white">{totalAutoDeviations}</div>
-            <div className="text-[11px] text-slate-400 font-medium">Tespit Edilen Ölçü Sapması</div>
-          </div>
-        </div>
-
-        {/* Kritik Sapmalar (>3mm) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center font-black shrink-0">
-            <AlertOctagon className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xl font-black text-rose-400">{criticalAutoDeviations}</div>
-            <div className="text-[11px] text-slate-400 font-medium">Kritik Sapma (&gt; 3 mm / Alt Sınır)</div>
-          </div>
-        </div>
-
-        {/* Saha Eksiklikleri / Punch List */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-500/40 text-sky-400 flex items-center justify-center font-black shrink-0">
-            <FileCheck2 className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xl font-black text-sky-400">{nonConformities.length}</div>
-            <div className="text-[11px] text-slate-400 font-medium">Kayıtlı Saha Uygunsuzluğu</div>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. YENİ UYGUNSUZLUK / EKSİKLİK EKLEME FORMU */}
+      {/* 1. YENİ UYGUNSUZLUK / EKSİKLİK EKLEME FORMU (EKLE SATIRI) */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
         <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
           <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center">
@@ -268,33 +93,6 @@ export const RailDoorNonConformitiesScreen: React.FC<RailDoorNonConformitiesScre
             <p className="text-[11px] text-slate-400">
               Montaj ve denetim esnasında tespit edilen mekanik ve yapısal kusurları kaydedin.
             </p>
-          </div>
-        </div>
-
-        {/* Hızlı Şablon Butonları */}
-        <div className="space-y-1.5">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-            Hızlı Şablonlar:
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              { label: 'Ray Eki Çapak/Basamak', sev: 'high' as const },
-              { label: 'Konsol Kayması / Gevşek Cıvata', sev: 'critical' as const },
-              { label: 'Kapı Düşey Şakül Kaçıklığı', sev: 'high' as const },
-              { label: 'Şase Titreşim Takozu Eksik/Hatalı', sev: 'medium' as const },
-              { label: 'Lojik Şakül Sapması', sev: 'high' as const },
-              { label: 'Ağırlık Kuyu Boşluğu Yetersiz', sev: 'critical' as const },
-              { label: 'Kabin Ray DBG Tolerans Dışı', sev: 'critical' as const },
-            ].map((preset, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleAddPreset(preset.label, preset.sev)}
-                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700 rounded-lg text-[11px] font-medium transition-colors cursor-pointer"
-              >
-                + {preset.label}
-              </button>
-            ))}
           </div>
         </div>
 
@@ -361,7 +159,7 @@ export const RailDoorNonConformitiesScreen: React.FC<RailDoorNonConformitiesScre
         </form>
       </div>
 
-      {/* 3. KAYITLI UYGUNSUZLUKLAR LİSTESİ */}
+      {/* 2. KAYITLI UYGUNSUZLUKLAR LİSTESİ */}
       {nonConformities.length > 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
           <h4 className="text-xs font-black text-slate-200 uppercase tracking-wider flex items-center justify-between">
@@ -465,116 +263,7 @@ export const RailDoorNonConformitiesScreen: React.FC<RailDoorNonConformitiesScre
         </div>
       )}
 
-      {/* 4. OTOMATİK TESPİT EDİLEN ÖLÇÜ VE ŞASE SAPMALARI TABLOSU */}
-      {totalAutoDeviations > 0 && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-            <h4 className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400" />
-              <span>Matris & Şase Ölçümlerinden Otomatik Tespit Edilen Sapmalar ({totalAutoDeviations})</span>
-            </h4>
-          </div>
-
-          <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
-            {autoMatrixDeviations.map((dev, idx) => (
-              <div
-                key={`mat_${idx}`}
-                className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl flex items-center justify-between gap-2 text-xs"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="px-1.5 py-0.5 bg-amber-500 text-slate-950 font-black rounded text-[10px]">
-                    {dev.colCode}
-                  </span>
-                  <span className="text-slate-300 font-bold truncate">
-                    {dev.stopLabel} - {dev.title}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3 shrink-0 font-mono">
-                  <span className="text-slate-400 text-[11px]">
-                    {dev.isInferred ? `İç Ref: ${dev.projectMm} mm` : `Proje: ${dev.projectMm !== null ? `${dev.projectMm} mm` : '-'}`}
-                  </span>
-                  <span className="text-slate-200 text-[11px] font-bold">Saha: {dev.actualMm} mm</span>
-                  <span
-                    className={`px-2 py-0.5 rounded font-black text-[11px] ${
-                      dev.isCritical
-                        ? 'bg-rose-950 text-rose-300 border border-rose-600/50'
-                        : 'bg-amber-950 text-amber-300 border border-amber-600/50'
-                    }`}
-                  >
-                    {dev.badgeText}
-                  </span>
-                </div>
-              </div>
-            ))}
-
-            {autoChassisDeviations.map((dev, idx) => (
-              <div
-                key={`ch_${idx}`}
-                className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl flex items-center justify-between gap-2 text-xs"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="px-1.5 py-0.5 bg-blue-500 text-white font-black rounded text-[10px]">
-                    {dev.code}
-                  </span>
-                  <span className="text-slate-300 font-bold truncate">
-                    Makine Şase - {dev.title}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3 shrink-0 font-mono">
-                  <span className="text-slate-400 text-[11px]">Proje: {dev.project} mm</span>
-                  <span className="text-slate-200 text-[11px] font-bold">Saha: {dev.actual} mm</span>
-                  <span
-                    className={`px-2 py-0.5 rounded font-black text-[11px] ${
-                      dev.isCritical
-                        ? 'bg-rose-950 text-rose-300 border border-rose-600/50'
-                        : 'bg-amber-950 text-amber-300 border border-amber-600/50'
-                    }`}
-                  >
-                    {dev.diff > 0 ? `+${dev.diff}` : dev.diff} mm
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 5. GENEL NOTLAR VE KONTROL ONAYI */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
-        <div>
-          <label className="text-xs font-bold text-slate-300 block mb-1.5">
-            Saha Denetim ve Genel Notlar
-          </label>
-          <textarea
-            value={data.generalNotes || ''}
-            onChange={(e) => handleGeneralNotesChange(e.target.value)}
-            rows={3}
-            placeholder="Montaj durumu, kuyu koşulları veya ek açıklama giriniz..."
-            className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl p-3 text-xs text-white outline-none font-medium resize-none"
-          />
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-800">
-          <label className="flex items-center gap-3 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={data.isApproved || false}
-              onChange={handleApprovalToggle}
-              className="w-5 h-5 rounded border-slate-700 text-amber-500 focus:ring-amber-500 bg-slate-950 cursor-pointer"
-            />
-            <div className="text-xs">
-              <span className="font-bold text-white block">Saha Kontrolü Onaylandı</span>
-              <span className="text-[10px] text-slate-400">
-                Bu kontrol formundaki değerler sahada ölçülmüş ve onaylanmıştır.
-              </span>
-            </div>
-          </label>
-        </div>
-      </div>
-
-      {/* 6. EN ALT TEK SATIR: SADECE RAPOR BUTONU */}
+      {/* RAPOR BUTONU */}
       <div className="pt-2">
         <button
           type="button"

@@ -8,12 +8,12 @@ import {
   formatCmToMm,
   calculateMmDeviation,
   getColumnInferredNominals,
+  LAYOUT_TITLES,
 } from '../constants';
 import { BetaLogo } from '../../../components/BetaLogo';
 import {
   Share2,
   X,
-  CheckCircle2,
   AlertTriangle,
   Printer,
   Sliders,
@@ -117,7 +117,10 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
   const totalDeviationsCount = matrixDeviations.length + chassisDeviations.length;
 
   const handlePrint = () => {
-    window.print();
+    window.focus();
+    setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
   const handleWhatsAppShare = () => {
@@ -135,6 +138,7 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
       `*Asansör Tipi:* ${typeConfig?.label} (${layoutObj?.label})`,
       `*Birim:* Tüm Ölçüler Milimetre (mm) Cinsindendir`,
       `*Tespit Edilen Toplam Sapma:* ${totalDeviationsCount} adet`,
+      `*Saha Uygunsuzlukları:* ${data.nonConformities?.length || 0} adet`,
     ].join('\n');
 
     const encoded = encodeURIComponent(details);
@@ -182,10 +186,10 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
         </div>
       </div>
 
-      {/* RESMİ A4 PDF ÇIKTI ALANI */}
+      {/* RESMİ A4 PDF ÇIKTI ALANI (Minimum 11 punto / text-xs ve üzeri) */}
       <div
         id="official-pdf-report"
-        className="w-full max-w-5xl bg-white text-slate-900 rounded-xl shadow-2xl p-6 sm:p-8 space-y-6 print:p-0 print:shadow-none print:w-full print:max-w-none text-xs"
+        className="w-full max-w-5xl bg-white text-slate-900 rounded-xl shadow-2xl p-6 sm:p-8 space-y-6 print:p-0 print:shadow-none print:w-full print:max-w-none text-xs sm:text-sm leading-relaxed"
       >
         {/* Rapor Başlığı */}
         <div className="flex items-center justify-between border-b-2 border-slate-900 pb-4">
@@ -202,88 +206,88 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
           </div>
 
           <div className="text-right">
-            <div className="text-[10px] font-mono text-slate-500">DOKÜMAN NO: BT-RK-2026</div>
-            <div className="text-xs font-bold text-slate-900 mt-1">
+            <div className="text-[11px] font-mono text-slate-600">DOKÜMAN NO: BT-RK-2026</div>
+            <div className="text-xs sm:text-sm font-bold text-slate-900 mt-1">
               Rapor Tarihi: {data.inspectionDateDisplay}
             </div>
           </div>
         </div>
 
         {/* Proje Kimlik Bilgileri Tablosu */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-xs">
           <div>
-            <span className="text-[10px] font-bold text-slate-500 block uppercase">Asansör Seri No</span>
-            <span className="text-xs font-black text-slate-900">{data.identity.serialNumber || '-'}</span>
+            <span className="text-[11px] font-bold text-slate-600 block uppercase">Asansör Seri No</span>
+            <span className="text-xs sm:text-sm font-black text-slate-900">{data.identity.serialNumber || '-'}</span>
           </div>
           <div>
-            <span className="text-[10px] font-bold text-slate-500 block uppercase">Referans / Şantiye</span>
-            <span className="text-xs font-black text-slate-900">{data.identity.reference || '-'}</span>
+            <span className="text-[11px] font-bold text-slate-600 block uppercase">Referans / Şantiye</span>
+            <span className="text-xs sm:text-sm font-black text-slate-900">{data.identity.reference || '-'}</span>
           </div>
           <div>
-            <span className="text-[10px] font-bold text-slate-500 block uppercase">Tesis Yeri</span>
-            <span className="text-xs font-black text-slate-900">{data.identity.location || '-'}</span>
+            <span className="text-[11px] font-bold text-slate-600 block uppercase">Tesis Yeri</span>
+            <span className="text-xs sm:text-sm font-black text-slate-900">{data.identity.location || '-'}</span>
           </div>
           <div>
-            <span className="text-[10px] font-bold text-slate-500 block uppercase">Durak Sayısı</span>
-            <span className="text-xs font-black text-slate-900">{data.stopCount || 1} Durak</span>
+            <span className="text-[11px] font-bold text-slate-600 block uppercase">Durak Sayısı</span>
+            <span className="text-xs sm:text-sm font-black text-slate-900">{data.stopCount || 1} Durak</span>
           </div>
           <div>
-            <span className="text-[10px] font-bold text-slate-500 block uppercase">Montajı Yapan Usta</span>
-            <span className="text-xs font-black text-slate-900">{data.identity.installerMaster || '-'}</span>
+            <span className="text-[11px] font-bold text-slate-600 block uppercase">Montajı Yapan Usta</span>
+            <span className="text-xs sm:text-sm font-black text-slate-900">{data.identity.installerMaster || '-'}</span>
           </div>
           <div>
-            <span className="text-[10px] font-bold text-slate-500 block uppercase">Proje Sorumlusu</span>
-            <span className="text-xs font-black text-slate-900">{data.identity.projectManager || '-'}</span>
+            <span className="text-[11px] font-bold text-slate-600 block uppercase">Proje Sorumlusu</span>
+            <span className="text-xs sm:text-sm font-black text-slate-900">{data.identity.projectManager || '-'}</span>
           </div>
           <div className="sm:col-span-2">
-            <span className="text-[10px] font-bold text-slate-500 block uppercase">Kontrolü Yapan</span>
-            <span className="text-xs font-black text-slate-900">{data.identity.inspector || '-'}</span>
+            <span className="text-[11px] font-bold text-slate-600 block uppercase">Kontrolü Yapan</span>
+            <span className="text-xs sm:text-sm font-black text-slate-900">{data.identity.inspector || '-'}</span>
           </div>
         </div>
 
         {/* Teknik Özellikler ve Yerleşim Özeti */}
-        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-slate-900">
+        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-slate-900 text-xs sm:text-sm">
           <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 bg-amber-600 text-white font-black rounded text-[10px]">
+            <span className="px-2 py-0.5 bg-amber-600 text-white font-black rounded text-[11px]">
               TİP & YERLEŞİM:
             </span>
-            <span className="font-bold text-xs">
+            <span className="font-bold">
               {typeConfig?.label} — {layoutObj?.label}
             </span>
           </div>
-          <div className="text-xs font-bold text-amber-900">
+          <div className="font-bold text-amber-900 text-xs">
             Kontrol Modeli: 15 Sütun Ray & Kapı Matrisi + Makine Şase
           </div>
         </div>
 
-        {/* 1. BÖLÜM: 15 SÜTUN RAY & KAPI MATRİS TABLOSU (SİLL 1 FORMATI) */}
+        {/* 1. BÖLÜM: 15 SÜTUN RAY & KAPI MATRİS TABLOSU */}
         <div className="space-y-2">
-          <h3 className="text-xs font-black uppercase text-slate-900 border-b-2 border-slate-900 pb-1 flex items-center justify-between">
+          <h3 className="text-xs sm:text-sm font-black uppercase text-slate-900 border-b-2 border-slate-900 pb-1 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
-              <Sliders className="w-3.5 h-3.5 text-amber-600" />
+              <Sliders className="w-4 h-4 text-amber-600" />
               1. BÖLÜM: RAY & KAPI KAT ÖLÇÜ MATRİSİ (mm)
             </span>
-            <span className="text-[10px] font-bold text-amber-700">
+            <span className="text-[11px] font-bold text-amber-700">
               *Tüm değerler milimetreye (mm) çevrilmiştir
             </span>
           </h3>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-center border-collapse border border-slate-400 text-[9px]">
+            <table className="w-full text-center border-collapse border border-slate-400 text-[11px] sm:text-xs">
               <thead>
                 <tr className="bg-slate-200 text-slate-950 font-black">
-                  <th className="border border-slate-400 p-1 w-10">DURAK</th>
-                  <th className="border border-slate-400 p-1 w-14">KAT RUMUZ</th>
+                  <th className="border border-slate-400 p-1.5 w-12">DURAK</th>
+                  <th className="border border-slate-400 p-1.5 w-16">KAT RUMUZ</th>
                   {columnCodes.map((c) => (
-                    <th key={c} className="border border-slate-400 p-1 min-w-[28px]">
+                    <th key={c} className="border border-slate-400 p-1 min-w-[30px]">
                       {c}
                     </th>
                   ))}
                 </tr>
-                {/* Proje Nominal Satırı (mm cinsine dönüştürülmüş) */}
+                {/* Proje Nominal Satırı */}
                 <tr className="bg-amber-100/70 text-amber-950 font-black">
-                  <th className="border border-slate-400 p-1">PROJE</th>
-                  <th className="border border-slate-400 p-1">NOM (mm)</th>
+                  <th className="border border-slate-400 p-1.5">PROJE</th>
+                  <th className="border border-slate-400 p-1.5">NOM (mm)</th>
                   {columnCodes.map((c) => (
                     <td key={`nom-${c}`} className="border border-slate-400 p-1 font-mono font-bold">
                       {formatCmToMm(data.projectNominalValues?.[c])}
@@ -299,10 +303,10 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
 
                   return (
                     <tr key={`rep-stop-${sIdx}`} className={rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                      <td className="border border-slate-400 p-1 font-black bg-slate-100 text-slate-800">
+                      <td className="border border-slate-400 p-1.5 font-black bg-slate-100 text-slate-800">
                         {sIdx}.DR
                       </td>
-                      <td className="border border-slate-400 p-1 font-black text-amber-900 bg-amber-50/50">
+                      <td className="border border-slate-400 p-1.5 font-black text-amber-900 bg-amber-50/50">
                         {alias}
                       </td>
                       {columnCodes.map((cCode) => {
@@ -335,130 +339,173 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
           </div>
         </div>
 
-        {/* 2. BÖLÜM: MAKİNE ŞASE ÖLÇÜLERİ TABLOSU */}
-        <div className="space-y-2 pt-2">
-          <h3 className="text-xs font-black uppercase text-slate-900 border-b-2 border-slate-900 pb-1 flex items-center gap-1.5">
-            <Wrench className="w-3.5 h-3.5 text-amber-600" />
-            2. BÖLÜM: MAKİNE ŞASE VE ASKI ÖLÇÜ TABLOSU (mm)
+        {/* 2. BÖLÜM: ŞASE ÖLÇÜLERİ VE KONSOL MESAFELERİ */}
+        <div className="space-y-4 pt-2">
+          <h3 className="text-xs sm:text-sm font-black uppercase text-slate-900 border-b-2 border-slate-900 pb-1 flex items-center gap-1.5">
+            <Wrench className="w-4 h-4 text-amber-600" />
+            2. BÖLÜM: ŞASE ÖLÇÜLERİ, KUYUDİBİ, SON KAT VE KONSOL MESAFELERİ (mm)
           </h3>
 
-          <table className="w-full text-left border-collapse border border-slate-300 text-[10px]">
-            <thead>
-              <tr className="bg-slate-100 text-slate-800">
-                <th className="border border-slate-300 p-1.5 font-black w-12 text-center">Kod</th>
-                <th className="border border-slate-300 p-1.5 font-black">Şase ve Eksen Ölçüm Noktası</th>
-                <th className="border border-slate-300 p-1.5 font-black w-24 text-center">Proje (mm)</th>
-                <th className="border border-slate-300 p-1.5 font-black w-24 text-center">Saha (mm)</th>
-                <th className="border border-slate-300 p-1.5 font-black w-24 text-center">Sapma / Fark</th>
-              </tr>
-            </thead>
-            <tbody>
-              {chassisDefs.map((mDef, idx) => {
-                const val = data.machineChassisMeasurements?.[mDef.code];
-                const proj = val?.projectValueMm || '';
-                const act = val?.actualValueMm || '';
-                const hasValues = proj !== '' && act !== '';
-                const diff = hasValues
-                  ? parseFloat(act.replace(',', '.')) - parseFloat(proj.replace(',', '.'))
-                  : null;
+          {/* Kuyudibi ve Son Kat Ölçüleri Özeti */}
+          <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-300 text-xs">
+            <div>
+              <span className="font-bold text-slate-700 block uppercase">Kuyudibi Ölçüsü:</span>
+              <span className="font-mono font-black text-slate-900 text-sm">
+                {(() => {
+                  const val = data.pitDepth;
+                  if (!val || val.trim() === '') return '---';
+                  const n = parseFloat(val.replace(',', '.'));
+                  return isNaN(n) ? val : `${Math.round(n * 10)} mm (${val} cm)`;
+                })()}
+              </span>
+            </div>
+            <div>
+              <span className="font-bold text-slate-700 block uppercase">Son Kat Ölçüsü:</span>
+              <span className="font-mono font-black text-slate-900 text-sm">
+                {(() => {
+                  const val = data.headroom;
+                  if (!val || val.trim() === '') return '---';
+                  const n = parseFloat(val.replace(',', '.'));
+                  return isNaN(n) ? val : `${Math.round(n * 10)} mm (${val} cm)`;
+                })()}
+              </span>
+            </div>
+          </div>
 
-                return (
-                  <tr key={mDef.code} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                    <td className="border border-slate-300 p-1.5 font-black text-center text-sky-800 bg-sky-50/50">
-                      {mDef.code}
-                    </td>
-                    <td className="border border-slate-300 p-1.5 font-bold text-slate-900">
-                      {mDef.title}
-                    </td>
-                    <td className="border border-slate-300 p-1.5 text-center font-mono font-bold text-slate-700">
-                      {proj || '-'}
-                    </td>
-                    <td className="border border-slate-300 p-1.5 text-center font-mono font-bold text-slate-900">
-                      {act || '-'}
-                    </td>
-                    <td className="border border-slate-300 p-1.5 text-center font-mono font-black">
-                      {diff !== null ? (
-                        diff === 0 ? (
-                          <span className="text-emerald-700">0 mm (Tam)</span>
-                        ) : (
-                          <span className={Math.abs(diff) > 2 ? 'text-red-600' : 'text-amber-600'}>
-                            {diff > 0 ? `+${diff}` : diff} mm
-                          </span>
-                        )
-                      ) : (
-                        <span className="text-slate-300">-</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {/* Tablo 1: Şase Ölçüleri Kontrolü */}
+          <div className="space-y-1.5">
+            <div className="text-xs font-bold text-slate-800">1. Şase Ölçüleri Kontrolü (mm)</div>
+            <table className="w-full text-center border-collapse border border-slate-400 text-xs">
+              <thead>
+                <tr className="bg-slate-200 text-slate-950 font-black">
+                  {['A', 'B', 'C', 'D', 'E', 'F(11)', '10', 'G', 'H', 'I'].map((col) => (
+                    <th key={col} className="border border-slate-400 p-2 font-mono">
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="bg-white">
+                  {['A', 'B', 'C', 'D', 'E', 'F(11)', '10', 'G', 'H', 'I'].map((col) => {
+                    const valCm = data.chaseMeasurementsTable1?.[col] || '';
+                    let displayMm = '---';
+                    if (valCm.trim() !== '') {
+                      const num = parseFloat(valCm.replace(',', '.'));
+                      if (!isNaN(num)) {
+                        displayMm = Math.round(num * 10).toString();
+                      } else {
+                        displayMm = valCm;
+                      }
+                    }
+                    return (
+                      <td key={`rep-chase-${col}`} className="border border-slate-400 p-2 font-mono font-bold text-slate-900">
+                        {displayMm}
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Tablo 2: Konsol Mesafeleri (K, L, M, N sütunları x 2 satır: U Bölme Tarafı, Tek Ray Tarafı - cm girilir, mm gösterilir, boşsa ---) */}
+          <div className="space-y-1.5 pt-1">
+            <div className="text-xs font-bold text-slate-800">2. Konsol Mesafeleri (mm)</div>
+            <table className="w-full text-center border-collapse border border-slate-400 text-xs">
+              <thead>
+                <tr className="bg-slate-200 text-slate-950 font-black">
+                  <th className="border border-slate-400 p-2 text-left w-36">BÖLGE / TARAF</th>
+                  {['K', 'L', 'M', 'N'].map((col) => (
+                    <th key={`rep-console-col-${col}`} className="border border-slate-400 p-2 font-mono">
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {/* Satır 1: U Bölme Tarafı */}
+                <tr className="bg-white">
+                  <td className="border border-slate-400 p-2 text-left font-black text-slate-900 bg-slate-50">
+                    1. U Bölme Tarafı
+                  </td>
+                  {['K', 'L', 'M', 'N'].map((col) => {
+                    const valCm = data.consoleMeasurementsTable2?.uBolmeSide?.[col] || '';
+                    let displayMm = '---';
+                    if (valCm.trim() !== '') {
+                      const num = parseFloat(valCm.replace(',', '.'));
+                      if (!isNaN(num)) {
+                        // cm cinsinden girilen değeri mm'ye çevir (1 cm = 10 mm)
+                        displayMm = Math.round(num * 10).toString();
+                      } else {
+                        displayMm = valCm;
+                      }
+                    }
+                    return (
+                      <td key={`rep-ubolme-${col}`} className="border border-slate-400 p-2 font-mono font-bold text-slate-900">
+                        {displayMm}
+                      </td>
+                    );
+                  })}
+                </tr>
+
+                {/* Satır 2: Tek Ray Tarafı */}
+                <tr className="bg-slate-50">
+                  <td className="border border-slate-400 p-2 text-left font-black text-slate-900 bg-slate-100">
+                    2. Tek Ray Tarafı
+                  </td>
+                  {['K', 'L', 'M', 'N'].map((col) => {
+                    const valCm = data.consoleMeasurementsTable2?.tekRaySide?.[col] || '';
+                    let displayMm = '---';
+                    if (valCm.trim() !== '') {
+                      const num = parseFloat(valCm.replace(',', '.'));
+                      if (!isNaN(num)) {
+                        displayMm = Math.round(num * 10).toString();
+                      } else {
+                        displayMm = valCm;
+                      }
+                    }
+                    return (
+                      <td key={`rep-tekray-${col}`} className="border border-slate-400 p-2 font-mono font-bold text-slate-900">
+                        {displayMm}
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        {/* Tespit Edilen Sapmalar Özeti */}
-        {totalDeviationsCount > 0 ? (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-1.5">
-            <h4 className="text-xs font-black text-red-900 flex items-center gap-1.5">
-              <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-              Saha ve Proje Arasında Tespit Edilen Sapmalar ({totalDeviationsCount} Adet):
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto text-[10px]">
-              {matrixDeviations.map((d, i) => (
-                <div key={`m-dev-${i}`} className="flex items-center justify-between p-1.5 bg-white border border-red-100 rounded">
-                  <span className="font-bold text-slate-900 truncate pr-2">
-                    {d.stopLabel} / Sütun {d.colCode}:
-                  </span>
-                  <span className="font-mono font-black text-red-700 shrink-0">
-                    {d.isInferred ? `İç Ref: ${d.projectMm} mm` : `P: ${d.projectMm !== null ? `${d.projectMm} mm` : '-'}`} / S: {d.actualMm} mm ({d.badgeText})
-                  </span>
-                </div>
-              ))}
-              {chassisDeviations.map((d, i) => (
-                <div key={`c-dev-${i}`} className="flex items-center justify-between p-1.5 bg-white border border-red-100 rounded">
-                  <span className="font-bold text-slate-900 truncate pr-2">
-                    {d.code} - {d.title}:
-                  </span>
-                  <span className="font-mono font-black text-red-700 shrink-0">
-                    P: {d.project} / S: {d.actual} ({d.diff > 0 ? `+${d.diff}` : d.diff} mm)
-                  </span>
+        {/* 3. BÖLÜM: SAHA UYGUNSUZLUKLARI VE KUSURLAR */}
+        {data.nonConformities && data.nonConformities.length > 0 && (
+          <div className="space-y-2 pt-2">
+            <h3 className="text-xs sm:text-sm font-black uppercase text-slate-900 border-b-2 border-slate-900 pb-1 flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+              3. BÖLÜM: SAHA UYGUNSUZLUKLARI VE KUSUR KAYITLARI ({data.nonConformities.length} Adet)
+            </h3>
+            <div className="space-y-1.5">
+              {data.nonConformities.map((item, idx) => (
+                <div key={item.id} className="p-2.5 bg-slate-50 border border-slate-300 rounded text-xs sm:text-sm">
+                  <div className="flex items-center justify-between font-bold text-slate-900">
+                    <span className="flex items-center gap-2">
+                      <span className="px-1.5 py-0.5 bg-slate-200 text-slate-800 rounded text-[11px]">{item.floor || 'Genel'}</span>
+                      <span>{idx + 1}. {item.title}</span>
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                      item.status === 'resolved' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'
+                    }`}>
+                      {item.status === 'resolved' ? 'Giderildi' : 'Açık / Bekliyor'}
+                    </span>
+                  </div>
+                  {item.description && (
+                    <p className="text-slate-700 mt-1 text-xs">{item.description}</p>
+                  )}
                 </div>
               ))}
             </div>
-          </div>
-        ) : (
-          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2 text-emerald-900 text-xs font-bold">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Tüm ray, kapı ve makine şase ölçüleri proje kriterlerine tam uyumludur. Sapma tespit edilmemiştir.</span>
           </div>
         )}
-
-        {/* Resmi İmza & Onay Alanı */}
-        <div className="grid grid-cols-3 gap-4 pt-6 border-t-2 border-slate-900 text-center">
-          <div className="space-y-8">
-            <div>
-              <div className="text-[10px] font-bold text-slate-500 uppercase">Montajı Yapan Usta</div>
-              <div className="text-xs font-black text-slate-900 mt-1">{data.identity.installerMaster || '........................'}</div>
-            </div>
-            <div className="text-[10px] text-slate-400 italic">İmza</div>
-          </div>
-
-          <div className="space-y-8">
-            <div>
-              <div className="text-[10px] font-bold text-slate-500 uppercase">Proje Sorumlusu</div>
-              <div className="text-xs font-black text-slate-900 mt-1">{data.identity.projectManager || '........................'}</div>
-            </div>
-            <div className="text-[10px] text-slate-400 italic">İmza</div>
-          </div>
-
-          <div className="space-y-8">
-            <div>
-              <div className="text-[10px] font-bold text-slate-500 uppercase">Kontrolü Yapan (Denetçi)</div>
-              <div className="text-xs font-black text-slate-900 mt-1">{data.identity.inspector || '........................'}</div>
-            </div>
-            <div className="text-[10px] text-slate-400 italic">İmza & Kaşe</div>
-          </div>
-        </div>
       </div>
     </div>
   );
