@@ -20,15 +20,6 @@ export default defineConfig(() => {
     build: {
       target: ['es2015', 'chrome60'],
       cssTarget: 'chrome60',
-      cssMinify: 'lightningcss' as const,
-    },
-    css: {
-      transformer: 'lightningcss' as const,
-      lightningcss: {
-        targets: {
-          chrome: 60 << 16,
-        },
-      },
     },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',

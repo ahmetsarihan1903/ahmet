@@ -255,18 +255,18 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
               setActiveTab('RAIL_DOOR');
               setSelectedMeasureCode('1');
             }}
-            className={`py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer border ${
+            className={`min-h-[44px] py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer border select-none ${
               activeTab === 'RAIL_DOOR'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 border-amber-400 shadow-md scale-101'
+                ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400 shadow-md font-black'
                 : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white'
             }`}
           >
-            <div className="flex items-center gap-1.5">
-              <Sliders className={`w-4 h-4 ${activeTab === 'RAIL_DOOR' ? 'text-slate-950' : 'text-amber-400'}`} />
-              <span className="uppercase tracking-wide">1. RAY - KAPI</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Sliders className={`w-4 h-4 shrink-0 ${activeTab === 'RAIL_DOOR' ? 'text-slate-950' : 'text-amber-400'}`} />
+              <span className="uppercase tracking-wide whitespace-nowrap">1. RAY - KAPI</span>
             </div>
             <span
-              className={`text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full ${
+              className={`text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full shrink-0 ${
                 activeTab === 'RAIL_DOOR'
                   ? 'bg-slate-950/20 text-slate-950'
                   : 'bg-slate-800 text-amber-300 border border-slate-700'
@@ -283,18 +283,18 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
               setActiveTab('MACHINE_CHASSIS');
               setSelectedMeasureCode(undefined);
             }}
-            className={`py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer border ${
+            className={`min-h-[44px] py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer border select-none ${
               activeTab === 'MACHINE_CHASSIS'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 border-amber-400 shadow-md scale-101'
+                ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400 shadow-md font-black'
                 : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white'
             }`}
           >
-            <div className="flex items-center gap-1.5">
-              <Wrench className={`w-4 h-4 ${activeTab === 'MACHINE_CHASSIS' ? 'text-slate-950' : 'text-amber-400'}`} />
-              <span className="uppercase tracking-wide">2. MAKİNE ŞASE</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Wrench className={`w-4 h-4 shrink-0 ${activeTab === 'MACHINE_CHASSIS' ? 'text-slate-950' : 'text-amber-400'}`} />
+              <span className="uppercase tracking-wide whitespace-nowrap">2. MAKİNE ŞASE</span>
             </div>
             <span
-              className={`text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full ${
+              className={`text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full shrink-0 ${
                 activeTab === 'MACHINE_CHASSIS'
                   ? 'bg-slate-950/20 text-slate-950'
                   : 'bg-slate-800 text-amber-300 border border-slate-700'
@@ -311,18 +311,18 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
               setActiveTab('NON_CONFORMITIES');
               setSelectedMeasureCode(undefined);
             }}
-            className={`py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer border ${
+            className={`min-h-[44px] py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer border select-none ${
               activeTab === 'NON_CONFORMITIES'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 border-amber-400 shadow-md scale-101'
+                ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400 shadow-md font-black'
                 : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-white'
             }`}
           >
-            <div className="flex items-center gap-1.5">
-              <AlertTriangle className={`w-4 h-4 ${activeTab === 'NON_CONFORMITIES' ? 'text-slate-950' : 'text-amber-400'}`} />
-              <span className="uppercase tracking-wide">UYGUNSUZLUKLAR</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <AlertTriangle className={`w-4 h-4 shrink-0 ${activeTab === 'NON_CONFORMITIES' ? 'text-slate-950' : 'text-amber-400'}`} />
+              <span className="uppercase tracking-wide whitespace-nowrap">UYGUNSUZLUKLAR</span>
             </div>
             <span
-              className={`text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full ${
+              className={`text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full shrink-0 ${
                 activeTab === 'NON_CONFORMITIES'
                   ? 'bg-slate-950/20 text-slate-950'
                   : 'bg-slate-800 text-amber-300 border border-slate-700'

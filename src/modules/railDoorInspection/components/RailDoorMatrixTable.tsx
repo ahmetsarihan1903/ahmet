@@ -215,11 +215,11 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
             type="button"
             id="btn-scroll-left"
             onClick={() => scrollHorizontally(-280)}
-            className="w-full py-2 sm:py-2.5 bg-slate-900 hover:bg-slate-800 active:bg-amber-500 active:text-slate-950 text-amber-400 border border-slate-700 hover:border-amber-400/60 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer shadow-xs"
+            className="w-full min-h-[40px] py-2 sm:py-2.5 bg-slate-900 hover:bg-slate-800 active:bg-amber-500 active:text-slate-950 text-amber-400 border border-slate-700 hover:border-amber-400/60 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer shadow-xs select-none"
             title="Tabloyu Sola Kaydır (1..5 Sütunları)"
           >
-            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
-            <span className="font-bold">Sol Ok</span>
+            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 shrink-0" />
+            <span className="font-bold whitespace-nowrap">Sol Ok</span>
           </button>
 
           {/* 2. Aşağı Ok (Sonraki 6 Durak) */}
@@ -228,15 +228,15 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
             id="btn-scroll-down"
             onClick={handleNextPage}
             disabled={safeCurrentPage >= totalPages - 1}
-            className={`w-full py-2 sm:py-2.5 border rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer shadow-xs ${
+            className={`w-full min-h-[40px] py-2 sm:py-2.5 border rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer shadow-xs select-none ${
               safeCurrentPage >= totalPages - 1
                 ? 'bg-slate-900/50 text-slate-600 border-slate-800 cursor-not-allowed opacity-50'
                 : 'bg-slate-900 hover:bg-slate-800 active:bg-amber-500 active:text-slate-950 text-slate-200 hover:text-amber-400 border-slate-700 hover:border-slate-600'
             }`}
             title="Sonraki Katlara Geç (Alt Duraklar)"
           >
-            <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
-            <span className="font-bold">Aşağı Ok</span>
+            <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 shrink-0" />
+            <span className="font-bold whitespace-nowrap">Aşağı Ok</span>
           </button>
 
           {/* 3. Yukarı Ok (Önceki 6 Durak) */}
@@ -245,15 +245,15 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
             id="btn-scroll-up"
             onClick={handlePrevPage}
             disabled={safeCurrentPage === 0}
-            className={`w-full py-2 sm:py-2.5 border rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer shadow-xs ${
+            className={`w-full min-h-[40px] py-2 sm:py-2.5 border rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer shadow-xs select-none ${
               safeCurrentPage === 0
                 ? 'bg-slate-900/50 text-slate-600 border-slate-800 cursor-not-allowed opacity-50'
                 : 'bg-slate-900 hover:bg-slate-800 active:bg-amber-500 active:text-slate-950 text-slate-200 hover:text-amber-400 border-slate-700 hover:border-slate-600'
             }`}
             title="Önceki Katlara Geç (Üst Duraklar)"
           >
-            <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
-            <span className="font-bold">Yukarı Ok</span>
+            <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 shrink-0" />
+            <span className="font-bold whitespace-nowrap">Yukarı Ok</span>
           </button>
 
           {/* 4. Sağ Ok (Kolonları Sağa Kaydır) */}
@@ -261,11 +261,11 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
             type="button"
             id="btn-scroll-right"
             onClick={() => scrollHorizontally(280)}
-            className="w-full py-2 sm:py-2.5 bg-slate-900 hover:bg-slate-800 active:bg-amber-500 active:text-slate-950 text-amber-400 border border-slate-700 hover:border-amber-400/60 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer shadow-xs"
+            className="w-full min-h-[40px] py-2 sm:py-2.5 bg-slate-900 hover:bg-slate-800 active:bg-amber-500 active:text-slate-950 text-amber-400 border border-slate-700 hover:border-amber-400/60 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer shadow-xs select-none"
             title="Tabloyu Sağa Kaydır"
           >
-            <span className="font-bold">Sağ Ok</span>
-            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
+            <span className="font-bold whitespace-nowrap">Sağ Ok</span>
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400 shrink-0" />
           </button>
         </div>
 
@@ -275,10 +275,10 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
             type="button"
             id="btn-open-reference-guide-table"
             onClick={onOpenReferenceGuide}
-            className="px-3.5 sm:px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-xs sm:text-sm flex items-center gap-1.5 transition-all cursor-pointer shadow-md shrink-0 active:scale-95"
+            className="min-h-[40px] px-3.5 sm:px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs sm:text-sm flex items-center gap-1.5 transition-all cursor-pointer shadow-md shrink-0 select-none whitespace-nowrap"
             title="Kuyu Ölçüm Şemasını Görüntüle"
           >
-            <BookOpen className="w-4 h-4 text-slate-950" />
+            <BookOpen className="w-4 h-4 text-slate-950 shrink-0" />
             <span>Ölçüleri Gör</span>
           </button>
         )}

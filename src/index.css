@@ -1,16 +1,36 @@
 @import "tailwindcss";
 
+/* Android 8.1.0 (Chrome 60+) & Mobile WebView Button & Layout Compatibility */
+button, input, select, textarea {
+  -webkit-appearance: none;
+  appearance: none;
+  font-family: inherit;
+}
+
+/* Ensure flex/grid children on older WebViews have visible dimensions */
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
 /* Android WebView & Lucide SVG Compatibility Rules */
 svg {
   flex-shrink: 0;
+  -webkit-flex-shrink: 0;
   display: inline-block;
   vertical-align: middle;
   shape-rendering: geometricPrecision;
+  width: 1em;
+  height: 1em;
+  min-width: 14px;
+  min-height: 14px;
 }
 
 svg.lucide {
-  min-width: 1em;
-  min-height: 1em;
+  min-width: 14px;
+  min-height: 14px;
   stroke: currentColor;
 }
 
