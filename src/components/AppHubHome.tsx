@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ActiveAppModule } from '../types';
 import { BetaLogo } from './BetaLogo';
 import {
@@ -12,9 +12,12 @@ import {
   X,
   Moon,
   Sun,
+  PlayCircle,
+  FileCheck2,
 } from 'lucide-react';
 import { FontSizeControl } from './FontSizeControl';
 import { useTheme } from '../context/ThemeContext';
+import { loadActiveDraft } from '../utils/storage';
 
 interface AppHubHomeProps {
   onSelectModule: (module: ActiveAppModule) => void;
@@ -23,6 +26,33 @@ interface AppHubHomeProps {
 export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
   const [showSettings, setShowSettings] = useState(false);
   const { theme, setTheme, isDark } = useTheme();
+  const [activeDraftInfo, setActiveDraftInfo] = useState<{
+    exists: boolean;
+    projectName?: string;
+    step?: string;
+    serial?: string;
+  }>({ exists: false });
+
+  useEffect(() => {
+    const draft = loadActiveDraft();
+    if (draft && (draft.clientProjectName || draft.serialNumber || draft.currentStep !== 'welcome')) {
+      let stepLabel = 'Giriş Ekranı';
+      if (draft.currentStep === 'specs') stepLabel = 'Asansör Özellikleri';
+      else if (draft.currentStep === 'audit') {
+        const tabNames = ['Ölçüler', 'Pano', 'Motor', 'Kabin Üstü', 'Ağırlık', 'Kuyu', 'Kabin/Buton', 'Kapılar'];
+        stepLabel = `Denetim (${tabNames[draft.activeAuditTab || 0] || 'Saha'})`;
+      } else if (draft.currentStep === 'report') {
+        stepLabel = 'Rapor Ekranı';
+      }
+
+      setActiveDraftInfo({
+        exists: true,
+        projectName: draft.clientProjectName || 'İsimsiz Proje',
+        serial: draft.serialNumber,
+        step: stepLabel,
+      });
+    }
+  }, []);
 
   return (
     <div className={`min-h-screen flex flex-col font-sans justify-between transition-colors ${
@@ -166,20 +196,32 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
               }`}>
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2.5">
-                <h2 className={`text-sm sm:text-base font-black truncate flex items-center gap-1 transition-colors ${
-                  isDark ? 'text-white group-hover:text-orange-300' : 'text-slate-950 group-hover:text-orange-700'
-                }`}>
-                  3. Kalite Kontrol Formu
-                </h2>
-                <span className={`text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded shrink-0 flex items-center gap-1 w-fit border ${
-                  isDark
-                    ? 'bg-orange-500/20 text-orange-300 border-orange-500/40'
-                    : 'bg-orange-100 text-orange-950 border-orange-400 font-black'
-                }`}>
-                  <Sparkles className="w-2.5 h-2.5" />
-                  v2.0 Aktif
-                </span>
+              <div className="min-w-0 flex flex-col gap-1">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2.5">
+                  <h2 className={`text-sm sm:text-base font-black truncate flex items-center gap-1 transition-colors ${
+                    isDark ? 'text-white group-hover:text-orange-300' : 'text-slate-950 group-hover:text-orange-700'
+                  }`}>
+                    3. Kalite Kontrol Formu
+                  </h2>
+                  <span className={`text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded shrink-0 flex items-center gap-1 w-fit border ${
+                    isDark
+                      ? 'bg-orange-500/20 text-orange-300 border-orange-500/40'
+                      : 'bg-orange-100 text-orange-950 border-orange-400 font-black'
+                  }`}>
+                    <Sparkles className="w-2.5 h-2.5" />
+                    v2.0 Aktif
+                  </span>
+                </div>
+
+                {/* Devam Eden Taslak Göstergesi */}
+                {activeDraftInfo.exists && (
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded w-fit">
+                    <PlayCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0 animate-pulse" />
+                    <span className="truncate">
+                      Kaldığı Yerden Devam Et: <strong>{activeDraftInfo.projectName}</strong> ({activeDraftInfo.step})
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

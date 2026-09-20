@@ -18,6 +18,7 @@ import {
   RotateCcw,
   Edit3,
   PlusCircle,
+  Cloud,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { getLastSavedTime, loadActiveDraft, getAuditHistory } from '../utils/storage';
@@ -28,6 +29,7 @@ interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenSyncModal: () => void;
+  onOpenDriveModal?: () => void;
   onOpenHistoryModal: () => void;
   onManualSave: () => void;
   onRestoreDraftOrAudit: (data: AuditFormData) => void;
@@ -40,6 +42,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
   onOpenSyncModal,
+  onOpenDriveModal,
   onOpenHistoryModal,
   onManualSave,
   onRestoreDraftOrAudit,
@@ -320,7 +323,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               )}
 
-              {/* 6. Google Sheets Sync Modal Trigger (E-Tablodan Madde Güncelleme) */}
+              {/* 6. Google Drive Bulut Arşivi ve Ortak Klasör */}
+              {onOpenDriveModal && (
+                <div className={`p-3.5 rounded-lg border ${
+                  isDark ? 'bg-slate-950 border-slate-800' : 'bg-blue-50/60 border-blue-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${
+                      isDark ? 'text-slate-200' : 'text-blue-950'
+                    }`}>
+                      <Cloud className={`w-3.5 h-3.5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                      Google Drive Ortak Bulut Arşivi
+                    </span>
+                  </div>
+                  <p className={`text-[11px] mb-2.5 ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>
+                    3 tablet arası ortak klasöre (KALITEKONTROL ARSIV) proje yükleyin ve indirin.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenDriveModal();
+                    }}
+                    className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg border border-blue-500 text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
+                  >
+                    <Cloud className="w-4 h-4" />
+                    <span>Drive Bulut Arşivini Aç</span>
+                  </button>
+                </div>
+              )}
+
+              {/* 7. Google Sheets Sync Modal Trigger (E-Tablodan Madde Güncelleme) */}
               <div className={`p-3.5 rounded-lg border ${
                 isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
               }`}>

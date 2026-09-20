@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Clock, AlertTriangle, Save, Check, Settings } from 'lucide-react';
+import { ShieldCheck, Clock, AlertTriangle, Save, Check, Settings, Cloud } from 'lucide-react';
 import { formatTimerDisplay } from '../utils/textUtils';
 import { BetaLogo } from './BetaLogo';
 
@@ -8,6 +8,7 @@ interface HeaderProps {
   startTimestamp: number | null;
   nonCompliantCount: number;
   onOpenSettings: () => void;
+  onOpenDriveModal?: () => void;
   onManualSave: () => void;
   isSaveSuccess?: boolean;
   onBackToMainMenu?: () => void;
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   startTimestamp,
   nonCompliantCount,
   onOpenSettings,
+  onOpenDriveModal,
   onManualSave,
   isSaveSuccess = false,
   onBackToMainMenu,
@@ -72,7 +74,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Live Status Indicators & Controls: Süre, UD Kutusu, Kaydet Butonu, Ayarlar Butonu */}
+        {/* Live Status Indicators & Controls: Süre, UD Kutusu, Yeni Denetim, Kaydet Butonu, Ayarlar Butonu */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Active Timer (during audit) */}
           {startTimestamp && currentStep === 'audit' && (
@@ -109,6 +111,20 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
 
+          {/* 1.5 GOOGLE DRIVE BULUT SENKRONİZASYON BUTONU */}
+          {onOpenDriveModal && (
+            <button
+              type="button"
+              id="btn-header-drive-sync"
+              onClick={onOpenDriveModal}
+              title="Google Drive Ortak Bulut Arşivi (Projeleri Yükle / İndir)"
+              aria-label="Google Drive Bulut"
+              className="p-2 bg-blue-900/80 hover:bg-blue-800 text-blue-200 hover:text-white rounded border border-blue-500/60 hover:border-blue-400 transition-colors cursor-pointer flex items-center justify-center shadow-xs"
+            >
+              <Cloud className="w-4 h-4 text-blue-300" />
+            </button>
+          )}
+
           {/* 1. KAYDET BUTONU - SADECE İKON (Altında/yanında yazı yok) */}
           <button
             type="button"
@@ -134,7 +150,7 @@ export const Header: React.FC<HeaderProps> = ({
             type="button"
             id="btn-header-settings"
             onClick={onOpenSettings}
-            title="Ayarlar & Menü (Görünüm, Veri Güncelleme, Geçmiş)"
+            title="Ayarlar & Menü (Görünüm, Veri Güncelleme, Geçmiş, Drive)"
             aria-label="Ayarlar"
             className="p-2 bg-slate-800/95 hover:bg-slate-700 text-white rounded border border-slate-500 hover:border-slate-300 transition-colors cursor-pointer flex items-center justify-center shadow-sm"
           >

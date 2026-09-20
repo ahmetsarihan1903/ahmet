@@ -22,6 +22,13 @@ import {
   saveCompletedAuditToHistory,
   saveManualAuditSnapshot,
 } from '../../utils/storage';
+import {
+  uploadAuditJsonToDrive,
+  queueAuditForCloudSync,
+  getQueuedAuditForCloudSync,
+  clearQueuedAuditForCloudSync,
+  getCachedDriveToken,
+} from '../../services/googleDriveService';
 
 // Helper to sync draft measures with default fixed measures
 function syncMeasuresWithMaster(draftMeasures: MeasureItem[] | undefined): MeasureItem[] {
@@ -123,6 +130,7 @@ import { ReportView } from '../../components/ReportView';
 import { AuditHistoryModal } from '../../components/AuditHistoryModal';
 import { SyncModal } from '../../components/SyncModal';
 import { SettingsModal } from '../../components/SettingsModal';
+import { DriveSyncModal } from '../../components/DriveSyncModal';
 import { loadSyncedItemsFromStorage } from '../../services/dataSyncService';
 
 interface QualityControlModuleProps {
@@ -131,9 +139,9 @@ interface QualityControlModuleProps {
 
 export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleProps) {
   const [formData, setFormData] = useState<AuditFormData>(() => {
-    // Try to load active draft on initial mount
+    // 1. Önce aktif taslağı yükle (hangi adımda kalmışsa: welcome, specs, audit veya report)
     const draft = loadActiveDraft();
-    if (draft && draft.currentStep !== 'report') {
+    if (draft) {
       return syncDraftWithMaster(draft);
     }
 
@@ -189,6 +197,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
   const [isComfortModalOpen, setIsComfortModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isSaveSuccess, setIsSaveSuccess] = useState(false);
   const [saveToastMessage, setSaveToastMessage] = useState<string | null>(null);
@@ -210,17 +219,65 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
     }
   }, [formData]);
 
+  // Auto-sync queued offline saves whenever connection is restored
+  useEffect(() => {
+    const handleOnline = async () => {
+      const queuedData = getQueuedAuditForCloudSync();
+      const token = getCachedDriveToken();
+      if (queuedData && token) {
+        try {
+          await uploadAuditJsonToDrive(queuedData, undefined, { silent: true });
+          setSaveToastMessage('İnternet bağlantısı sağlandı: Bekleyen veriler Drive\'a senkronize edildi ✓');
+          setTimeout(() => setSaveToastMessage(null), 3500);
+        } catch (err) {
+          console.warn('Auto-sync on reconnect failed:', err);
+        }
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
+
   // Manual save triggered by Save button in header or settings
-  const handleManualSave = useCallback(() => {
+  const handleManualSave = useCallback(async () => {
+    // 1. Always save locally immediately
     saveManualAuditSnapshot(formData);
     setIsSaveSuccess(true);
-    setSaveToastMessage('Denetim taslağı ve veriler başarıyla kaydedildi');
+
+    const isOnline = typeof navigator === 'undefined' || navigator.onLine;
+    const token = getCachedDriveToken();
+
+    // 2. If online and drive token available, sync immediately with overwrite
+    if (isOnline && token) {
+      setSaveToastMessage('Yerel kaydedildi. Drive bulutuna senkronize ediliyor...');
+      try {
+        const res = await uploadAuditJsonToDrive(formData, undefined, { silent: true });
+        if (res.isUpdated) {
+          setSaveToastMessage('Yerel kaydedildi & Drive referans dosyasının üzerine güncellendi ✓');
+        } else {
+          setSaveToastMessage('Yerel kaydedildi & Drive bulutuna başarıyla yüklendi ✓');
+        }
+      } catch (err: any) {
+        queueAuditForCloudSync(formData);
+        setSaveToastMessage('Yerel kaydedildi. Bulut yüklemesi sıraya alındı (internet geldiğinde yüklenecek)');
+      }
+    } else if (!isOnline) {
+      // 3. If offline, queue for when connection is restored
+      queueAuditForCloudSync(formData);
+      setSaveToastMessage('Cihaz çevrimdışı: Yerel kaydedildi (İnternet gelince Drive\'a yüklenecek) ✓');
+    } else {
+      // Online but no drive token yet
+      queueAuditForCloudSync(formData);
+      setSaveToastMessage('Denetim taslağı başarıyla yerel olarak kaydedildi ✓');
+    }
+
     setTimeout(() => {
       setIsSaveSuccess(false);
     }, 2500);
     setTimeout(() => {
       setSaveToastMessage(null);
-    }, 3000);
+    }, 3500);
   }, [formData]);
 
   // Sync Motor Chassis items when elevator type changes in Step 2
@@ -581,6 +638,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
         startTimestamp={formData.startTimestamp}
         nonCompliantCount={totalUDCount}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
+        onOpenDriveModal={() => setIsDriveModalOpen(true)}
         onManualSave={handleManualSave}
         isSaveSuccess={isSaveSuccess}
         onBackToMainMenu={onBackToMainMenu}
@@ -663,6 +721,11 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
             data={formData}
             onEditAudit={() => setFormData((p) => ({ ...p, currentStep: 'audit' }))}
             onNewInspection={handleNewInspection}
+            onUpdateData={(updated) => {
+              setFormData(updated);
+              saveActiveDraft(updated);
+              saveManualAuditSnapshot(updated);
+            }}
           />
         )}
       </main>
@@ -672,6 +735,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         onOpenSyncModal={() => setIsSyncModalOpen(true)}
+        onOpenDriveModal={() => setIsDriveModalOpen(true)}
         onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
         onManualSave={handleManualSave}
         onEditInspectionInfo={() => setFormData((p) => ({ ...p, currentStep: 'welcome' }))}
@@ -682,6 +746,20 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
           setTimeout(() => setSaveToastMessage(null), 2500);
         }}
         lastSavedFeedback={isSaveSuccess}
+      />
+
+      {/* Google Drive Cloud Sync Modal (3 Tablet Ortak Klasör Arşivi) */}
+      <DriveSyncModal
+        isOpen={isDriveModalOpen}
+        onClose={() => setIsDriveModalOpen(false)}
+        currentAuditData={formData}
+        onLoadAuditFromDrive={(loadedAudit) => {
+          setFormData(loadedAudit);
+          saveActiveDraft(loadedAudit);
+          saveManualAuditSnapshot(loadedAudit);
+          setSaveToastMessage(`"${loadedAudit.serialNumber || loadedAudit.clientProjectName}" Drive'dan başarıyla yüklendi`);
+          setTimeout(() => setSaveToastMessage(null), 3000);
+        }}
       />
 
       {/* Step 4 Final Comfort Modal */}

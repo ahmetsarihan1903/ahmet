@@ -8,7 +8,6 @@ import {
   Share2,
   Check,
   RotateCcw,
-  PlusCircle,
   Ruler,
   CheckCircle2,
   ShieldAlert,
@@ -19,15 +18,20 @@ import {
   FolderCheck,
   FileText,
   Eye,
+  Cloud,
+  UploadCloud,
 } from 'lucide-react';
 import { AuditFormData, InspectionItem } from '../types';
 import { BetaLogo } from './BetaLogo';
 import { getBetaLogoDataUrl } from '../utils/logoUtils';
+import { ReAuditModal } from './ReAuditModal';
+import { uploadAuditJsonToDrive, uploadPdfBlobToDrive } from '../services/googleDriveService';
+import { DriveSyncModal } from './DriveSyncModal';
 
 interface ReportViewProps {
   data: AuditFormData;
   onEditAudit: () => void;
-  onNewInspection?: () => void;
+  onUpdateData?: (updated: AuditFormData) => void;
 }
 
 // Convert special Turkish characters for standard jsPDF Latin fonts to prevent corrupted glyphs
@@ -53,12 +57,17 @@ export const ReportView: React.FC<ReportViewProps> = ({
   data,
   onEditAudit,
   onNewInspection,
+  onUpdateData,
 }) => {
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
   const [downloadedFilePath, setDownloadedFilePath] = useState<string | null>(null);
+  const [isReAuditModalOpen, setIsReAuditModalOpen] = useState(false);
+  const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
+  const [isDriveUploading, setIsDriveUploading] = useState(false);
+  const [driveUploadSuccess, setDriveUploadSuccess] = useState(false);
 
   // Collect all UD items across all pages
   const allUDItems: { category: string; item: InspectionItem }[] = [];
@@ -88,9 +97,17 @@ export const ReportView: React.FC<ReportViewProps> = ({
         isNonCompliant: true,
         description: data.rideComfortNotes || 'Konfor problemi tespit edildi.',
         category: 'Seyir ve Konfor',
+        isResolved: data.rideComfortResolved,
+        resolutionNote: data.rideComfortResolutionNote,
       },
     });
   }
+
+  const totalUDCount = allUDItems.length;
+  const resolvedUDCount = allUDItems.filter((entry) => entry.item.isResolved).length;
+  const remainingUDCount = totalUDCount - resolvedUDCount;
+  const isAllResolved = totalUDCount > 0 && resolvedUDCount === totalUDCount;
+  const hasReAuditDone = totalUDCount > 0 && resolvedUDCount > 0;
 
   // Generate standardized filename using Serial Number
   const getStandardizedFileName = (): string => {
@@ -117,7 +134,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 12;
 
-    // 1. TOP HEADER BANNER (Navy #0A2647)
+    // 1. TOP HEADER BANNER (Navy #0A2647) - Matches 1.JPG exactly
     const bannerHeight = 22;
     doc.setFillColor(10, 38, 71); // #0A2647
     doc.rect(margin, margin, pageWidth - margin * 2, bannerHeight, 'F');
@@ -133,7 +150,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
       }
     }
 
-    // Header Title and Subtitle Text
+    // Header Title and Subtitle Text (Line 1 & Line 2)
     doc.setFontSize(13.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
@@ -141,14 +158,14 @@ export const ReportView: React.FC<ReportViewProps> = ({
 
     doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(203, 213, 225); // Slate 300
+    doc.setTextColor(203, 213, 225); // Slate 300 (#CBD5E1)
     doc.text(
       'Resmi Son Muayene ve Saha Uygunluk Belgesi | Kalite Guvence Birimi',
       margin + 19,
       margin + 16
     );
 
-    // 2. METADATA TABLE (2 Column Grid)
+    // 2. METADATA TABLE (2 Column Grid directly under banner)
     const metaRows = [
       [
         {
@@ -253,7 +270,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
     ];
 
     autoTable(doc, {
-      startY: margin + 25,
+      startY: margin + bannerHeight, // Directly attached under the navy banner
       margin: { left: margin, right: margin },
       body: metaRows,
       theme: 'grid',
@@ -275,7 +292,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let lastY = (doc as any).lastAutoTable.finalY + 6;
 
-    // 3. SECTION: UYGUNSUZLUKLAR (UD LISTESI)
+    // 3. SECTION: UYGUNSUZLUKLAR (UD LISTESI) & EKSIK KAPATMA
     if (allUDItems.length === 0) {
       autoTable(doc, {
         startY: lastY,
@@ -312,7 +329,114 @@ export const ReportView: React.FC<ReportViewProps> = ({
         theme: 'grid',
         styles: { fontSize: 10.5 },
       });
+    } else if (isAllResolved) {
+      // All punch list items resolved
+      const headerTitle = `EKSIK KAPATMA & YENIDEN MUAYENE: TUM EKSIKLER GIDERILDI (100% UYGUN - ${totalUDCount}/${totalUDCount})`;
+      const udTableRows = allUDItems.map((entry, index) => [
+        (index + 1).toString(),
+        cleanTr(entry.category),
+        cleanTr(entry.item.title),
+        cleanTr(entry.item.floorLabel) || '-',
+        `[GIDERILDI] ${cleanTr(entry.item.resolutionNote || 'Duzeltildi ve onaylandi')}`,
+      ]);
+
+      autoTable(doc, {
+        startY: lastY,
+        margin: { left: margin, right: margin },
+        head: [
+          [
+            { content: '#', styles: { halign: 'center' as const, cellWidth: 8 } },
+            { content: 'BOLUM / KATEGORI', styles: { cellWidth: 36 } },
+            { content: 'KONTROL MADDESI', styles: { cellWidth: 44 } },
+            { content: 'DURAK', styles: { halign: 'center' as const, cellWidth: 16 } },
+            { content: 'KAPATMA & DUZELTILME ACIKLAMASI', styles: { cellWidth: 82 } },
+          ],
+        ],
+        body: udTableRows,
+        theme: 'striped',
+        headStyles: {
+          fillColor: [16, 185, 129], // Emerald #10B981
+          textColor: [255, 255, 255],
+          fontStyle: 'bold' as const,
+          fontSize: 9.5,
+          cellPadding: 3,
+        },
+        styles: {
+          fontSize: 9.5,
+          cellPadding: 2.5,
+          lineColor: [226, 232, 240],
+          lineWidth: 0.25,
+          textColor: [15, 23, 42],
+          valign: 'middle' as const,
+        },
+        alternateRowStyles: {
+          fillColor: [236, 253, 245], // Emerald Light Tint
+        },
+        columnStyles: {
+          0: { halign: 'center' as const, fontStyle: 'bold' as const, textColor: [5, 150, 105] },
+          1: { fontStyle: 'bold' as const },
+          3: { halign: 'center' as const },
+          4: { textColor: [4, 120, 87], fontStyle: 'bold' as const },
+        },
+      });
+    } else if (hasReAuditDone) {
+      // Partial punch list resolution
+      const udTableRows = allUDItems.map((entry, index) => {
+        const isResolved = !!entry.item.isResolved;
+        const statusText = isResolved ? '[GIDERILDI]' : '[KALDI / UD]';
+        const noteText = isResolved
+          ? cleanTr(entry.item.resolutionNote || 'Duzeltildi')
+          : cleanTr(entry.item.description || 'Giderilmedi');
+
+        return [
+          (index + 1).toString(),
+          cleanTr(entry.category),
+          cleanTr(entry.item.title),
+          cleanTr(entry.item.floorLabel) || '-',
+          statusText,
+          noteText,
+        ];
+      });
+
+      autoTable(doc, {
+        startY: lastY,
+        margin: { left: margin, right: margin },
+        head: [
+          [
+            { content: '#', styles: { halign: 'center' as const, cellWidth: 8 } },
+            { content: 'BOLUM / KATEGORI', styles: { cellWidth: 34 } },
+            { content: 'KONTROL MADDESI', styles: { cellWidth: 42 } },
+            { content: 'DURAK', styles: { halign: 'center' as const, cellWidth: 14 } },
+            { content: 'DURUM', styles: { halign: 'center' as const, cellWidth: 26 } },
+            { content: 'ACIKLAMA / KAPATMA NOTU', styles: { cellWidth: 62 } },
+          ],
+        ],
+        body: udTableRows,
+        theme: 'striped',
+        headStyles: {
+          fillColor: [217, 119, 6], // Amber #D97706
+          textColor: [255, 255, 255],
+          fontStyle: 'bold' as const,
+          fontSize: 9.5,
+          cellPadding: 3,
+        },
+        styles: {
+          fontSize: 9,
+          cellPadding: 2.5,
+          lineColor: [226, 232, 240],
+          lineWidth: 0.25,
+          textColor: [15, 23, 42],
+          valign: 'middle' as const,
+        },
+        columnStyles: {
+          0: { halign: 'center' as const, fontStyle: 'bold' as const },
+          1: { fontStyle: 'bold' as const },
+          3: { halign: 'center' as const },
+          4: { halign: 'center' as const, fontStyle: 'bold' as const },
+        },
+      });
     } else {
+      // Standard Initial UD table
       const udTableRows = allUDItems.map((entry, index) => [
         (index + 1).toString(),
         cleanTr(entry.category),
@@ -699,6 +823,33 @@ export const ReportView: React.FC<ReportViewProps> = ({
     window.print();
   };
 
+  const handleDriveUpload = async () => {
+    if (isDriveUploading) return;
+    setIsDriveUploading(true);
+    try {
+      // 1. Upload JSON project audit data
+      await uploadAuditJsonToDrive(data);
+
+      // 2. Generate and upload official PDF document
+      const doc = buildJsPdfDocument();
+      const fileName = getStandardizedFileName();
+      const pdfBlob = doc.output('blob');
+      await uploadPdfBlobToDrive(pdfBlob, fileName);
+
+      setDriveUploadSuccess(true);
+      setTimeout(() => setDriveUploadSuccess(false), 5000);
+      alert(
+        `✅ GOOGLE DRİVE YEDEKLEMESİ BAŞARILI!\n\n` +
+        `Proje veri dosyası (.betaqc.json) ve resmi PDF raporu (${fileName}) "KALITEKONTROL ARSIV" klasörüne yüklendi.\n` +
+        `Diğer tabletler ve ofis ekibi bu projeyi ortak havuzdan anında görüntüleyebilir.`
+      );
+    } catch (err: any) {
+      alert(`Google Drive yükleme hatası: ${err?.message || 'Bağlantı kurulamadı.'}`);
+    } finally {
+      setIsDriveUploading(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto py-4 px-3 sm:px-4 pb-16">
       {/* Top Action Bar (İndir, Paylaş, Önizle, Yazdır) */}
@@ -775,6 +926,55 @@ export const ReportView: React.FC<ReportViewProps> = ({
               )}
             </button>
 
+            {/* 2.2 Google Drive Bulut Arşivine Yükle / Senkronize Et */}
+            <button
+              type="button"
+              id="btn-upload-drive"
+              disabled={isDriveUploading}
+              onClick={handleDriveUpload}
+              className={`min-h-[42px] px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs font-black uppercase tracking-wider flex items-center gap-1.5 border-2 border-indigo-400 shadow-md transition-all cursor-pointer ${
+                isDriveUploading ? 'opacity-80 cursor-wait' : ''
+              }`}
+              title="Raporu ve Proje Verisini Ortak Google Drive Klasörüne (KALITEKONTROL ARSIV) Yedekle"
+            >
+              {isDriveUploading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Drive'a Aktarılıyor...</span>
+                </>
+              ) : driveUploadSuccess ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>Drive'a Yüklendi!</span>
+                </>
+              ) : (
+                <>
+                  <UploadCloud className="w-3.5 h-3.5 text-indigo-200" />
+                  <span>Drive'a Yedekle</span>
+                </>
+              )}
+            </button>
+
+            {/* 2.5 Eksik Kapatma / Tekrar Muayene Butonu */}
+            {totalUDCount > 0 && (
+              <button
+                type="button"
+                id="btn-re-audit-punchlist"
+                onClick={() => setIsReAuditModalOpen(true)}
+                className={`min-h-[42px] px-3.5 py-2 rounded text-xs font-black uppercase tracking-wider flex items-center gap-1.5 border-2 shadow-md transition-all cursor-pointer ${
+                  isAllResolved
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400'
+                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-300'
+                }`}
+                title="Eksik Kapatma ve Yeniden Muayene Listesini Aç"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>
+                  Eksik Kapatma ({resolvedUDCount}/{totalUDCount})
+                </span>
+              </button>
+            )}
+
             {/* 3. Düzenle */}
             <button
               type="button"
@@ -807,31 +1007,29 @@ export const ReportView: React.FC<ReportViewProps> = ({
         id="official-report-sheet"
         className="bg-white rounded-lg shadow-md border-2 border-slate-300 p-4 sm:p-6 text-slate-900"
       >
-        {/* Corporate Header */}
-        <div className="border-b-2 border-slate-900 pb-3.5 mb-4 header-box">
-          <div className="flex flex-col sm:row sm:items-center justify-between gap-3 w-full">
-            <div className="flex items-center gap-2.5">
-              <BetaLogo size="lg" className="shadow-xs shrink-0" />
-              <div>
-                <h1 className="text-base sm:text-xl font-black text-slate-950 tracking-tight leading-tight">
-                  BETA ASANSÖR
-                </h1>
-                <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                  Kalite Kontrol &amp; Saha Son Muayene Raporu
-                </p>
-              </div>
+        {/* Corporate Header Banner matching 1.JPG */}
+        <div className="bg-[#0A2647] rounded-t-lg p-3 sm:p-4 mb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-white border-2 border-b-0 border-[#0A2647] header-box">
+          <div className="flex items-center gap-3">
+            <BetaLogo size="lg" className="shadow-xs shrink-0 ring-1 ring-white/30" />
+            <div>
+              <h1 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight uppercase leading-tight">
+                BETA ASANSOR - KALITE KONTROL RAPORU
+              </h1>
+              <p className="text-[11px] sm:text-xs font-normal text-slate-300">
+                Resmi Son Muayene ve Saha Uygunluk Belgesi | Kalite Guvence Birimi
+              </p>
             </div>
-            <div className="text-left sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-300">
-              <span className="inline-block px-2.5 py-1 bg-slate-100 text-slate-900 text-xs font-black rounded border-2 border-slate-400">
-                RAPOR NO: {data.serialNumber || 'BETA-QC'}
-              </span>
-              <p className="text-[11px] font-bold text-slate-700 mt-1">Tarih: {data.dateDisplay}</p>
-            </div>
+          </div>
+          <div className="text-left sm:text-right shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-white/20">
+            <span className="inline-block px-2.5 py-1 bg-white/10 text-white text-xs font-mono font-bold rounded border border-white/25">
+              RAPOR NO: {data.serialNumber || 'BETA-QC'}
+            </span>
+            <p className="text-[11px] text-slate-300 mt-1 font-medium">Tarih: {data.dateDisplay}</p>
           </div>
         </div>
 
         {/* Technical & Audit Metadata Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 p-3.5 bg-slate-100 rounded-lg border-2 border-slate-300 text-xs mb-4 grid-meta">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 p-3.5 bg-slate-50 rounded-b-lg border-2 border-slate-300 text-xs mb-4 grid-meta">
           <div>
             <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Kontrolü Yapan:</span>
             <span className="text-xs font-black text-slate-950">{data.inspectorName}</span>
@@ -866,22 +1064,54 @@ export const ReportView: React.FC<ReportViewProps> = ({
           </div>
         </div>
 
-        {/* Section: UD LISTESI (Hatalar ve Uygunsuzluklar) */}
+        {/* Section: UD LISTESI (Hatalar ve Uygunsuzluklar) & EKSİK KAPATMA */}
         <div className="mb-6">
-          <div className="flex items-center justify-between pb-1.5 mb-2.5 border-b-2 border-red-600 section-title">
+          <div
+            className={`flex items-center justify-between pb-1.5 mb-2.5 border-b-2 section-title ${
+              isAllResolved
+                ? 'border-emerald-600'
+                : hasReAuditDone
+                ? 'border-amber-600'
+                : 'border-red-600'
+            }`}
+          >
             <div className="flex items-center gap-1.5">
-              <ShieldAlert className="w-4 h-4 text-red-600" />
+              {isAllResolved ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              ) : (
+                <ShieldAlert
+                  className={`w-4 h-4 ${hasReAuditDone ? 'text-amber-600' : 'text-red-600'}`}
+                />
+              )}
               <h2 className="text-xs sm:text-sm font-bold uppercase text-slate-900 tracking-wider">
-                TESPİT EDİLEN UYGUNSUZLUKLAR (UD LİSTESİ)
+                {isAllResolved
+                  ? 'EKSİK KAPATMA & SAHA UYGUNLUK RAPORU (0 AÇIK HATA)'
+                  : hasReAuditDone
+                  ? 'UYGUNSUZLUK & EKSİK KAPATMA TAKİBİ'
+                  : 'TESPİT EDİLEN UYGUNSUZLUKLAR (UD LİSTESİ)'}
               </h2>
             </div>
-            <span
-              className={`text-xs font-black px-2.5 py-1 rounded border-2 ${
-                allUDItems.length === 0 ? 'bg-emerald-100 text-emerald-900 border-emerald-500' : 'bg-red-100 text-red-900 border-red-500'
-              }`}
-            >
-              Toplam {allUDItems.length} Hata / Eksik
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-xs font-black px-2.5 py-1 rounded border-2 ${
+                  allUDItems.length === 0
+                    ? 'bg-emerald-100 text-emerald-900 border-emerald-500'
+                    : isAllResolved
+                    ? 'bg-emerald-100 text-emerald-950 border-emerald-600'
+                    : hasReAuditDone
+                    ? 'bg-amber-100 text-amber-950 border-amber-600'
+                    : 'bg-red-100 text-red-900 border-red-500'
+                }`}
+              >
+                {allUDItems.length === 0
+                  ? '0 Hata / Eksik'
+                  : isAllResolved
+                  ? `Tüm Eksikler Giderildi (${totalUDCount}/${totalUDCount})`
+                  : hasReAuditDone
+                  ? `${resolvedUDCount} Giderildi / ${remainingUDCount} Kaldı`
+                  : `Toplam ${allUDItems.length} Hata / Eksik`}
+              </span>
+            </div>
           </div>
 
           {allUDItems.length === 0 ? (
@@ -895,41 +1125,102 @@ export const ReportView: React.FC<ReportViewProps> = ({
               </p>
             </div>
           ) : (
-            <div className="border-2 border-slate-300 rounded-lg overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-200 border-b-2 border-slate-300 text-slate-900 font-black uppercase text-[10px]">
-                  <tr>
-                    <th className="p-2 border-r border-slate-300 w-10 text-center">#</th>
-                    <th className="p-2 border-r border-slate-300 w-36">Bölüm / Kategori</th>
-                    <th className="p-2 border-r border-slate-300">Kontrol Maddesi</th>
-                    <th className="p-2 border-r border-slate-300 w-20 text-center">Durak</th>
-                    <th className="p-2">Hata / Açıklama</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-300">
-                  {allUDItems.map((entry, index) => (
-                    <tr key={index} className="bg-red-50/70 hover:bg-red-100/60">
-                      <td className="p-2 border-r border-slate-300 text-center font-black text-red-600">
-                        {index + 1}
-                      </td>
-                      <td className="p-2 border-r border-slate-300 font-black text-slate-950 text-[11px]">
-                        {entry.category}
-                      </td>
-                      <td className="p-2 border-r border-slate-300 font-bold text-slate-950">
-                        {entry.item.title}
-                      </td>
-                      <td className="p-2 border-r border-slate-300 text-center font-black text-slate-800 text-[11px]">
-                        {entry.item.floorLabel || '-'}
-                      </td>
-                      <td className="p-2 text-red-950 text-xs font-bold">
-                        {entry.item.description || (
-                          <span className="italic text-slate-500">Açıklama girilmedi</span>
-                        )}
-                      </td>
+            <div className="space-y-2">
+              {isAllResolved && (
+                <div className="p-3 bg-emerald-100/80 border-2 border-emerald-500 rounded-lg flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />
+                    <div>
+                      <span className="font-black text-emerald-950 block">
+                        Yeniden Muayene Onayı: Tüm Eksiklikler Başarıyla Giderilmiştir.
+                      </span>
+                      {data.reAuditInspector && (
+                        <span className="text-[11px] font-bold text-emerald-800 block">
+                          Eksik Kapatma Denetçisi: {data.reAuditInspector} &bull; Tarih: {data.reAuditDate || data.dateDisplay}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsReAuditModalOpen(true)}
+                    className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded font-bold text-[11px] uppercase cursor-pointer"
+                  >
+                    Düzenle / Kontrol Et
+                  </button>
+                </div>
+              )}
+
+              <div className="border-2 border-slate-300 rounded-lg overflow-hidden">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-200 border-b-2 border-slate-300 text-slate-900 font-black uppercase text-[10px]">
+                    <tr>
+                      <th className="p-2 border-r border-slate-300 w-10 text-center">#</th>
+                      <th className="p-2 border-r border-slate-300 w-36">Bölüm / Kategori</th>
+                      <th className="p-2 border-r border-slate-300">Kontrol Maddesi</th>
+                      <th className="p-2 border-r border-slate-300 w-16 text-center">Durak</th>
+                      <th className="p-2 border-r border-slate-300 w-24 text-center">Durum</th>
+                      <th className="p-2">Hata & Kapatma Notu</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-300">
+                    {allUDItems.map((entry, index) => {
+                      const isResolved = !!entry.item.isResolved;
+                      return (
+                        <tr
+                          key={index}
+                          className={
+                            isResolved
+                              ? 'bg-emerald-50/70 hover:bg-emerald-100/60'
+                              : 'bg-red-50/70 hover:bg-red-100/60'
+                          }
+                        >
+                          <td
+                            className={`p-2 border-r border-slate-300 text-center font-black ${
+                              isResolved ? 'text-emerald-700' : 'text-red-600'
+                            }`}
+                          >
+                            {index + 1}
+                          </td>
+                          <td className="p-2 border-r border-slate-300 font-black text-slate-950 text-[11px]">
+                            {entry.category}
+                          </td>
+                          <td className="p-2 border-r border-slate-300 font-bold text-slate-950">
+                            {entry.item.title}
+                          </td>
+                          <td className="p-2 border-r border-slate-300 text-center font-black text-slate-800 text-[11px]">
+                            {entry.item.floorLabel || '-'}
+                          </td>
+                          <td className="p-2 border-r border-slate-300 text-center">
+                            {isResolved ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-200 border border-emerald-500 text-emerald-950 rounded font-black text-[10px] uppercase">
+                                <Check className="w-3 h-3 text-emerald-700" /> Giderildi
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-200 border border-red-500 text-red-950 rounded font-black text-[10px] uppercase">
+                                <ShieldAlert className="w-3 h-3 text-red-700" /> Kaldı / UD
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div className="font-bold text-slate-900">
+                              {entry.item.description || (
+                                <span className="italic text-slate-500">İlk tespit girilmedi</span>
+                              )}
+                            </div>
+                            {isResolved && entry.item.resolutionNote && (
+                              <div className="text-[11px] font-bold text-emerald-800 mt-1 flex items-center gap-1 bg-emerald-100/80 px-2 py-0.5 rounded border border-emerald-300 w-fit">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-700 shrink-0" />
+                                <span>Kapatma: {entry.item.resolutionNote}</span>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -981,6 +1272,31 @@ export const ReportView: React.FC<ReportViewProps> = ({
           Beta Asansör Kalite Kontrol Sistemi tarafından otomatik olarak derlenmiştir. Bu belge resmi denetim kaydıdır.
         </div>
       </div>
+
+      {/* Re-Audit / Punch List Modal */}
+      {isReAuditModalOpen && (
+        <ReAuditModal
+          isOpen={isReAuditModalOpen}
+          onClose={() => setIsReAuditModalOpen(false)}
+          data={data}
+          onSaveReAudit={(updated) => {
+            onUpdateData?.(updated);
+          }}
+        />
+      )}
+
+      {/* Google Drive Bulut Senkronizasyon Penceresi */}
+      {isDriveModalOpen && (
+        <DriveSyncModal
+          isOpen={isDriveModalOpen}
+          onClose={() => setIsDriveModalOpen(false)}
+          currentAuditData={data}
+          onLoadAuditFromDrive={(loadedAudit) => {
+            onUpdateData?.(loadedAudit);
+            alert(`"${loadedAudit.serialNumber || loadedAudit.clientProjectName}" projesi Drive üzerinden başarıyla yüklendi!`);
+          }}
+        />
+      )}
     </div>
   );
 };

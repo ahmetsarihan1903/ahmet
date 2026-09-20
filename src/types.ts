@@ -20,6 +20,9 @@ export interface InspectionItem {
   isRequiredDescription?: boolean; // E.g., Boy fotosel, Denge zinciri
   category: string;
   floorLabel?: string; // For Page 8 door items
+  isResolved?: boolean; // True when non-compliance has been fixed during re-audit
+  resolvedAt?: string; // e.g. "17.09.2026 14:30"
+  resolutionNote?: string; // Notes entered when resolving the punch-list item
 }
 
 export interface MeasureItem {
@@ -69,6 +72,13 @@ export interface AuditFormData {
   // Step 4: Final Comfort Evaluation
   rideComfortNonCompliant: boolean;
   rideComfortNotes: string;
+  rideComfortResolved?: boolean;
+  rideComfortResolutionNote?: string;
+
+  // Step 5: Re-Audit & Punch List Tracking (Optional)
+  reAuditDate?: string;
+  reAuditInspector?: string;
+  reAuditCompleted?: boolean;
 
   // Flow State
   currentStep: 'welcome' | 'specs' | 'audit' | 'report';

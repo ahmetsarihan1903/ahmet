@@ -1,130 +1,239 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 650 650" width="100%" height="100%" style="background: #ffffff;">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 650 650" width="100%" height="100%" style="background: #ffffff; font-family: 'Arial', sans-serif;">
   <defs>
-    <!-- Concrete Hatch Pattern -->
-    <pattern id="concreteHatch" width="16" height="16" patternUnits="userSpaceOnUse" patternTransform="rotate(45 0 0)">
-      <path d="M 0,0 L 0,16 M 8,0 L 8,16" stroke="#475569" strokeWidth="1" />
-      <circle cx="4" cy="4" r="1" fill="#334155" />
-      <circle cx="12" cy="12" r="1" fill="#334155" />
+    <!-- Concrete Wall Texture / Stipple Pattern -->
+    <pattern id="concreteHatch" width="20" height="20" patternUnits="userSpaceOnUse">
+      <rect width="20" height="20" fill="#e2e8f0" />
+      <circle cx="3" cy="4" r="1.2" fill="#334155" />
+      <circle cx="14" cy="2" r="0.9" fill="#475569" />
+      <circle cx="8" cy="12" r="1.4" fill="#1e293b" />
+      <circle cx="17" cy="16" r="1.1" fill="#334155" />
+      <circle cx="5" cy="18" r="0.8" fill="#64748b" />
+      <circle cx="12" cy="7" r="1.3" fill="#0f172a" />
+      <path d="M 1,9 L 2,10 M 15,11 L 16,13 M 9,18 L 11,19" stroke="#334155" stroke-width="0.8" />
     </pattern>
-    <marker id="arrowRed" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444" />
+
+    <!-- Red Arrow Marker (Dimension Endpoints) -->
+    <marker id="arrRed" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 1 2 L 9 5 L 1 8 z" fill="#d90429" />
     </marker>
   </defs>
 
-  <!-- Title -->
-  <text x="325" y="30" fill="#0f172a" fontSize="16" fontWeight="900" textAnchor="middle" font-family="sans-serif">AĞIRLIK YANDA (SAĞDA) - TEKNİK PROJE ÇİZİMİ</text>
+  <!-- 1. OUTER CONCRETE WALLS (Hatched Perimeter Frame) -->
+  <polygon points="20,20 630,20 630,630 20,630" fill="url(#concreteHatch)" stroke="#000000" stroke-width="2.5" />
+  
+  <!-- INNER SHAFT CUTOUT (White shaft cavity) -->
+  <!-- Top: y=65, Left: x=70, Right: x=585, Bottom left sill cut: x=105, y=525, Door opening: x=105..585 -->
+  <path d="
+    M 70,65 
+    L 585,65 
+    L 585,525 
+    L 365,525 
+    L 365,575 
+    L 105,575 
+    L 105,525 
+    L 70,525 
+    Z" 
+    fill="#ffffff" stroke="#000000" stroke-width="2" />
 
-  <!-- Outer Concrete Wall -->
-  <rect x="50" y="50" width="550" height="520" fill="url(#concreteHatch)" stroke="#0f172a" strokeWidth="3" />
-  <!-- Inner Shaft White Space -->
-  <rect x="110" y="100" width="430" height="420" fill="#ffffff" stroke="#0f172a" strokeWidth="3" />
+  <!-- Concrete wall inner bottom cutout returns -->
+  <rect x="20" y="525" width="85" height="105" fill="url(#concreteHatch)" stroke="#000000" stroke-width="2" />
+  <rect x="365" y="525" width="265" height="105" fill="url(#concreteHatch)" stroke="#000000" stroke-width="2" />
 
-  <!-- Centerlines -->
-  <line x1="325" y1="80" x2="325" y2="540" stroke="#ec4899" strokeWidth="1.2" strokeDasharray="8 4 2 4" />
-  <line x1="90" y1="310" x2="560" y2="310" stroke="#ec4899" strokeWidth="1.2" strokeDasharray="8 4 2 4" />
-  <line x1="480" y1="120" x2="480" y2="500" stroke="#ec4899" strokeWidth="1" strokeDasharray="6 3" />
+  <!-- Top Wall Recess Box (if any) -->
+  <rect x="225" y="60" width="50" height="5" fill="#ffffff" stroke="#000000" stroke-width="1.5" />
 
-  <!-- Left Cabin Guide (T-Profile) -->
-  <g transform="translate(160, 290)">
-    <path d="M 0,-15 L 25,-15 L 25,-5 L 12,-5 L 12,15 L 2,15 L 2,-5 L 0,-5 Z" fill="#22d3ee" stroke="#0891b2" strokeWidth="2" />
+  <!-- 2. PINK / MAGENTA DASHED CENTER AXES -->
+  <!-- Vertical main shaft center axis -->
+  <line x1="248" y1="180" x2="248" y2="600" stroke="#d946ef" stroke-width="1.3" stroke-dasharray="10 5 2 5" />
+  <!-- Horizontal car rail center axis -->
+  <line x1="50" y1="290" x2="510" y2="290" stroke="#d946ef" stroke-width="1.3" stroke-dasharray="10 5 2 5" />
+  <!-- Vertical CWT rail center axis -->
+  <line x1="510" y1="90" x2="510" y2="460" stroke="#d946ef" stroke-width="1.3" stroke-dasharray="10 5 2 5" />
+  <!-- Horizontal CWT rail alignment helper lines -->
+  <line x1="310" y1="108" x2="520" y2="108" stroke="#d946ef" stroke-width="1" stroke-dasharray="8 4 2 4" />
+  <line x1="370" y1="425" x2="520" y2="425" stroke="#d946ef" stroke-width="1" stroke-dasharray="8 4 2 4" />
+
+  <!-- 3. CYAN / TURQUOISE GUIDE RAILS (T-Profiles) -->
+  <!-- Left Car Guide Rail (Facing right) -->
+  <!-- Base against left wall: x=100, Tip at x=165, y centered at 290 -->
+  <g transform="translate(100, 290)">
+    <path d="M 0,-25 L 12,-25 L 12,-6 L 65,-6 L 65,6 L 12,6 L 12,25 L 0,25 Z" fill="#06b6d4" stroke="#0891b2" stroke-width="1.8" />
+  </g>
+  <!-- Left wall shim/bracket behind left rail -->
+  <rect x="65" y="295" width="5" height="40" fill="#64748b" stroke="#000000" stroke-width="1" />
+
+  <!-- Right Car Guide Rail (Facing left) -->
+  <!-- Base at x=430, Tip at x=368, y centered at 290 -->
+  <g transform="translate(418, 290)">
+    <path d="M 12,-25 L 0,-25 L 0,-6 L -50,-6 L -50,6 L 0,6 L 0,25 L 12,25 Z" fill="#06b6d4" stroke="#0891b2" stroke-width="1.8" />
   </g>
 
-  <!-- Back Cabin Guide (T-Profile) -->
-  <g transform="translate(325, 290) rotate(90)">
-    <path d="M 0,-15 L 25,-15 L 25,-5 L 12,-5 L 12,15 L 2,15 L 2,-5 L 0,-5 Z" fill="#22d3ee" stroke="#0891b2" strokeWidth="2" />
+  <!-- Top Counterweight Guide Rail (Far right, facing left/down) -->
+  <!-- Centered at x=510, y=108 -->
+  <g transform="translate(510, 108)">
+    <path d="M -35,-8 L 35,-8 L 35,0 L 8,0 L 8,50 L -8,50 L -8,0 L -35,0 Z" fill="#06b6d4" stroke="#0891b2" stroke-width="1.8" />
   </g>
 
-  <!-- Right Counterweight Assembly (T-Guides & Weight Stack) -->
-  <!-- Top CWT Guide -->
-  <g transform="translate(480, 150)">
-    <path d="M -12,-15 L 13,-15 L 13,-5 L 3,-5 L 3,15 L -7,15 L -7,-5 L -12,-5 Z" fill="#22d3ee" stroke="#0891b2" strokeWidth="2" />
+  <!-- Bottom Counterweight Guide Rail (Far right, facing up) -->
+  <!-- Centered at x=510, y=425 -->
+  <g transform="translate(510, 425)">
+    <path d="M -35,8 L 35,8 L 35,0 L 8,0 L 8,-50 L -8,-50 L -8,0 L -35,0 Z" fill="#06b6d4" stroke="#0891b2" stroke-width="1.8" />
   </g>
-  <!-- Bottom CWT Guide -->
-  <g transform="translate(480, 430)">
-    <path d="M -12,15 L 13,15 L 13,5 L 3,5 L 3,-15 L -7,-15 L -7,5 L -12,5 Z" fill="#22d3ee" stroke="#0891b2" strokeWidth="2" />
-  </g>
-  <!-- Counterweight Frame / Weight Block (Dashed Box on Right) -->
-  <rect x="460" y="180" width="40" height="220" fill="none" stroke="#0284c7" strokeWidth="2" stroke-dasharray="6 4" />
-  <text x="480" y="295" fill="#0284c7" fontSize="11" fontWeight="bold" textAnchor="middle">CWT</text>
 
-  <!-- Entrance Door at Bottom Center -->
-  <rect x="230" y="500" width="190" height="20" fill="#f8fafc" stroke="#0f172a" strokeWidth="2" />
-  <rect x="250" y="505" width="25" height="25" fill="#e2e8f0" stroke="#0f172a" strokeWidth="1.5" />
-  <rect x="375" y="505" width="25" height="25" fill="#e2e8f0" stroke="#0f172a" strokeWidth="1.5" />
+  <!-- Dashed CWT Frame Outline between the two CWT rails -->
+  <line x1="502" y1="158" x2="502" y2="375" stroke="#d946ef" stroke-width="1.2" stroke-dasharray="5 3" />
+  <line x1="518" y1="158" x2="518" y2="375" stroke="#d946ef" stroke-width="1.2" stroke-dasharray="5 3" />
 
-  <!-- DIMENSIONS & NUMBERS (1 to 15 matching user's exact drawing) -->
-  <!-- 1: Left guide height from floor -->
-  <line x1="172" y1="305" x2="172" y2="500" stroke="#ef4444" strokeWidth="1.5" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="172" cy="400" r="10" fill="#2563eb" />
-  <text x="172" y="404" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">1</text>
+  <!-- 4. ENTRANCE DOOR & SILL (Bottom Center) -->
+  <!-- Door frame and sill structure -->
+  <path d="
+    M 108,500 
+    L 360,500 
+    L 360,535 
+    L 330,535 
+    L 330,522 
+    L 348,522 
+    L 348,508 
+    L 138,508 
+    L 138,522 
+    L 155,522 
+    L 155,535 
+    L 108,535 
+    Z" 
+    fill="#ffffff" stroke="#000000" stroke-width="1.8" />
+  <!-- Door sills notches & reveals -->
+  <line x1="108" y1="518" x2="138" y2="518" stroke="#000000" stroke-width="1.5" />
+  <line x1="330" y1="518" x2="360" y2="518" stroke="#000000" stroke-width="1.5" />
+  <rect x="355" y="575" width="22" height="6" fill="#ffffff" stroke="#000000" stroke-width="1.2" />
 
-  <!-- 2: Right cabin guide height from floor -->
-  <line x1="337" y1="305" x2="337" y2="500" stroke="#ef4444" strokeWidth="1.5" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="337" cy="400" r="10" fill="#2563eb" />
-  <text x="337" y="404" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">2</text>
+  <!-- 5. RED DIMENSION EXTENSION & ARROW LINES -->
+  
+  <!-- Dimension 1: Left Rail to Door Sill (Vertical) -->
+  <line x1="126" y1="290" x2="126" y2="500" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <line x1="100" y1="290" x2="135" y2="290" stroke="#d90429" stroke-width="0.9" />
 
-  <!-- 3: Lower CWT guide height from floor -->
-  <line x1="450" y1="445" x2="450" y2="500" stroke="#ef4444" strokeWidth="1.5" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="450" cy="472" r="10" fill="#2563eb" />
-  <text x="450" y="476" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">3</text>
+  <!-- Dimension 2: Right Rail to Door Line (Vertical) -->
+  <line x1="390" y1="290" x2="390" y2="500" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <line x1="368" y1="290" x2="495" y2="290" stroke="#d90429" stroke-width="0.9" />
+  <line x1="360" y1="500" x2="500" y2="500" stroke="#d90429" stroke-width="0.9" />
 
-  <!-- 4: CWT distance from right wall -->
-  <line x1="500" y1="150" x2="550" y2="150" stroke="#ef4444" strokeWidth="1.5" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="525" cy="150" r="10" fill="#2563eb" />
-  <text x="525" y="154" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">4</text>
+  <!-- Dimension 3: Lower CWT Rail to Front Line -->
+  <line x1="488" y1="433" x2="488" y2="500" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <line x1="475" y1="433" x2="500" y2="433" stroke="#d90429" stroke-width="0.9" />
 
-  <!-- 5: Diagonal from left door to right guide -->
-  <line x1="172" y1="305" x2="375" y2="500" stroke="#ef4444" strokeWidth="1.2" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="273" cy="402" r="10" fill="#2563eb" />
-  <text x="273" y="406" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">5</text>
+  <!-- Dimension 4: CWT Rails to Right Wall (Horizontal, top and bottom) -->
+  <!-- Top 4 -->
+  <line x1="510" y1="80" x2="585" y2="80" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <line x1="510" y1="70" x2="510" y2="100" stroke="#d90429" stroke-width="0.9" />
+  <!-- Bottom 4 -->
+  <line x1="510" y1="455" x2="585" y2="455" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <line x1="510" y1="435" x2="510" y2="465" stroke="#d90429" stroke-width="0.9" />
 
-  <!-- 6: Diagonal from right door to left guide -->
-  <line x1="337" y1="305" x2="250" y2="500" stroke="#ef4444" strokeWidth="1.2" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="293" cy="402" r="10" fill="#2563eb" />
-  <text x="293" y="406" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">6</text>
+  <!-- Dimension 5 & 6: Diagonals between Door Points and Guide Rail Tips -->
+  <!-- 5: Left Door Notch (x=138, y=535) to Right Rail Tip (x=368, y=290) -->
+  <line x1="138" y1="535" x2="368" y2="290" stroke="#d90429" stroke-width="1.2" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <!-- 6: Right Door Notch (x=330, y=535) to Left Rail Tip (x=165, y=290) -->
+  <line x1="330" y1="535" x2="165" y2="290" stroke="#d90429" stroke-width="1.2" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
 
-  <!-- 7: Cabin DBG (Width between side guides) -->
-  <line x1="172" y1="270" x2="337" y2="270" stroke="#ef4444" strokeWidth="1.5" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="254" cy="270" r="10" fill="#2563eb" />
-  <text x="254" y="274" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">7</text>
+  <!-- Dimension 7: Cabin DBG (Distance between Car Rail Tips) -->
+  <line x1="165" y1="255" x2="368" y2="255" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <line x1="165" y1="250" x2="165" y2="290" stroke="#d90429" stroke-width="0.9" />
+  <line x1="368" y1="250" x2="368" y2="290" stroke="#d90429" stroke-width="0.9" />
 
-  <!-- 8: CWT width / span -->
-  <line x1="510" y1="180" x2="510" y2="400" stroke="#ef4444" strokeWidth="1.5" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="510" cy="290" r="10" fill="#2563eb" />
-  <text x="510" y="294" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">8</text>
+  <!-- Dimension 8: CWT DBG (Distance between CWT Rail Tips) -->
+  <line x1="550" y1="158" x2="550" y2="375" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <line x1="518" y1="158" x2="560" y2="158" stroke="#d90429" stroke-width="0.9" />
+  <line x1="518" y1="375" x2="560" y2="375" stroke="#d90429" stroke-width="0.9" />
 
-  <!-- 9: Door center offset -->
-  <line x1="310" y1="535" x2="325" y2="535" stroke="#ef4444" strokeWidth="1.5" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="317" cy="535" r="10" fill="#2563eb" />
-  <text x="317" y="539" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">9</text>
+  <!-- Dimension 9: Door Center Offset at Bottom -->
+  <line x1="238" y1="585" x2="258" y2="585" stroke="#d90429" stroke-width="1.2" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <line x1="238" y1="535" x2="238" y2="595" stroke="#d946ef" stroke-width="0.9" stroke-dasharray="4 2" />
+  <line x1="248" y1="575" x2="248" y2="600" stroke="#d946ef" stroke-width="0.9" stroke-dasharray="4 2" />
 
-  <!-- 10: Distance from cabin guide to CWT -->
-  <line x1="355" y1="290" x2="465" y2="290" stroke="#ef4444" strokeWidth="1.5" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="410" cy="290" r="10" fill="#2563eb" />
-  <text x="410" y="294" fill="#ffffff" fontSize="11" fontWeight="bold" textAnchor="middle">10</text>
+  <!-- Dimension 10: Right Car Rail to CWT Rail Centerline -->
+  <line x1="430" y1="270" x2="510" y2="270" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <line x1="430" y1="260" x2="430" y2="290" stroke="#d90429" stroke-width="0.9" />
 
-  <!-- 11: Upper CWT guide distance from top -->
-  <line x1="450" y1="100" x2="450" y2="150" stroke="#ef4444" strokeWidth="1.5" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="450" cy="125" r="10" fill="#2563eb" />
-  <text x="450" y="129" fill="#ffffff" fontSize="10" fontWeight="bold" textAnchor="middle">11</text>
+  <!-- Dimension 11: CWT Rail Offset to Rail / Wall Reference -->
+  <!-- Top 11: from top wall (y=65) to top CWT rail axis (y=108) -->
+  <line x1="415" y1="65" x2="415" y2="108" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <!-- Bottom 11: from bottom CWT rail axis (y=425) to front line (y=290 or ref) -->
+  <line x1="415" y1="290" x2="415" y2="425" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
 
-  <!-- 12: Top clearance from wall to guide -->
-  <line x1="130" y1="100" x2="130" y2="275" stroke="#ef4444" strokeWidth="1.5" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="130" cy="187" r="10" fill="#2563eb" />
-  <text x="130" y="191" fill="#ffffff" fontSize="10" fontWeight="bold" textAnchor="middle">12</text>
+  <!-- Dimension 12: Rail Center to Back Wall (Left and Right) -->
+  <!-- Left 12 -->
+  <line x1="140" y1="65" x2="140" y2="290" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <!-- Right 12 -->
+  <line x1="390" y1="65" x2="390" y2="290" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
 
-  <!-- 13: Left door reveal -->
-  <line x1="110" y1="535" x2="230" y2="535" stroke="#ef4444" strokeWidth="1.5" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="170" cy="535" r="10" fill="#2563eb" />
-  <text x="170" y="539" fill="#ffffff" fontSize="10" fontWeight="bold" textAnchor="middle">13</text>
+  <!-- Dimension 13: Left Wall to Door Opening -->
+  <line x1="70" y1="620" x2="138" y2="620" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <line x1="70" y1="525" x2="70" y2="630" stroke="#d90429" stroke-width="0.9" />
+  <line x1="138" y1="535" x2="138" y2="630" stroke="#d90429" stroke-width="0.9" />
 
-  <!-- 14: Right door reveal / clearance -->
-  <line x1="420" y1="535" x2="550" y2="535" stroke="#ef4444" strokeWidth="1.5" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="485" cy="535" r="10" fill="#2563eb" />
-  <text x="485" y="539" fill="#ffffff" fontSize="10" fontWeight="bold" textAnchor="middle">14</text>
+  <!-- Dimension 14: Right Wall to Door Opening -->
+  <line x1="330" y1="620" x2="585" y2="620" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <line x1="330" y1="535" x2="330" y2="630" stroke="#d90429" stroke-width="0.9" />
+  <line x1="585" y1="525" x2="585" y2="630" stroke="#d90429" stroke-width="0.9" />
 
-  <!-- 15: Door sill width -->
-  <line x1="250" y1="465" x2="275" y2="465" stroke="#ef4444" strokeWidth="1.5" marker-start="url(#arrowRed)" marker-end="url(#arrowRed)" />
-  <circle cx="262" cy="465" r="10" fill="#2563eb" />
-  <text x="262" y="469" fill="#ffffff" fontSize="10" fontWeight="bold" textAnchor="middle">15</text>
+  <!-- Dimension 15: Door Sill Depth -->
+  <line x1="195" y1="500" x2="195" y2="535" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+
+  <!-- Dimension 16: Left Rail Back to Left Shaft Wall -->
+  <line x1="70" y1="275" x2="100" y2="275" stroke="#d90429" stroke-width="1.3" marker-start="url(#arrRed)" marker-end="url(#arrRed)" />
+  <line x1="100" y1="265" x2="100" y2="290" stroke="#d90429" stroke-width="0.9" />
+
+  <!-- 6. BLUE DIMENSION NUMBERS (Matching exact positions from user reference) -->
+  
+  <!-- Number 1 (Vertical text) -->
+  <text x="120" y="405" fill="#0033cc" font-size="20" font-weight="bold" text-anchor="middle" transform="rotate(-90 120 405)">1</text>
+
+  <!-- Number 2 (Vertical text) -->
+  <text x="382" y="415" fill="#0033cc" font-size="20" font-weight="bold" text-anchor="middle" transform="rotate(-90 382 415)">2</text>
+
+  <!-- Number 3 (Vertical text) -->
+  <text x="480" y="475" fill="#0033cc" font-size="19" font-weight="bold" text-anchor="middle" transform="rotate(-90 480 475)">3</text>
+
+  <!-- Number 4 (Horizontal text - Top and Bottom) -->
+  <text x="550" y="73" fill="#0033cc" font-size="19" font-weight="bold" text-anchor="middle">4</text>
+  <text x="550" y="450" fill="#0033cc" font-size="19" font-weight="bold" text-anchor="middle">4</text>
+
+  <!-- Number 5 (Along diagonal) -->
+  <text x="275" y="385" fill="#0033cc" font-size="21" font-weight="bold" text-anchor="middle">5</text>
+
+  <!-- Number 6 (Along diagonal) -->
+  <text x="200" y="355" fill="#0033cc" font-size="21" font-weight="bold" text-anchor="middle">6</text>
+
+  <!-- Number 7 (Horizontal above car rails) -->
+  <text x="225" y="248" fill="#0033cc" font-size="21" font-weight="bold" text-anchor="middle">7</text>
+
+  <!-- Number 8 (Vertical on right side CWT) -->
+  <text x="542" y="275" fill="#0033cc" font-size="20" font-weight="bold" text-anchor="middle" transform="rotate(-90 542 275)">8</text>
+
+  <!-- Number 9 (Bottom center offset text with pointer) -->
+  <text x="268" y="608" fill="#0033cc" font-size="18" font-weight="bold" text-anchor="middle">9</text>
+  <line x1="258" y1="598" x2="248" y2="585" stroke="#d90429" stroke-width="0.9" />
+
+  <!-- Number 10 (Horizontal between right rail and CWT) -->
+  <text x="472" y="263" fill="#0033cc" font-size="19" font-weight="bold" text-anchor="middle">10</text>
+
+  <!-- Number 11 (Vertical, top & bottom) -->
+  <text x="408" y="195" fill="#0033cc" font-size="19" font-weight="bold" text-anchor="middle" transform="rotate(-90 408 195)">11</text>
+  <text x="408" y="360" fill="#0033cc" font-size="19" font-weight="bold" text-anchor="middle" transform="rotate(-90 408 360)">11</text>
+
+  <!-- Number 12 (Vertical, Left and Right to back wall) -->
+  <text x="132" y="175" fill="#0033cc" font-size="20" font-weight="bold" text-anchor="middle" transform="rotate(-90 132 175)">12</text>
+  <text x="382" y="175" fill="#0033cc" font-size="20" font-weight="bold" text-anchor="middle" transform="rotate(-90 382 175)">12</text>
+
+  <!-- Number 13 (Bottom left wall reveal) -->
+  <text x="105" y="612" fill="#0033cc" font-size="20" font-weight="bold" text-anchor="middle">13</text>
+
+  <!-- Number 14 (Bottom right wall reveal) -->
+  <text x="460" y="612" fill="#0033cc" font-size="20" font-weight="bold" text-anchor="middle">14</text>
+
+  <!-- Number 15 (Vertical inside door sill) -->
+  <text x="190" y="525" fill="#0033cc" font-size="15" font-weight="bold" text-anchor="middle" transform="rotate(-90 190 525)">15</text>
+
+  <!-- Number 16 (Horizontal at left rail back) -->
+  <text x="85" y="268" fill="#0033cc" font-size="18" font-weight="bold" text-anchor="middle">16</text>
 </svg>

@@ -162,23 +162,24 @@ export const MEASUREMENTS_CWT_REAR: MeasurementFieldDef[] = [
   { code: '15', title: '15 - Kapı Eşik Genişliği / Derinliği', unit: 'mm', category: 'door' },
 ];
 
-// 2. AĞIRLIK YANDA (SAĞDA) (1-15 Ölçüleri)
+// 2. AĞIRLIK YANDA (SAĞDA) (1-16 Birebir Teknik Şema Ölçüleri)
 export const MEASUREMENTS_CWT_SIDE_RIGHT: MeasurementFieldDef[] = [
-  { code: '1', title: '1 - Sol Kabin Rayı - Kapı Kasası Mesafesi', unit: 'mm', category: 'car_rail' },
-  { code: '2', title: '2 - Sağ Kabin Rayı - Kapı Kasası Mesafesi', unit: 'mm', category: 'car_rail' },
-  { code: '3', title: '3 - Ön Ağırlık Rayı - Ön Kuyu / Kapı Duvarı Mesafesi', unit: 'mm', category: 'cwt_rail' },
-  { code: '4', title: '4 - Ağırlık Rayı - Sağ Kuyu Duvarı Mesafesi', unit: 'mm', category: 'cwt_rail' },
-  { code: '5', title: '5 - Sağ Kabin Rayı - Sol Kapı Kasası Çaprazı', unit: 'mm', category: 'car_rail' },
-  { code: '6', title: '6 - Sol Kabin Rayı - Sağ Kapı Kasası Çaprazı', unit: 'mm', category: 'car_rail' },
-  { code: '7', title: '7 - Kabin Ray Arası DBG (Kabin Ray Açıklığı)', unit: 'mm', category: 'car_rail' },
-  { code: '8', title: '8 - Ağırlık Ray Arası DBG (Ağırlık Ray Açıklığı)', unit: 'mm', category: 'cwt_rail' },
-  { code: '9', title: '9 - Kuyu / Kapı Eksen Kaçıklığı (Merkez Aks)', unit: 'mm', category: 'shaft' },
-  { code: '10', title: '10 - Sağ Kabin Ray Sırtı - Ağırlık Ray Ekseni Mesafesi', unit: 'mm', category: 'cwt_rail' },
-  { code: '11', title: '11 - Arka Ağırlık Rayı - Arka Duvar Mesafesi', unit: 'mm', category: 'cwt_rail' },
-  { code: '12', title: '12 - Kabin Ray Ekseni - Arka Duvar Mesafesi', unit: 'mm', category: 'car_rail' },
-  { code: '13', title: '13 - Sol Kuyu Duvarı - Sol Kapı Kasası Yan Boşluğu', unit: 'mm', category: 'door' },
-  { code: '14', title: '14 - Sağ Kuyu Duvarı - Sağ Kapı Kasası Yan Boşluğu', unit: 'mm', category: 'door' },
-  { code: '15', title: '15 - Kapı Eşik Genişliği / Derinliği', unit: 'mm', category: 'door' },
+  { code: '1', title: '1 - Sol Kabin Rayı - Kapı Kasası / Eşik Ön Mesafesi', unit: 'mm', category: 'car_rail', hint: 'Sol kabin rayı ekseninden kapı kasasına dik mesafe' },
+  { code: '2', title: '2 - Sağ Kabin Rayı - Kapı Kasası / Eşik Ön Mesafesi', unit: 'mm', category: 'car_rail', hint: 'Sağ kabin rayı ekseninden kapı kasasına dik mesafe' },
+  { code: '3', title: '3 - Alt/Ön Ağırlık Rayı - Ön Kuyu / Kapı Ön Duvarı Mesafesi', unit: 'mm', category: 'cwt_rail', hint: 'Ön ağırlık rayı ile ön kuyu duvarı arası mesafe' },
+  { code: '4', title: '4 - Ağırlık Rayları - Sağ Kuyu Duvarı Mesafesi', unit: 'mm', category: 'cwt_rail', hint: 'Ağırlık raylarının sağ kuyu duvarına olan dik mesafesi (Üst ve Alt)' },
+  { code: '5', title: '5 - Sol Kapı Kasası / Köşesi - Sağ Kabin Rayı Çaprazı', unit: 'mm', category: 'car_rail', hint: 'Sol kapı kasasından sağ kabin rayı ucuna çapraz gönye ölçüsü' },
+  { code: '6', title: '6 - Sağ Kapı Kasası / Köşesi - Sol Kabin Rayı Çaprazı', unit: 'mm', category: 'car_rail', hint: 'Sağ kapı kasasından sol kabin rayı ucuna çapraz gönye ölçüsü' },
+  { code: '7', title: '7 - Kabin Ray Arası DBG (Kabin Ray Açıklığı)', unit: 'mm', category: 'car_rail', hint: 'İki kabin rayının karşılıklı uçtan uca DBG açıklığı' },
+  { code: '8', title: '8 - Ağırlık Ray Arası DBG (Ağırlık Ray Açıklığı)', unit: 'mm', category: 'cwt_rail', hint: 'İki ağırlık rayı ucu arası DBG açıklığı' },
+  { code: '9', title: '9 - Kuyu / Kapı Eksen Kaçıklığı (Merkez Aks)', unit: 'mm', category: 'shaft', hint: 'Kuyu merkezi düşey aksı ile kapı merkezi arasındaki kaçıklık' },
+  { code: '10', title: '10 - Sağ Kabin Rayı Sırtı - Ağırlık Ray Ekseni Mesafesi', unit: 'mm', category: 'cwt_rail', hint: 'Sağ kabin rayı arkası ile ağırlık rayı ekseni arası yatay mesafe' },
+  { code: '11', title: '11 - Ağırlık Rayları Düşey Eksen / Ray Referans Ölçüleri', unit: 'mm', category: 'cwt_rail', hint: 'Ağırlık raylarının kuyu tavan ve ray eksenine dik mesafeleri' },
+  { code: '12', title: '12 - Kabin Rayları - Arka Kuyu Duvarı Mesafesi (Sol & Sağ)', unit: 'mm', category: 'car_rail', hint: 'Sol ve sağ kabin raylarının arka kuyu duvarına olan dik mesafeleri' },
+  { code: '13', title: '13 - Sol Kuyu Duvarı - Sol Kapı Kasası / Giriş Boşluğu', unit: 'mm', category: 'door', hint: 'Sol kuyu duvarı ile sol kapı kasası arası yan boşluk' },
+  { code: '14', title: '14 - Sağ Kuyu Duvarı - Sağ Kapı Kasası / Giriş Boşluğu', unit: 'mm', category: 'door', hint: 'Sağ kuyu duvarı ile sağ kapı kasası arası yan boşluk' },
+  { code: '15', title: '15 - Kapı Eşik Genişliği / Derinliği', unit: 'mm', category: 'door', hint: 'Kapı kasası ve eşik montaj derinliği' },
+  { code: '16', title: '16 - Sol Kabin Rayı Sırtı - Sol Kuyu Duvarı Mesafesi', unit: 'mm', category: 'car_rail', hint: 'Sol kabin rayı arkasından sol kuyu duvarına olan dik mesafe' },
 ];
 
 // 3. AĞIRLIK YANDA (SOLDA) - YÜKLENEN PDF ÇİZİMİ BİREBİR TANIMLARI
