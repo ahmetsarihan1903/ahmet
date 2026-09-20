@@ -19,13 +19,15 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: Configure Android SDK Environment
+        run: |
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
 
       - name: Install Dependencies
         run: |
