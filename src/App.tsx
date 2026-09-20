@@ -5,12 +5,18 @@ import { QualityControlModule } from './modules/qualityControl/QualityControlMod
 import { CustomerPreInspectionModule } from './modules/customerPreInspection/CustomerPreInspectionModule';
 import { RailDoorInspectionModule } from './modules/railDoorInspection/RailDoorInspectionModule';
 import { UnderConstructionModule } from './components/UnderConstructionModule';
+import { useTheme } from './context/ThemeContext';
 
 export default function App() {
   const [activeModule, setActiveModule] = useState<ActiveAppModule>('hub');
+  const { isDark } = useTheme();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-orange-500 selection:text-white">
+    <div
+      className={`min-h-screen font-sans selection:bg-orange-500 selection:text-white transition-colors duration-150 ${
+        isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'
+      }`}
+    >
       {/* 0. ANA GİRİŞ HUB PORTALI */}
       {activeModule === 'hub' && (
         <AppHubHome onSelectModule={(module) => setActiveModule(module)} />

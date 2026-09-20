@@ -6,6 +6,7 @@ import { RailDoorInspectionScreen } from './components/RailDoorInspectionScreen'
 import { RailDoorReportModal } from './components/RailDoorReportModal';
 import { RailDoorSettingsModal } from './components/RailDoorSettingsModal';
 import { BetaLogo } from '../../components/BetaLogo';
+import { useTheme } from '../../context/ThemeContext';
 import {
   ArrowLeft,
   Save,
@@ -28,6 +29,7 @@ const LAST_SAVED_TIME_KEY = 'beta_asansor_rail_door_last_saved_time';
 export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> = ({
   onBackToMainMenu,
 }) => {
+  const { isDark } = useTheme();
   const [currentStep, setCurrentStep] = useState<'setup' | 'inspection'>('setup');
   const [showReportModal, setShowReportModal] = useState<boolean>(false);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
@@ -181,7 +183,11 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 light:bg-slate-100 text-slate-100 light:text-slate-900 flex flex-col font-sans transition-colors">
+    <div
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-150 app-root ${
+        isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'
+      }`}
+    >
       {/* Üst Header: Menü, BetaLogo, Başlık + Sağ Tarafta [Proje Bilgileri] [Kaydet Simgesi] [Ayarlar Simgesi] */}
       <header className="sticky top-0 z-40 bg-[#0A2647] text-white shadow-md border-b-4 border-amber-500 pt-safe-or-4 print:hidden">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Construction, Clock, Sparkles } from 'lucide-react';
 import { BetaLogo } from '../components/BetaLogo';
+import { useTheme } from '../context/ThemeContext';
 
 interface UnderConstructionModuleProps {
   title: string;
@@ -51,9 +52,14 @@ export const UnderConstructionModule: React.FC<UnderConstructionModuleProps> = (
   };
 
   const currentTheme = colorMap[accentColor];
+  const { isDark } = useTheme();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-150 app-root ${
+        isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'
+      }`}
+    >
       {/* Header */}
       <header className={`sticky top-0 z-40 bg-[#0A2647] text-white shadow-md border-b-4 ${currentTheme.border} pt-safe-or-4`}>
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-2">

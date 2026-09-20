@@ -33,6 +33,7 @@ import { CustomerReportPreviewModal } from './CustomerReportPreviewModal';
 import { CustomerInspectionForm } from './CustomerInspectionForm';
 import { CustomerSettingsModal } from './CustomerSettingsModal';
 import { CustomerSyncModal } from './CustomerSyncModal';
+import { useTheme } from '../../context/ThemeContext';
 
 interface CustomerPreInspectionModuleProps {
   onBackToMainMenu: () => void;
@@ -40,34 +41,15 @@ interface CustomerPreInspectionModuleProps {
 
 const STORAGE_KEY_ACTIVE = 'beta_asansor_active_customer_inspection_v2';
 const STORAGE_KEY_HISTORY = 'beta_asansor_customer_inspection_history_v2';
-const STORAGE_KEY_THEME = 'beta_asansor_customer_theme_mode_v2';
 
 export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModuleProps> = ({
   onBackToMainMenu,
 }) => {
-  // Sadece bu modüle özel Gece / Gündüz durumu (Ana sayfayı asla etkilemez!)
-  const [themeMode, setThemeMode] = useState<CustomerThemeMode>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_THEME);
-      if (saved === 'dark' || saved === 'light') {
-        return saved;
-      }
-    } catch {
-      // ignore
-    }
-    return 'dark'; // Varsayılan: Gece Modu (Kuyu İçi)
-  });
+  const { theme, setTheme, isDark } = useTheme();
 
   const handleSelectTheme = (mode: CustomerThemeMode) => {
-    setThemeMode(mode);
-    try {
-      localStorage.setItem(STORAGE_KEY_THEME, mode);
-    } catch {
-      // ignore
-    }
+    setTheme(mode);
   };
-
-  const isDark = themeMode === 'dark';
 
   const [metadata, setMetadata] = useState<CustomerInspectionMetadata | null>(() => {
     try {
@@ -399,7 +381,7 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
         {!metadata || isEditingInfo ? (
           <CustomerInspectionForm
             initialData={metadata || undefined}
-            themeMode={themeMode}
+            themeMode={theme}
             onCancel={metadata ? () => setIsEditingInfo(false) : undefined}
             onSubmit={(newMeta) => {
               if (!metadata || metadata.elevatorType !== newMeta.elevatorType || items.length === 0) {
@@ -743,7 +725,7 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
         onOpenSyncModal={() => setIsSyncModalOpen(true)}
-        themeMode={themeMode}
+        themeMode={theme}
         onSelectTheme={handleSelectTheme}
         onManualSave={handleManualSave}
         lastSavedFeedback={lastSavedFeedback}

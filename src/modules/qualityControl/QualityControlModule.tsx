@@ -22,6 +22,7 @@ import {
   saveCompletedAuditToHistory,
   saveManualAuditSnapshot,
 } from '../../utils/storage';
+import { useTheme } from '../../context/ThemeContext';
 import {
   uploadAuditJsonToDrive,
   queueAuditForCloudSync,
@@ -138,6 +139,7 @@ interface QualityControlModuleProps {
 }
 
 export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleProps) {
+  const { isDark } = useTheme();
   const [formData, setFormData] = useState<AuditFormData>(() => {
     // 1. Önce aktif taslağı yükle (hangi adımda kalmışsa: welcome, specs, audit veya report)
     const draft = loadActiveDraft();
@@ -631,7 +633,11 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-orange-500 selection:text-white app-root">
+    <div
+      className={`min-h-screen flex flex-col font-sans selection:bg-orange-500 selection:text-white transition-colors duration-150 app-root ${
+        isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'
+      }`}
+    >
       {/* App Header */}
       <Header
         currentStep={formData.currentStep}
