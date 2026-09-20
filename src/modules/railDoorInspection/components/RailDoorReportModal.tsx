@@ -278,11 +278,17 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
                 <tr className="bg-slate-200 text-slate-950 font-black">
                   <th className="border border-slate-400 p-1.5 w-12">DURAK</th>
                   <th className="border border-slate-400 p-1.5 w-16">KAT RUMUZ</th>
-                  {columnCodes.map((c) => (
-                    <th key={c} className="border border-slate-400 p-1 min-w-[30px]">
-                      {c}
-                    </th>
-                  ))}
+                  {columnCodes.map((c) => {
+                    let headerText = c;
+                    if (c === '9' && data.column9Direction) {
+                      headerText = `9 - ${data.column9Direction}`;
+                    }
+                    return (
+                      <th key={c} className="border border-slate-400 p-1 min-w-[30px] whitespace-nowrap">
+                        {headerText}
+                      </th>
+                    );
+                  })}
                 </tr>
                 {/* Proje Nominal Satırı */}
                 <tr className="bg-amber-100/70 text-amber-950 font-black">

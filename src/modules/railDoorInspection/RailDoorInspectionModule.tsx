@@ -71,6 +71,9 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
       // Keep registered/uploaded PDF and blueprint images!
       layoutImages: prev?.layoutImages || {},
       customColumnCodes: prev?.customColumnCodes || [],
+      column9Direction: prev?.column9Direction || '',
+      column7Direction: prev?.column7Direction || '',
+      columnSubOptions: prev?.columnSubOptions || {},
 
       attachedImageName: prev?.attachedImageName,
       attachedImageUrl: prev?.attachedImageUrl,

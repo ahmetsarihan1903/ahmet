@@ -125,13 +125,13 @@ export const InspectionItemCard: React.FC<InspectionItemCardProps> = ({
 
   if (item.isNonCompliant) {
     cardClass = isDark
-      ? 'bg-red-950/40 border-2 border-red-500 shadow-md shadow-red-950/50'
-      : 'bg-red-50 border-2 border-red-600 shadow-md';
-    titleClass = isDark ? 'text-red-200 font-bold' : 'text-red-900 font-bold';
+      ? 'bg-[#2b0c0c] border-2 border-red-500 shadow-md'
+      : 'bg-[#fee2e2] border-2 border-red-600 shadow-md';
+    titleClass = isDark ? 'text-red-200 font-bold' : 'text-red-950 font-bold';
   } else if (item.isPassed) {
     cardClass = isDark
-      ? 'bg-emerald-950/40 border-2 border-emerald-500 shadow-md shadow-emerald-950/40'
-      : 'bg-emerald-50 border-2 border-emerald-600 shadow-md';
+      ? 'bg-[#063320] border-2 border-emerald-500 shadow-md'
+      : 'bg-[#d1fae5] border-2 border-emerald-600 shadow-md';
     titleClass = isDark ? 'text-emerald-300 font-bold' : 'text-emerald-950 font-bold';
   }
 

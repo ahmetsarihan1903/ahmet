@@ -15,32 +15,10 @@ import firebaseConfig from '../../firebase-applet-config.json';
 export const DEFAULT_DRIVE_FOLDER_ID = '1GAUJoTIEtCpSRepZqHNkzq_dx64JRQ_4';
 export const DEFAULT_DRIVE_FOLDER_URL = `https://drive.google.com/drive/folders/${DEFAULT_DRIVE_FOLDER_ID}`;
 export const DEFAULT_DRIVE_ACCOUNT = 'betaasansormontaj@gmail.com';
-export const GOOGLE_OAUTH_CLIENT_ID = firebaseConfig.oAuthClientId || '31994782267-uehmrfkdgt6l05pbk614v9767d291o6s.apps.googleusercontent.com';
 
 const STORAGE_TOKEN_KEY = 'beta_drive_access_token_v1';
 const STORAGE_TOKEN_EXPIRY_KEY = 'beta_drive_token_expiry_v1';
 const STORAGE_FOLDER_ID_KEY = 'beta_drive_target_folder_id_v1';
-
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        oauth2: {
-          initTokenClient: (config: {
-            client_id: string;
-            scope: string;
-            callback: (response: { access_token?: string; error?: any; expires_in?: number }) => void;
-            error_callback?: (error: any) => void;
-            hint?: string;
-            prompt?: string;
-          }) => {
-            requestAccessToken: (overrideConfig?: { prompt?: string }) => void;
-          };
-        };
-      };
-    };
-  }
-}
 
 // Firebase Auth App and Provider Initialization
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -48,6 +26,9 @@ export const auth = getAuth(app);
 
 const driveProvider = new GoogleAuthProvider();
 driveProvider.addScope('https://www.googleapis.com/auth/drive.file');
+driveProvider.setCustomParameters({
+  prompt: 'select_account',
+});
 
 let inMemoryDriveToken: string | null = null;
 let isSigningIn = false;
@@ -109,8 +90,8 @@ export function clearCachedDriveToken(): void {
 }
 
 /**
- * Requests an OAuth access token using Google Identity Services (GIS) with explicit Client ID,
- * falling back to Firebase Auth Popup if GIS is unavailable.
+ * Requests an OAuth access token using Firebase Auth Popup with Google Drive scope.
+ * Directly routes through Firebase authDomain to avoid origin_mismatch errors.
  */
 export async function requestDriveAccessToken(): Promise<string> {
   const cached = getCachedDriveToken();
@@ -125,45 +106,6 @@ export async function requestDriveAccessToken(): Promise<string> {
 
   isSigningIn = true;
 
-  // Approach 1: Try Google Identity Services Client with explicit client_id
-  if (typeof window !== 'undefined' && window.google?.accounts?.oauth2 && GOOGLE_OAUTH_CLIENT_ID) {
-    try {
-      const token = await new Promise<string>((resolve, reject) => {
-        try {
-          const client = window.google!.accounts.oauth2.initTokenClient({
-            client_id: GOOGLE_OAUTH_CLIENT_ID,
-            scope: 'https://www.googleapis.com/auth/drive.file',
-            callback: (res) => {
-              if (res.error) {
-                reject(new Error(res.error.message || res.error || 'Google Giriş Hatası'));
-                return;
-              }
-              if (res.access_token) {
-                saveCachedDriveToken(res.access_token, res.expires_in || 3500);
-                resolve(res.access_token);
-              } else {
-                reject(new Error('Yetkilendirme anahtarı alınamadı.'));
-              }
-            },
-            error_callback: (err) => {
-              reject(new Error(err?.message || 'Google oturum penceresi kapatıldı veya engellendi.'));
-            },
-          });
-          client.requestAccessToken({ prompt: '' });
-        } catch (initErr: any) {
-          reject(initErr);
-        }
-      });
-
-      isSigningIn = false;
-      return token;
-    } catch (gisErr: any) {
-      console.warn('GIS Token request encountered error, trying Firebase popup fallback:', gisErr);
-      // Continue to Firebase Auth popup fallback below
-    }
-  }
-
-  // Approach 2: Firebase Popup Authentication Fallback
   try {
     const result = await signInWithPopup(auth, driveProvider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
@@ -176,12 +118,15 @@ export async function requestDriveAccessToken(): Promise<string> {
     saveCachedDriveToken(accessToken, 3500);
     return accessToken;
   } catch (error: any) {
-    console.error('Drive Sign-in fallback error:', error);
+    console.error('Drive Sign-in error:', error);
     if (error.code === 'auth/popup-closed-by-user') {
       throw new Error('Giriş penceresi kullanıcı tarafından kapatıldı.');
     }
     if (error.code === 'auth/cancelled-popup-request') {
       throw new Error('Önceki giriş penceresi kapatıldı, lütfen tekrar deneyiniz.');
+    }
+    if (error.code === 'auth/popup-blocked') {
+      throw new Error('Tarayıcı açılır pencereyi (popup) engelledi. Lütfen açılır pencerelere izin veriniz.');
     }
     throw new Error(`Google Drive Bağlantı Hatası: ${error.message || error}`);
   } finally {
@@ -230,7 +175,7 @@ export async function listDriveFolderFiles(targetFolderId = getSavedDriveFolderI
   const result = await response.json();
   const files: DriveProjectFile[] = (result.files || []).map((f: any) => ({
     ...f,
-    isAuditData: f.name.endsWith('.betaqc.json') || f.name.endsWith('_VERI.json'),
+    isAuditData: f.name.endsWith('.json'),
   }));
 
   return files;
@@ -296,16 +241,17 @@ export async function uploadAuditJsonToDrive(
     token = await requestDriveAccessToken();
   }
 
-  const cleanSerial = (auditData.serialNumber || 'SN_YOK').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-  const cleanProject = (auditData.clientProjectName || 'Proje').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-  // Fixed file name format based on Serial Number & Project reference so it remains constant across saves!
-  const fileName = `BetaQC_${cleanSerial}_${cleanProject}.betaqc.json`;
+  // Türkçe karakterleri koruyarak sadece dosya sistemi/URL için geçersiz karakterleri temizle
+  const cleanSerial = (auditData.serialNumber || 'SN-YOK').trim().replace(/[/\\:*?"<>|]/g, '-').replace(/\s+/g, ' ');
+  const cleanProject = (auditData.clientProjectName || 'Referans-Yok').trim().replace(/[/\\:*?"<>|]/g, '-').replace(/\s+/g, ' ');
+  // Sadece seri numarası ve referans adı ile .json uzantısı
+  const fileName = `${cleanSerial}_${cleanProject}.json`;
 
   // Search if a file with the same reference/serial already exists in this folder
   let existingFileId: string | null = null;
   try {
     const searchFolderQuery = targetFolderId ? `'${targetFolderId}' in parents and trashed = false` : 'trashed = false';
-    const searchQuery = `${searchFolderQuery} and (name = '${fileName}' or name contains 'BetaQC_${cleanSerial}_')`;
+    const searchQuery = `${searchFolderQuery} and (name = '${fileName}' or name contains '${cleanSerial}_')`;
     const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(
       searchQuery
     )}&fields=files(id,name,webViewLink)&pageSize=10`;

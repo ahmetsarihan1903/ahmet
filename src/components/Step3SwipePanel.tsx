@@ -17,6 +17,7 @@ import { InspectionItem, MeasureItem, ElevatorType } from '../types';
 import { InspectionItemCard } from './InspectionItemCard';
 import { MeasuresTab } from './MeasuresTab';
 import { AddExtraItemModal } from './AddExtraItemModal';
+import { useTheme } from '../context/ThemeContext';
 
 interface Step3SwipePanelProps {
   elevatorType: ElevatorType;
@@ -67,6 +68,7 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
   onDeleteCustomItem,
   onFinishAudit,
 }) => {
+  const { isDark } = useTheme();
   const [modalCategory, setModalCategory] = useState<{ key: string; name: string } | null>(null);
 
   // Swipe detection touch coordinates
@@ -172,9 +174,13 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
       onTouchEnd={handleTouchEnd}
     >
       {/* Sticky Top Header Navigation & Controls (Fixed at the very top of pages) */}
-      <div className="sticky top-[calc(3.75rem+env(safe-area-inset-top,0px))] sm:top-[calc(4.25rem+env(safe-area-inset-top,0px))] z-30 bg-slate-900 border-b-2 border-slate-800 -mx-3 sm:-mx-4 px-3 sm:px-4 mb-3 shadow-lg">
+      <div className={`sticky top-[calc(3.75rem+env(safe-area-inset-top,0px))] sm:top-[calc(4.25rem+env(safe-area-inset-top,0px))] z-30 border-b-2 -mx-3 sm:-mx-4 px-3 sm:px-4 mb-3 shadow-lg ${
+        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300'
+      }`}>
         {/* Navigation Action Buttons: [ < ] | DENETİMİ BİTİR | [ > ] */}
-        <div className="py-2 flex items-center justify-between gap-2 border-b border-slate-800">
+        <div className={`py-2 flex items-center justify-between gap-2 border-b ${
+          isDark ? 'border-slate-800' : 'border-slate-200'
+        }`}>
           {/* Sol Ok (<) Button - Sadece Sembol */}
           <button
             type="button"
@@ -183,8 +189,12 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
             onClick={() => onTabChange(Math.max(0, activeTab - 1))}
             className={`min-h-[40px] w-10 sm:w-11 px-0 rounded font-bold text-xs uppercase flex items-center justify-center transition-all shrink-0 select-none ${
               activeTab === 0
-                ? 'bg-slate-950 text-slate-600 cursor-not-allowed border border-slate-800'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 active:scale-95 cursor-pointer shadow-md'
+                ? isDark
+                  ? 'bg-slate-950 text-slate-700 cursor-not-allowed border border-slate-800'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                : isDark
+                  ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 active:scale-95 cursor-pointer shadow-md'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 active:scale-95 cursor-pointer shadow-md'
             }`}
             title="Önceki Sayfa (Sol)"
             aria-label="Önceki Sayfa"
@@ -197,7 +207,7 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
             type="button"
             id="btn-top-finish-audit"
             onClick={onFinishAudit}
-            className="min-h-[40px] flex-1 py-2 px-3 sm:px-4 rounded font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-1.5 sm:gap-2 bg-red-600 hover:bg-red-500 active:scale-[0.99] text-white shadow-lg border border-red-400 transition-all cursor-pointer select-none"
+            className="min-h-[40px] flex-1 py-2 px-3 sm:px-4 rounded font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-1.5 sm:gap-2 bg-red-600 hover:bg-red-500 active:scale-[0.99] text-white shadow-lg border border-red-500 transition-all cursor-pointer select-none"
             title="Denetimi Bitir ve Rapor Ekranına Geç"
           >
             <FileCheck2 className="w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0" />
@@ -212,8 +222,10 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
             onClick={() => onTabChange(Math.min(tabs.length - 1, activeTab + 1))}
             className={`min-h-[40px] w-10 sm:w-11 px-0 rounded font-bold text-xs uppercase flex items-center justify-center transition-all shrink-0 select-none ${
               activeTab === tabs.length - 1
-                ? 'bg-slate-950 text-slate-600 cursor-not-allowed border border-slate-800'
-                : 'bg-orange-500 hover:bg-orange-400 active:scale-95 text-white shadow-lg cursor-pointer'
+                ? isDark
+                  ? 'bg-slate-950 text-slate-700 cursor-not-allowed border border-slate-800'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                : 'bg-orange-500 hover:bg-orange-400 active:scale-95 text-white shadow-lg cursor-pointer border border-orange-400'
             }`}
             title="Sonraki Sayfa (Sağ)"
             aria-label="Sonraki Sayfa"
@@ -240,8 +252,12 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
                 onClick={() => onTabChange(tab.id)}
                 className={`flex items-center gap-1.5 px-3 py-2 sm:py-2.5 border-b-4 text-[11px] font-bold uppercase tracking-tight shrink-0 transition-all cursor-pointer rounded-t ${
                   isActive
-                    ? 'border-blue-500 text-blue-400 bg-slate-800 font-black'
-                    : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 opacity-80 hover:opacity-100'
+                    ? isDark
+                      ? 'border-blue-500 text-blue-400 bg-slate-800 font-black'
+                      : 'border-blue-600 text-blue-700 bg-blue-50 font-black'
+                    : isDark
+                      ? 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                      : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -250,12 +266,16 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
                 {/* Badge */}
                 {tab.id === 0 ? (
                   count > 0 && (
-                    <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-400/40">
+                    <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold border ${
+                      isDark
+                        ? 'bg-blue-500/20 text-blue-300 border-blue-400/40'
+                        : 'bg-blue-100 text-blue-800 border-blue-300'
+                    }`}>
                       {count}
                     </span>
                   )
                 ) : count > 0 ? (
-                  <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-red-600 text-white animate-pulse shadow-xs">
+                  <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-red-600 text-white shadow-xs">
                     {count} UD
                   </span>
                 ) : null}
@@ -266,7 +286,9 @@ export const Step3SwipePanel: React.FC<Step3SwipePanelProps> = ({
       </div>
 
       {/* Current Page Banner & Info */}
-      <div className="bg-slate-900 rounded p-3 sm:p-3.5 shadow-sm border border-slate-800 mb-3 flex items-center justify-between">
+      <div className={`rounded p-3 sm:p-3.5 shadow-sm border mb-3 flex items-center justify-between ${
+        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+      }`}>
         <div className="flex items-center gap-2">
           <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700">
             Sayfa {activeTab + 1} / 8

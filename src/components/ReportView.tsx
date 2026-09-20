@@ -827,20 +827,14 @@ export const ReportView: React.FC<ReportViewProps> = ({
     if (isDriveUploading) return;
     setIsDriveUploading(true);
     try {
-      // 1. Upload JSON project audit data
-      await uploadAuditJsonToDrive(data);
-
-      // 2. Generate and upload official PDF document
-      const doc = buildJsPdfDocument();
-      const fileName = getStandardizedFileName();
-      const pdfBlob = doc.output('blob');
-      await uploadPdfBlobToDrive(pdfBlob, fileName);
+      // Yalnızca JSON proje denetim verisini Drive'a yükle (PDF yüklenmez)
+      const result = await uploadAuditJsonToDrive(data);
 
       setDriveUploadSuccess(true);
       setTimeout(() => setDriveUploadSuccess(false), 5000);
       alert(
         `✅ GOOGLE DRİVE YEDEKLEMESİ BAŞARILI!\n\n` +
-        `Proje veri dosyası (.betaqc.json) ve resmi PDF raporu (${fileName}) "KALITEKONTROL ARSIV" klasörüne yüklendi.\n` +
+        `Proje JSON veri dosyası ("${result.fileName}") "KALITEKONTROL ARSIV" klasörüne yüklendi.\n` +
         `Diğer tabletler ve ofis ekibi bu projeyi ortak havuzdan anında görüntüleyebilir.`
       );
     } catch (err: any) {

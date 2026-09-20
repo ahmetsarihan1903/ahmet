@@ -91,6 +91,11 @@ export interface RailDoorInspectionFullData {
   // 15'ten sonra kullanıcının kendi belirlediği özel sütun kodları (Örn: ['16', '18', '20'])
   customColumnCodes?: string[];
 
+  // 9 Nolu Sütun İbaresi (SAĞ, SOL, MRK - Eksen Kaçıklığı)
+  column9Direction?: 'SAĞ' | 'SOL' | 'MRK' | string;
+  column7Direction?: 'SAĞ' | 'SOL' | 'MRK' | string;
+  columnSubOptions?: Record<string, string>;
+
   // 5. Matris Kat Ölçümleri (Kat x Sütun Matrisi):
   // [stopIndex (1..N)]: { [colCode (1..15)]: '1205' }
   floorMatrixMeasurements: Record<string, Record<string, string>>;

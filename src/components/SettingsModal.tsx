@@ -52,6 +52,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const { theme, setTheme, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<'general' | 'saved_data'>('general');
+  const [isConfirmingNewInspection, setIsConfirmingNewInspection] = useState(false);
 
   if (!isOpen) return null;
 
@@ -302,24 +303,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <p className={`text-[11px] mb-2.5 ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>
                     Tüm alanları ve seçimleri sıfırlayarak yeni bir asansör kalite kontrol denetimi başlatır.
                   </p>
-                  <button
-                    type="button"
-                    id="btn-settings-new-inspection"
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          'Yeni bir denetim başlatmak istediğinize emin misiniz? (Mevcut kaydedilmemiş veriler sıfırlanacaktır)'
-                        )
-                      ) {
-                        onClose();
-                        onNewInspection();
-                      }
-                    }}
-                    className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-500 active:scale-98 text-white rounded-lg border border-blue-500 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Yeni Denetim Başlat</span>
-                  </button>
+                  
+                  {isConfirmingNewInspection ? (
+                    <div className="p-3 rounded-lg bg-amber-500/15 border-2 border-amber-500 text-center space-y-2">
+                      <p className="text-xs font-bold text-amber-500 flex items-center justify-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span>Mevcut denetim sıfırlanacak. Emin misiniz?</span>
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          id="btn-settings-new-inspection-confirm"
+                          onClick={() => {
+                            setIsConfirmingNewInspection(false);
+                            onClose();
+                            onNewInspection();
+                          }}
+                          className="py-2 px-3 bg-red-600 hover:bg-red-500 text-white rounded-lg border border-red-500 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-transform active:scale-95"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Evet, Başlat</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsConfirmingNewInspection(false)}
+                          className={`py-2 px-3 rounded-lg border text-xs font-bold cursor-pointer transition-colors ${
+                            isDark
+                              ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
+                              : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+                          }`}
+                        >
+                          Vazgeç
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      id="btn-settings-new-inspection"
+                      onClick={() => setIsConfirmingNewInspection(true)}
+                      className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-500 active:scale-98 text-white rounded-lg border border-blue-500 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                    >
+                      <PlusCircle className="w-4 h-4" />
+                      <span>Yeni Denetim Başlat</span>
+                    </button>
+                  )}
                 </div>
               )}
 

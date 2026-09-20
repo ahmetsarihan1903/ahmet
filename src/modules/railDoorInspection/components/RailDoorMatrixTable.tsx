@@ -10,6 +10,7 @@ import {
   Plus,
   X,
   Trash2,
+  Check,
 } from 'lucide-react';
 
 interface RailDoorMatrixTableProps {
@@ -20,6 +21,8 @@ interface RailDoorMatrixTableProps {
   floorAliases?: Record<number, string>;
   projectNominalValues?: Record<string, string>;
   customColumnCodes?: string[];
+  column9Direction?: string;
+  onColumn9DirectionChange?: (direction: string) => void;
   layoutPosition?: RailLayoutPosition;
   activeCode?: string;
   onSelectCode?: (code: string) => void;
@@ -41,6 +44,8 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
   floorAliases = {},
   projectNominalValues = {},
   customColumnCodes = [],
+  column9Direction,
+  onColumn9DirectionChange,
   layoutPosition,
   activeCode,
   onSelectCode,
@@ -60,6 +65,9 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
   const [showAddColumnModal, setShowAddColumnModal] = useState(false);
   const [newColumnCode, setNewColumnCode] = useState('');
   const [columnError, setColumnError] = useState('');
+
+  // 9 Nolu Sütun İbaresi Seçim Modalı State'i (SAĞ, SOL, MRK)
+  const [showCol9Modal, setShowCol9Modal] = useState(false);
 
   // Sayfa başına durak sayısı: 6 Durak
   const FLOORS_PER_PAGE = 6;
@@ -309,43 +317,91 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
                 const isSelected = activeCode === cCode;
                 const def = measurementDefs.find((d) => d.code === cCode);
                 const isCustom = !baseColumnCodes.includes(cCode);
+                const isCol9 = cCode === '9';
+                const col9Title = isCol9 && column9Direction ? `9 - ${column9Direction}` : cCode;
 
                 return (
                   <th
                     key={cCode}
+                    id={`th-col-${cCode}`}
                     onClick={() => {
                       if (onSelectCode) {
                         onSelectCode(cCode);
                       }
+                      if (isCol9) {
+                        setShowCol9Modal(true);
+                      }
                     }}
-                    className={`border-r border-b border-slate-750 p-1 text-center font-black transition-colors cursor-pointer min-w-[70px] w-[70px] relative group ${
+                    className={`border-r border-b border-slate-750 p-1 text-center font-black transition-colors cursor-pointer relative group ${
+                      isCol9
+                        ? (column9Direction ? 'min-w-[96px] w-[96px]' : 'min-w-[82px] w-[82px]')
+                        : 'min-w-[70px] w-[70px]'
+                    } ${
                       isSelected
                         ? 'bg-amber-500 text-slate-950 shadow-inner'
                         : isCustom
                         ? 'bg-sky-950/80 hover:bg-sky-900 text-sky-200 border-sky-800'
+                        : isCol9 && column9Direction
+                        ? 'bg-slate-900 hover:bg-slate-850 text-amber-300 border-amber-500/40 ring-1 ring-amber-500/30'
                         : 'bg-slate-900 hover:bg-slate-800 text-white'
                     }`}
-                    title={def?.title || `Ölçüm Sütunu ${cCode}`}
+                    title={
+                      isCol9
+                        ? 'Dokunun: SAĞ, SOL, MRK seçimi yapın (Eksen Kaçıklığı)'
+                        : (def?.title || `Ölçüm Sütunu ${cCode}`)
+                    }
                   >
-                    <div className="flex flex-col items-center justify-center relative">
-                      <span className="text-sm font-black">{cCode}</span>
+                    {isCol9 ? (
+                      <div className="flex flex-col items-center justify-center relative py-0.5 select-none">
+                        <div className="flex items-center gap-1 justify-center">
+                          <span
+                            className={`text-sm font-black whitespace-nowrap ${
+                              isSelected
+                                ? 'text-slate-950'
+                                : column9Direction
+                                ? 'text-amber-400 font-extrabold'
+                                : 'text-white'
+                            }`}
+                          >
+                            {col9Title}
+                          </span>
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 shrink-0 transition-transform ${
+                              isSelected ? 'text-slate-950' : 'text-amber-400'
+                            }`}
+                          />
+                        </div>
+                        {!column9Direction && (
+                          <span
+                            className={`text-[8px] font-bold tracking-tight uppercase ${
+                              isSelected ? 'text-slate-900/80' : 'text-amber-400/90'
+                            }`}
+                          >
+                            (Yön Seç)
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center relative">
+                        <span className="text-sm font-black">{cCode}</span>
 
-                      {/* Özel sütunlar için doğrudan kaldır butonu */}
-                      {isCustom && onRemoveColumn && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            onRemoveColumn(cCode);
-                          }}
-                          className="absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-rose-600 hover:bg-rose-500 active:scale-90 text-white flex items-center justify-center transition shadow-md z-10 cursor-pointer border border-rose-400"
-                          title={`"${cCode}" Özel Sütununu Sil`}
-                        >
-                          <X className="w-2.5 h-2.5 stroke-[3]" />
-                        </button>
-                      )}
-                    </div>
+                        {/* Özel sütunlar için doğrudan kaldır butonu */}
+                        {isCustom && onRemoveColumn && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              onRemoveColumn(cCode);
+                            }}
+                            className="absolute -top-1 -right-1.5 w-4 h-4 rounded-full bg-rose-600 hover:bg-rose-500 active:scale-90 text-white flex items-center justify-center transition shadow-md z-10 cursor-pointer border border-rose-400"
+                            title={`"${cCode}" Özel Sütununu Sil`}
+                          >
+                            <X className="w-2.5 h-2.5 stroke-[3]" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </th>
                 );
               })}
@@ -376,12 +432,14 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
                 const val = projectNominalValues[cCode] || '';
                 const isSelected = activeCode === cCode;
                 const isCustom = !baseColumnCodes.includes(cCode);
+                const isCol9 = cCode === '9';
+                const colTitle = isCol9 && column9Direction ? `9 - ${column9Direction}` : `${cCode} nolu sütun`;
 
                 return (
                   <td
                     key={`nominal-${cCode}`}
                     className={`border-r border-slate-800 p-1 text-center ${
-                      isSelected ? 'bg-amber-950/40' : isCustom ? 'bg-sky-950/30' : 'bg-slate-950'
+                      isSelected ? 'bg-amber-950/40' : isCustom ? 'bg-sky-950/30' : isCol9 && column9Direction ? 'bg-amber-950/20' : 'bg-slate-950'
                     }`}
                   >
                     <input
@@ -394,7 +452,7 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
                       className={`w-full bg-slate-900/90 border focus:border-amber-400 rounded px-1 py-1 text-center font-mono font-bold text-xs outline-none cursor-text ${
                         isCustom ? 'border-sky-800 text-sky-300' : 'border-slate-750 text-amber-300'
                       }`}
-                      title={`${cCode} nolu sütun için Proje Referans Ölçüsü`}
+                      title={`${colTitle} için Proje Referans Ölçüsü`}
                     />
                   </td>
                 );
@@ -620,6 +678,113 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 9 NUMARALI SÜTUN İÇİN SAĞ, SOL, MRK SEÇİM MODALI */}
+      {showCol9Modal && (
+        <div
+          id="col9-direction-modal-backdrop"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn cursor-pointer"
+          onClick={() => setShowCol9Modal(false)}
+        >
+          <div
+            id="col9-direction-modal"
+            className="relative bg-slate-900 border border-slate-700/80 rounded-2xl p-4 sm:p-5 max-w-sm w-full shadow-2xl space-y-4 cursor-default animate-scaleUp"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Başlık ve Kapat */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-black text-base shadow-inner">
+                  9
+                </div>
+                <div>
+                  <h4 className="text-sm sm:text-base font-black text-white">
+                    9 Nolu Sütun Başlığı
+                  </h4>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    Kuyu / Kapı Eksen Kaçıklığı (SAĞ, SOL, MRK)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                id="btn-close-col9-modal"
+                onClick={() => setShowCol9Modal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                title="Kapat"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Seçenek Butonları: SAĞ, SOL, MRK */}
+            <div className="space-y-2 pt-1">
+              {[
+                { code: 'SAĞ', title: '9 - SAĞ', desc: 'Sağa Kaçıklık Referansı' },
+                { code: 'SOL', title: '9 - SOL', desc: 'Sola Kaçıklık Referansı' },
+                { code: 'MRK', title: '9 - MRK', desc: 'Merkez Aks (Sıfır Kaçıklık)' },
+              ].map((opt) => {
+                const isSelected = column9Direction === opt.code;
+                return (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    id={`btn-col9-opt-${opt.code}`}
+                    onClick={() => {
+                      if (onColumn9DirectionChange) {
+                        onColumn9DirectionChange(opt.code);
+                      }
+                      setShowCol9Modal(false);
+                    }}
+                    className={`w-full min-h-[52px] px-3.5 py-2.5 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer select-none active:scale-[0.98] ${
+                      isSelected
+                        ? 'bg-amber-500/20 border-amber-400 ring-2 ring-amber-400/30 text-white shadow-md'
+                        : 'bg-slate-800/80 hover:bg-slate-800 border-slate-700 hover:border-amber-400/60 text-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`text-sm sm:text-base font-black px-3 py-1 rounded-lg transition-colors ${
+                          isSelected
+                            ? 'bg-amber-500 text-slate-950 font-black'
+                            : 'bg-slate-900 text-amber-400 border border-slate-700'
+                        }`}
+                      >
+                        {opt.title}
+                      </span>
+                      <span className="text-xs text-slate-300 font-medium">
+                        {opt.desc}
+                      </span>
+                    </div>
+                    {isSelected && (
+                      <Check className="w-5 h-5 text-amber-400 stroke-[3]" />
+                    )}
+                  </button>
+                );
+              })}
+
+              {/* Sadece 9 (Varsayılan / Kaldır) */}
+              <button
+                type="button"
+                id="btn-col9-opt-reset"
+                onClick={() => {
+                  if (onColumn9DirectionChange) {
+                    onColumn9DirectionChange('');
+                  }
+                  setShowCol9Modal(false);
+                }}
+                className={`w-full min-h-[44px] px-3 py-2 rounded-xl border text-center text-xs font-bold transition-all cursor-pointer select-none active:scale-[0.98] ${
+                  !column9Direction
+                    ? 'bg-slate-800 border-slate-600 text-amber-300 ring-1 ring-amber-500/30'
+                    : 'bg-slate-900/60 hover:bg-slate-800 border-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Sadece "9" Olarak Bırak (Yönü Kaldır)
+              </button>
+            </div>
           </div>
         </div>
       )}

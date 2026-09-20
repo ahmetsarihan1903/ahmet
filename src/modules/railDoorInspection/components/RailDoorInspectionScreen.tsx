@@ -167,6 +167,30 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
     });
   };
 
+  // 9 Nolu Sütun İbaresi Değişikliği (SAĞ, SOL, MRK - Eksen Kaçıklığı)
+  const handleColumn9DirectionChange = (direction: string) => {
+    onChange((prev) => ({
+      ...prev,
+      column9Direction: direction,
+      columnSubOptions: {
+        ...(prev.columnSubOptions || {}),
+        '9': direction,
+      },
+    }));
+  };
+
+  // 7 Nolu Sütun İbaresi Değişikliği (SAĞ, SOL, MRK)
+  const handleColumn7DirectionChange = (direction: string) => {
+    onChange((prev) => ({
+      ...prev,
+      column7Direction: direction,
+      columnSubOptions: {
+        ...(prev.columnSubOptions || {}),
+        '7': direction,
+      },
+    }));
+  };
+
   // Makine Şase Ölçü Girişleri
   const handleChassisMeasureChange = (code: string, field: 'projectValueMm' | 'actualValueMm', val: string) => {
     const cleanVal = val.replace(/[^0-9.,-]/g, '');
@@ -346,6 +370,8 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
             floorAliases={data.floorAliases || {}}
             projectNominalValues={data.projectNominalValues || {}}
             customColumnCodes={data.customColumnCodes || []}
+            column9Direction={data.column9Direction}
+            onColumn9DirectionChange={handleColumn9DirectionChange}
             layoutPosition={data.layoutPosition}
             activeCode={selectedMeasureCode}
             onSelectCode={(code) => setSelectedMeasureCode(code)}
