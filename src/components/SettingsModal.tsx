@@ -25,7 +25,6 @@ import { useTheme } from '../context/ThemeContext';
 import { getLastSavedTime, loadActiveDraft, getAuditHistory } from '../utils/storage';
 import { AuditFormData } from '../types';
 import { FontSizeControl } from './FontSizeControl';
-import { AndroidDiagnosticModal } from './AndroidDiagnosticModal';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -55,7 +54,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const { theme, setTheme, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<'general' | 'saved_data'>('general');
   const [isConfirmingNewInspection, setIsConfirmingNewInspection] = useState(false);
-  const [showAndroidDiagnostic, setShowAndroidDiagnostic] = useState(false);
 
   if (!isOpen) return null;
 
@@ -81,8 +79,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay-safe bg-slate-950/80 backdrop-blur-xs animate-fadeIn">
-      <div className={`rounded-xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border modal-box-safe flex flex-col ${
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+      <div className={`rounded-xl max-w-lg w-full p-3.5 sm:p-4 shadow-2xl border max-h-[85vh] sm:max-h-[88vh] flex flex-col ${
         isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900'
       }`}>
         {/* Modal Header */}
@@ -411,31 +409,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <span>E-Tablo Veri Güncelle</span>
                 </button>
               </div>
-
-              {/* 8. Android 8.1.0 Tablet Teşhisi & Hata Konsolu */}
-              <div className={`p-3.5 rounded-lg border ${
-                isDark ? 'bg-slate-950 border-slate-800' : 'bg-emerald-50/70 border-emerald-200'
-              }`}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${
-                    isDark ? 'text-emerald-400' : 'text-emerald-900'
-                  }`}>
-                    <Cpu className="w-3.5 h-3.5" />
-                    Android 8.1.0 Tablet Doktoru & Konsol
-                  </span>
-                </div>
-                <p className={`text-[11px] mb-2.5 ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>
-                  Tablet donanım/tarayıcı uyumluluk kontrolü, canlı hata günlüğü ve çevrimdışı JSON dosya aktarımı.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowAndroidDiagnostic(true)}
-                  className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg border border-emerald-500 text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
-                >
-                  <Cpu className="w-4 h-4" />
-                  <span>Teşhis Paneli ve Hata Konsolunu Aç</span>
-                </button>
-              </div>
             </>
           ) : (
             /* SAVED DATA & DRAFTS TAB - DIRECT RESTORE VIEW */
@@ -609,18 +582,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Android 8.1 Diagnostic Modal */}
-      {showAndroidDiagnostic && (
-        <AndroidDiagnosticModal
-          isOpen={showAndroidDiagnostic}
-          onClose={() => setShowAndroidDiagnostic(false)}
-          onLoadAudit={(data) => {
-            onRestoreDraftOrAudit(data);
-            onClose();
-          }}
-        />
-      )}
     </div>
   );
 };

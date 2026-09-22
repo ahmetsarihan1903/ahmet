@@ -14,13 +14,10 @@ import {
   Sun,
   PlayCircle,
   FileCheck2,
-  Cpu,
-  Tablet,
 } from 'lucide-react';
 import { FontSizeControl } from './FontSizeControl';
 import { useTheme } from '../context/ThemeContext';
 import { loadActiveDraft } from '../utils/storage';
-import { AndroidDiagnosticModal } from './AndroidDiagnosticModal';
 
 interface AppHubHomeProps {
   onSelectModule: (module: ActiveAppModule) => void;
@@ -28,7 +25,6 @@ interface AppHubHomeProps {
 
 export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
   const [showSettings, setShowSettings] = useState(false);
-  const [showDiagnostic, setShowDiagnostic] = useState(false);
   const { theme, setTheme, isDark } = useTheme();
   const [activeDraftInfo, setActiveDraftInfo] = useState<{
     exists: boolean;
@@ -335,8 +331,8 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
 
       {/* HUB PORTALI AYARLAR & PUNTO MODALI */}
       {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-fadeIn">
-          <div className={`rounded-xl max-w-md w-full p-4 sm:p-5 shadow-2xl border max-h-[90vh] flex flex-col ${
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+          <div className={`rounded-xl max-w-md w-full p-3.5 sm:p-4 shadow-2xl border max-h-[85vh] flex flex-col ${
             isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900'
           }`}>
             {/* Header */}
@@ -421,37 +417,9 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
 
               {/* Yazı Boyutu & Punto Kontrolü */}
               <FontSizeControl />
-
-              {/* Android 8.1 Tablet Teşhisi & Çevrimdışı Aktarım */}
-              <div className={`p-3.5 rounded-lg border ${
-                isDark ? 'bg-slate-950 border-slate-800' : 'bg-emerald-50/70 border-emerald-200'
-              }`}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${
-                    isDark ? 'text-emerald-400' : 'text-emerald-900'
-                  }`}>
-                    <Cpu className="w-3.5 h-3.5" />
-                    Android 8.1.0 Tablet Doktoru & Konsol
-                  </span>
-                </div>
-                <p className={`text-[11px] mb-2.5 ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>
-                  Tablet donanım/tarayıcı uyumluluk kontrolü, canlı hata günlüğü ve çevrimdışı JSON dosya aktarımı.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSettings(false);
-                    setShowDiagnostic(true);
-                  }}
-                  className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
-                >
-                  <Cpu className="w-4 h-4" />
-                  <span>Teşhis Paneli ve Hata Konsolunu Aç</span>
-                </button>
-              </div>
             </div>
 
-            <div className={`mt-4 pt-3 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+            <div className={`mt-3 pt-2.5 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
               <button
                 type="button"
                 onClick={() => setShowSettings(false)}
@@ -462,14 +430,6 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Android 8.1 Diagnostic Modal */}
-      {showDiagnostic && (
-        <AndroidDiagnosticModal
-          isOpen={showDiagnostic}
-          onClose={() => setShowDiagnostic(false)}
-        />
       )}
     </div>
   );

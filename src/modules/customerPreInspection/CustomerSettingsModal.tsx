@@ -61,8 +61,8 @@ export const CustomerSettingsModal: React.FC<CustomerSettingsModalProps> = ({
   const defectiveCount = items.filter((i) => i.isDefective).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay-safe bg-slate-950/80 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-slate-900 light:bg-white rounded-xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-slate-800 light:border-slate-300 text-slate-100 light:text-slate-900 modal-box-safe flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+      <div className="bg-slate-900 light:bg-white rounded-xl max-w-lg w-full p-3.5 sm:p-4 shadow-2xl border border-slate-800 light:border-slate-300 text-slate-100 light:text-slate-900 max-h-[85vh] sm:max-h-[88vh] flex flex-col">
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800 light:border-slate-200 mb-3">
           <div className="flex items-center gap-2.5">
