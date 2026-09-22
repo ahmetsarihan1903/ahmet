@@ -93,7 +93,7 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
       isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'
     }`}>
       {/* Kompakt Header Bar */}
-      <header className="bg-[#0A2647] text-white shadow-md border-b-4 border-orange-500 pt-safe-or-2">
+      <header className="bg-[#0A2647] text-white shadow-md border-b-4 border-orange-500 pt-safe-or-4">
         <div className="max-w-4xl mx-auto px-3 sm:px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <BetaLogo size="sm" className="shadow-xs shrink-0" />

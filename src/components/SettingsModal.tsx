@@ -81,8 +81,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-fadeIn">
-      <div className={`rounded-xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border max-h-[90vh] flex flex-col ${
+    <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay-safe bg-slate-950/80 backdrop-blur-xs animate-fadeIn">
+      <div className={`rounded-xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border modal-box-safe flex flex-col ${
         isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900'
       }`}>
         {/* Modal Header */}

@@ -121,8 +121,8 @@ export const RailDoorSettingsModal: React.FC<RailDoorSettingsModalProps> = ({
   const activeFilledCount = countFilledMeasures(formData);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-slate-900 light:bg-white rounded-xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-slate-800 light:border-slate-300 text-slate-100 light:text-slate-900 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay-safe bg-slate-950/80 backdrop-blur-xs animate-fadeIn">
+      <div className="bg-slate-900 light:bg-white rounded-xl max-w-lg w-full p-4 sm:p-5 shadow-2xl border border-slate-800 light:border-slate-300 text-slate-100 light:text-slate-900 modal-box-safe flex flex-col">
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800 light:border-slate-200 mb-3">
           <div className="flex items-center gap-2.5">

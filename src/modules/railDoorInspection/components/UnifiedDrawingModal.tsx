@@ -167,12 +167,12 @@ export const UnifiedDrawingModal: React.FC<UnifiedDrawingModalProps> = ({
   return (
     <div
       id="unified-drawing-modal-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn cursor-pointer overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center modal-overlay-safe bg-slate-950/80 backdrop-blur-sm animate-fadeIn cursor-pointer overflow-y-auto"
       onClick={onClose}
     >
       <div
         id="unified-drawing-modal-card"
-        className="relative bg-slate-900 border border-slate-700/80 rounded-2xl p-3 sm:p-5 max-w-4xl w-full shadow-2xl cursor-default my-auto flex flex-col max-h-[92vh]"
+        className="relative bg-slate-900 border border-slate-700/80 rounded-2xl p-3 sm:p-5 max-w-4xl w-full shadow-2xl cursor-default my-auto flex flex-col modal-box-safe"
         onClick={(e) => e.stopPropagation()}
         onDragOver={(e) => {
           e.preventDefault();

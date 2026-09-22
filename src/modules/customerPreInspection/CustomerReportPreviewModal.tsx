@@ -91,9 +91,9 @@ export const CustomerReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
 
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex flex-col justify-start items-center p-2 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex flex-col justify-start items-center pt-[max(0.5rem,calc(env(safe-area-inset-top,0px)+0.25rem))] pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))] px-2 sm:px-4 overflow-y-auto">
       {/* Top Floating Control Bar */}
-      <div className="w-full max-w-4xl bg-slate-900 text-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-2.5 mb-3 sticky top-2 z-10 no-print">
+      <div className="w-full max-w-4xl bg-slate-900 text-white rounded-xl sm:rounded-2xl p-2.5 sm:p-4 shadow-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-2.5 mb-3 sticky top-[max(0.5rem,calc(env(safe-area-inset-top,0px)+0.25rem))] z-10 no-print">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-500 text-slate-950 flex items-center justify-center font-black">
             <FileText className="w-4 h-4" />

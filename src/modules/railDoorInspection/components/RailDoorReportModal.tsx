@@ -168,9 +168,9 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex flex-col justify-start items-center p-2 sm:p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex flex-col justify-start items-center pt-[max(0.5rem,calc(env(safe-area-inset-top,0px)+0.25rem))] pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))] px-2 sm:px-4 overflow-y-auto">
       {/* Üst İşlem Çubuğu (Modal Bar) */}
-      <div className="w-full max-w-5xl bg-slate-900 border border-slate-700 rounded-2xl p-3 sm:p-4 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl shrink-0 print:hidden">
+      <div className="w-full max-w-5xl bg-slate-900 border border-slate-700 rounded-2xl p-3 sm:p-4 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl shrink-0 print:hidden sticky top-[max(0.5rem,calc(env(safe-area-inset-top,0px)+0.25rem))] z-10">
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
           <div>

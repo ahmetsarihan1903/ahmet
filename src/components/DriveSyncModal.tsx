@@ -25,6 +25,7 @@ import {
   setSavedDriveFolderId,
   requestDriveAccessToken,
   getCachedDriveToken,
+  saveCachedDriveToken,
   clearCachedDriveToken,
   listDriveFolderFiles,
   uploadAuditJsonToDrive,
@@ -51,6 +52,8 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [files, setFiles] = useState<DriveProjectFile[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [showManualToken, setShowManualToken] = useState(false);
+  const [manualToken, setManualToken] = useState('');
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error' | 'info' | null; text: string }>({
     type: null,
     text: '',
@@ -69,6 +72,18 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const handleManualTokenSave = async () => {
+    const trimmed = manualToken.trim();
+    if (!trimmed) {
+      setStatusMsg({ type: 'error', text: 'Lütfen geçerli bir Google erişim tokeni giriniz.' });
+      return;
+    }
+    saveCachedDriveToken(trimmed, 3600);
+    setIsConnected(true);
+    setStatusMsg({ type: 'success', text: 'Manuel token kaydedildi, Drive dosyaları taranıyor...' });
+    await handleRefreshFiles(folderId);
+  };
 
   const handleConnect = async () => {
     setIsLoading(true);
@@ -256,6 +271,40 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
                 )}
                 <span>Google Drive ile Oturum Aç & Klasöre Bağlan</span>
               </button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowManualToken(!showManualToken)}
+                  className="text-[11px] text-amber-400 hover:text-amber-300 font-bold underline cursor-pointer"
+                >
+                  {showManualToken ? '▲ Manuel Token Alanını Gizle' : '▼ Tablet Açılır Pencere / Domain Engeli Varsa: Manuel Token Gir'}
+                </button>
+              </div>
+
+              {showManualToken && (
+                <div className="p-3 bg-slate-950 rounded-lg border border-amber-500/40 space-y-2 animate-fadeIn">
+                  <p className="text-[11px] text-slate-300">
+                    Tablet tarayıcınızda veya domain engeliniz varsa Google OAuth Access Token yapıştırabilirsiniz:
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="ya29.a0A..."
+                      value={manualToken}
+                      onChange={(e) => setManualToken(e.target.value)}
+                      className="flex-1 bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleManualTokenSave}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-slate-950 font-black text-xs rounded cursor-pointer"
+                    >
+                      Kaydet & Bağlan
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Direct Offline / File Option for Tablet APK */}
               <div className="grid grid-cols-2 gap-2 pt-1">

@@ -558,12 +558,39 @@ button svg.text-white,
 }
 
 @layer utilities {
-  /* Safe area insets for mobile notches / status bar */
+  /* Safe area insets for mobile notches / status bar (Bildirim Çubuğu Koruması) */
   .pt-safe {
-    padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+    padding-top: max(0.625rem, calc(env(safe-area-inset-top, 0px) + 0.25rem));
+  }
+  .pt-safe-or-2 {
+    padding-top: max(0.5rem, calc(env(safe-area-inset-top, 0px) + 0.35rem));
   }
   .pt-safe-or-4 {
-    padding-top: max(1rem, calc(env(safe-area-inset-top, 0px) + 0.5rem));
+    padding-top: max(0.875rem, calc(env(safe-area-inset-top, 0px) + 0.5rem));
+  }
+  .pb-safe {
+    padding-bottom: max(0.5rem, calc(env(safe-area-inset-bottom, 0px) + 0.25rem));
+  }
+  .pb-safe-or-4 {
+    padding-bottom: max(1rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem));
+  }
+  .pb-safe-nav {
+    padding-bottom: max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem));
+  }
+  .px-safe {
+    padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+  }
+
+  /* Modal Safe Areas for Small Phone Displays */
+  .modal-overlay-safe {
+    padding-top: max(0.75rem, calc(env(safe-area-inset-top, 0px) + 0.5rem));
+    padding-bottom: max(0.75rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem));
+    padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+  }
+  .modal-box-safe {
+    max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1.5rem));
   }
 
   /* Hide scrollbar for Chrome, Safari and Opera */

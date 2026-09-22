@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AuditFormData, ElevatorType, InspectionItem, MeasureItem } from '../../types';
 import {
   CONTROL_PANEL_ITEMS,
@@ -204,22 +204,67 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
   const [isSaveSuccess, setIsSaveSuccess] = useState(false);
   const [saveToastMessage, setSaveToastMessage] = useState<string | null>(null);
 
-  // Periodic auto-save draft every 30 seconds
+  // Keep a synchronous reference to the latest formData for background/unload handlers
+  const formDataRef = useRef<AuditFormData>(formData);
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (formData.currentStep !== 'report') {
-        saveActiveDraft(formData);
-      }
-    }, 30000);
-    return () => clearInterval(interval);
+    formDataRef.current = formData;
   }, [formData]);
 
-  // Auto-save draft whenever formData changes (offline local storage)
+  // Auto-save active draft whenever formData changes (offline local storage & history snapshot)
   useEffect(() => {
-    if (formData.currentStep !== 'report') {
-      saveActiveDraft(formData);
+    saveActiveDraft(formData);
+    if (formData.clientProjectName || formData.serialNumber || formData.startTimestamp) {
+      saveManualAuditSnapshot(formData);
     }
   }, [formData]);
+
+  // Periodic auto-save draft every 15 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (formDataRef.current) {
+        saveActiveDraft(formDataRef.current);
+      }
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Comprehensive Mobile & Desktop Lifecycle Listeners:
+  // Saves current state immediately when switching tabs, minimizing app, locking screen, or closing window
+  useEffect(() => {
+    const handleImmediatePersist = () => {
+      if (formDataRef.current) {
+        saveActiveDraft(formDataRef.current);
+        if (
+          formDataRef.current.clientProjectName ||
+          formDataRef.current.serialNumber ||
+          formDataRef.current.startTimestamp
+        ) {
+          saveManualAuditSnapshot(formDataRef.current);
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleImmediatePersist();
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handleImmediatePersist);
+    window.addEventListener('beforeunload', handleImmediatePersist);
+    window.addEventListener('blur', handleImmediatePersist);
+    window.addEventListener('freeze' as any, handleImmediatePersist);
+
+    return () => {
+      handleImmediatePersist();
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handleImmediatePersist);
+      window.removeEventListener('beforeunload', handleImmediatePersist);
+      window.removeEventListener('blur', handleImmediatePersist);
+      window.removeEventListener('freeze' as any, handleImmediatePersist);
+    };
+  }, []);
 
   // Auto-sync queued offline saves whenever connection is restored
   useEffect(() => {
@@ -552,9 +597,9 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
     setFormData(finalizedData);
     setIsComfortModalOpen(false);
 
-    // Save completed audit to history & clear active draft
+    // Save completed audit to history AND keep active draft so user resumes at report unless "Yeni Denetim" is clicked
     saveCompletedAuditToHistory(finalizedData);
-    clearActiveDraft();
+    saveActiveDraft(finalizedData);
   };
 
   // Start fresh new inspection

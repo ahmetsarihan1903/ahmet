@@ -89,9 +89,75 @@ export function clearCachedDriveToken(): void {
   }
 }
 
+const CLIENT_ID = (firebaseConfig as any).oAuthClientId || '31994782267-uehmrfkdgt6l05pbk614v9767d291o6s.apps.googleusercontent.com';
+
 /**
- * Requests an OAuth access token using Firebase Auth Popup with Google Drive scope.
- * Directly routes through Firebase authDomain to avoid origin_mismatch errors.
+ * Dynamically loads Google Identity Services (GIS) library for direct OAuth token requests
+ * without requiring Firebase Authorized Domains configuration.
+ */
+function loadGisScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') return reject(new Error('Pencere bulunamadı'));
+    if ((window as any).google?.accounts?.oauth2) return resolve();
+    const existing = document.getElementById('google-gis-script');
+    if (existing) {
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => reject(new Error('GIS script yüklenemedi')));
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'google-gis-script';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Google Identity Services istemci kütüphanesi yüklenemedi'));
+    document.head.appendChild(script);
+  });
+}
+
+/**
+ * Requests OAuth Access Token using Google Identity Services (GIS) Token Client.
+ * Bypasses Firebase domain restrictions entirely.
+ */
+export async function requestDriveAccessTokenViaGis(): Promise<string> {
+  await loadGisScript();
+  const googleObj = (window as any).google;
+  if (!googleObj?.accounts?.oauth2) {
+    throw new Error('Google OAuth servisi kütüphanesi yüklenemedi.');
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      const client = googleObj.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly',
+        callback: (response: any) => {
+          if (response.error) {
+            reject(new Error(`Google Yetkilendirme Hatası: ${response.error_description || response.error}`));
+            return;
+          }
+          if (response.access_token) {
+            saveCachedDriveToken(response.access_token, response.expires_in || 3500);
+            resolve(response.access_token);
+          } else {
+            reject(new Error('Erişim anahtarı alınamadı.'));
+          }
+        },
+        error_callback: (err: any) => {
+          reject(new Error(`Google OAuth penceresi engellendi veya kapatıldı (${err?.message || 'Açılır pencere engeli'})`));
+        },
+      });
+      client.requestAccessToken({ prompt: 'select_account' });
+    } catch (e: any) {
+      reject(e);
+    }
+  });
+}
+
+/**
+ * Requests an OAuth access token using GIS first, falling back to Firebase Auth Popup.
+ * Provides clear, friendly error messages on tablets and mobile devices.
  */
 export async function requestDriveAccessToken(): Promise<string> {
   const cached = getCachedDriveToken();
@@ -107,6 +173,15 @@ export async function requestDriveAccessToken(): Promise<string> {
   isSigningIn = true;
 
   try {
+    // 1. Önce doğrudan GIS Token Client ile dene (Firebase Authorized Domain bağımsız)
+    try {
+      const gisToken = await requestDriveAccessTokenViaGis();
+      if (gisToken) return gisToken;
+    } catch (gisErr: any) {
+      console.warn('GIS Token login failed or user cancelled, fallback to Firebase:', gisErr);
+    }
+
+    // 2. GIS alternatif olarak Firebase Popup kullan
     const result = await signInWithPopup(auth, driveProvider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const accessToken = credential?.accessToken;
@@ -119,16 +194,24 @@ export async function requestDriveAccessToken(): Promise<string> {
     return accessToken;
   } catch (error: any) {
     console.error('Drive Sign-in error:', error);
-    if (error.code === 'auth/popup-closed-by-user') {
+    const errCode = error?.code || '';
+    const errMsg = error?.message || String(error);
+
+    if (errCode === 'auth/unauthorized-domain' || errMsg.includes('unauthorized-domain')) {
+      throw new Error(
+        'Google Drive Yetkilendirme Uyarısı (unauthorized-domain): Lütfen penceredeki "Manuel Erişim Anahtarı (Token)" seçeneğini kullanarak veya Google hesabınızı onaylayarak klasöre bağlanınız.'
+      );
+    }
+    if (errCode === 'auth/popup-closed-by-user' || errMsg.includes('closed-by-user')) {
       throw new Error('Giriş penceresi kullanıcı tarafından kapatıldı.');
     }
-    if (error.code === 'auth/cancelled-popup-request') {
-      throw new Error('Önceki giriş penceresi kapatıldı, lütfen tekrar deneyiniz.');
+    if (errCode === 'auth/popup-blocked' || errMsg.includes('blocked')) {
+      throw new Error('Tarayıcı/Tablet açılır pencereyi (popup) engelledi. Lütfen pencere engellemesini kaldırın.');
     }
-    if (error.code === 'auth/popup-blocked') {
-      throw new Error('Tarayıcı açılır pencereyi (popup) engelledi. Lütfen açılır pencerelere izin veriniz.');
+    if (errMsg.includes('invalid') || errCode.includes('invalid')) {
+      throw new Error('Oturum açma isteği geçersiz kılındı. Lütfen tekrar deneyin veya Manuel Token alanını kullanın.');
     }
-    throw new Error(`Google Drive Bağlantı Hatası: ${error.message || error}`);
+    throw new Error(`Google Drive Bağlantı Hatası: ${errMsg}`);
   } finally {
     isSigningIn = false;
   }

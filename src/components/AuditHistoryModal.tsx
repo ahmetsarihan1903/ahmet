@@ -53,8 +53,8 @@ export const AuditHistoryModal: React.FC<AuditHistoryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-slate-900 rounded-xl max-w-xl w-full p-4 sm:p-5 shadow-2xl border border-slate-800 text-slate-100 max-h-[85vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay-safe bg-slate-950/80 backdrop-blur-xs animate-fadeIn">
+      <div className="bg-slate-900 rounded-xl max-w-xl w-full p-4 sm:p-5 shadow-2xl border border-slate-800 text-slate-100 modal-box-safe flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between pb-2.5 border-b border-slate-800 mb-3">
           <div className="flex items-center gap-2">

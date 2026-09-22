@@ -256,9 +256,9 @@ export const AndroidDiagnosticModal: React.FC<AndroidDiagnosticModalProps> = ({
   const allChecksPassed = checks.length > 0 && checks.every((c) => c.passed);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-xs animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay-safe bg-slate-950/85 backdrop-blur-xs animate-fadeIn">
       <div
-        className={`rounded-xl max-w-2xl w-full p-4 sm:p-5 shadow-2xl border max-h-[92vh] flex flex-col ${
+        className={`rounded-xl max-w-2xl w-full p-4 sm:p-5 shadow-2xl border modal-box-safe flex flex-col ${
           isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900'
         }`}
       >
