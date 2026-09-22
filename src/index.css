@@ -429,6 +429,46 @@ button.bg-amber-600 {
   border-color: #b45309 !important;
 }
 
+/* Ray & Kapı: Formu Başlat & Rapor Butonları Garantisi (Karanlık ve Aydınlık Mod) */
+.btn-amber-action,
+#btn-start-inspection,
+#btn-view-report-bottom,
+#btn-view-report-chassis,
+#btn-view-report-nonconformities,
+#btn-header-view-report,
+button#btn-start-inspection,
+button#btn-view-report-bottom,
+button#btn-view-report-chassis,
+button#btn-view-report-nonconformities,
+button#btn-header-view-report {
+  background-color: #f59e0b !important;
+  background-image: none !important;
+  color: #020617 !important;
+  border: 2px solid #d97706 !important;
+  opacity: 1 !important;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35) !important;
+}
+
+.btn-amber-action:hover,
+#btn-start-inspection:hover,
+#btn-view-report-bottom:hover,
+#btn-view-report-chassis:hover,
+#btn-view-report-nonconformities:hover,
+#btn-header-view-report:hover {
+  background-color: #fbbf24 !important;
+  border-color: #f59e0b !important;
+}
+
+.btn-amber-action *,
+#btn-start-inspection *,
+#btn-view-report-bottom *,
+#btn-view-report-chassis *,
+#btn-view-report-nonconformities *,
+#btn-header-view-report * {
+  color: #020617 !important;
+  stroke: #020617 !important;
+}
+
 /* Beyaz Metin Garantisi */
 button .text-white,
 button span.text-white,

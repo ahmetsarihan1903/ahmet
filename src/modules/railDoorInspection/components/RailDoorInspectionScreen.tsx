@@ -44,7 +44,23 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
   onSaveDraft,
   isSaved,
 }) => {
-  const [activeTab, setActiveTab] = useState<InspectionActiveTab>('RAIL_DOOR');
+  const [activeTab, setActiveTab] = useState<InspectionActiveTab>(() => {
+    try {
+      const saved = localStorage.getItem('beta_asansor_rail_door_active_tab') as InspectionActiveTab;
+      if (saved === 'RAIL_DOOR' || saved === 'MACHINE_CHASSIS' || saved === 'NON_CONFORMITIES') {
+        return saved;
+      }
+    } catch (e) {}
+    return 'RAIL_DOOR';
+  });
+
+  const handleTabChange = (tab: InspectionActiveTab) => {
+    setActiveTab(tab);
+    try {
+      localStorage.setItem('beta_asansor_rail_door_active_tab', tab);
+    } catch (e) {}
+  };
+
   const [selectedMeasureCode, setSelectedMeasureCode] = useState<string | undefined>('1');
   const [isReferenceModalOpen, setIsReferenceModalOpen] = useState(false);
   const [isChassisModalOpen, setIsChassisModalOpen] = useState(false);
@@ -289,7 +305,7 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
           <button
             type="button"
             onClick={() => {
-              setActiveTab('RAIL_DOOR');
+              handleTabChange('RAIL_DOOR');
               setSelectedMeasureCode('1');
             }}
             className={`min-h-[44px] py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer border select-none ${
@@ -317,7 +333,7 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
           <button
             type="button"
             onClick={() => {
-              setActiveTab('MACHINE_CHASSIS');
+              handleTabChange('MACHINE_CHASSIS');
               setSelectedMeasureCode(undefined);
             }}
             className={`min-h-[44px] py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer border select-none ${
@@ -345,7 +361,7 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
           <button
             type="button"
             onClick={() => {
-              setActiveTab('NON_CONFORMITIES');
+              handleTabChange('NON_CONFORMITIES');
               setSelectedMeasureCode(undefined);
             }}
             className={`min-h-[44px] py-2 sm:py-2.5 px-2 sm:px-3 rounded-xl font-black text-xs sm:text-sm flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 transition-all cursor-pointer border select-none ${
@@ -399,14 +415,14 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
           />
 
           {/* En Alt Satır: SADECE RAPOR BUTONU */}
-          <div className="pt-2">
+          <div className="pt-3">
             <button
               type="button"
               id="btn-view-report-bottom"
               onClick={onViewReport}
-              className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer tracking-wide uppercase"
+              className="btn-amber-action w-full py-4 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 text-sm sm:text-base font-black rounded-2xl flex items-center justify-center gap-2.5 transition-all shadow-xl shadow-amber-500/25 cursor-pointer tracking-wide uppercase border-2 border-amber-600"
             >
-              <FileCheck2 className="w-5 h-5 text-slate-950" />
+              <FileCheck2 className="w-6 h-6 text-slate-950" />
               <span>Raporu Önizle ve Yazdır</span>
             </button>
           </div>
@@ -586,14 +602,14 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
           </div>
 
           {/* RAPOR BUTONU */}
-          <div className="pt-2">
+          <div className="pt-3">
             <button
               type="button"
               id="btn-view-report-chassis"
               onClick={onViewReport}
-              className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer tracking-wide uppercase"
+              className="btn-amber-action w-full py-4 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 text-sm sm:text-base font-black rounded-2xl flex items-center justify-center gap-2.5 transition-all shadow-xl shadow-amber-500/25 cursor-pointer tracking-wide uppercase border-2 border-amber-600"
             >
-              <FileCheck2 className="w-5 h-5 text-slate-950" />
+              <FileCheck2 className="w-6 h-6 text-slate-950" />
               <span>Raporu Önizle ve Yazdır</span>
             </button>
           </div>

@@ -28,6 +28,31 @@ interface RailDoorBlueprintSvgProps {
   onImageChange?: (name?: string, url?: string) => void;
 }
 
+const STORAGE_KEY_DRAWING_ZOOM = 'beta_drawing_modal_zoom_level';
+
+function getStoredDrawingZoom(): number {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_DRAWING_ZOOM);
+    if (saved) {
+      const parsed = parseFloat(saved);
+      if (!isNaN(parsed) && parsed >= 0.4 && parsed <= 3.5) {
+        return Math.round(parsed * 100) / 100;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+  return 1;
+}
+
+function persistDrawingZoom(val: number) {
+  try {
+    localStorage.setItem(STORAGE_KEY_DRAWING_ZOOM, val.toString());
+  } catch (e) {
+    // ignore
+  }
+}
+
 export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
   layout = 'CWT_SIDE_RIGHT',
   activeCode,
@@ -39,10 +64,19 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
   attachedImageUrl,
   onImageChange,
 }) => {
-  const [zoom, setZoom] = useState(1);
-  const [fullZoom, setFullZoom] = useState(1);
+  const [zoom, setZoom] = useState<number>(getStoredDrawingZoom);
+  const [fullZoom, setFullZoom] = useState<number>(getStoredDrawingZoom);
   const [showFullModal, setShowFullModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const changeZoom = (updater: number | ((prev: number) => number)) => {
+    setZoom((prev) => {
+      const nextVal = typeof updater === 'function' ? updater(prev) : updater;
+      const clamped = Math.round(Math.min(Math.max(nextVal, 0.4), 3.5) * 100) / 100;
+      persistDrawingZoom(clamped);
+      return clamped;
+    });
+  };
 
   // ESC ile tam ekrandan çıkış
   useEffect(() => {
@@ -91,8 +125,6 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
   const handleClearImage = () => {
     if (onImageChange) onImageChange(undefined, undefined);
     if (onPdfChange) onPdfChange(undefined, undefined);
-    setZoom(1);
-    setFullZoom(1);
   };
 
   return (
@@ -150,31 +182,32 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
             </button>
           )}
 
-          {/* Zoom Araçları */}
-          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5">
+          {/* Kalıcı Zoom Araçları */}
+          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-sm">
             <button
               type="button"
-              onClick={() => setZoom((prev) => Math.min(prev + 0.15, 2.5))}
+              onClick={() => changeZoom((prev) => prev - 0.15)}
               className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-              title="Yakınlaştır"
-            >
-              <ZoomIn className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setZoom((prev) => Math.max(prev - 0.15, 0.5))}
-              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-              title="Uzaklaştır"
+              title="Uzaklaştır (Küçült)"
             >
               <ZoomOut className="w-4 h-4" />
             </button>
             <button
               type="button"
-              onClick={() => setZoom(1)}
-              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-              title="Sıfırla"
+              onClick={() => changeZoom(1)}
+              className="px-2 py-1 text-[11px] font-mono font-bold text-amber-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer flex items-center gap-1"
+              title="Varsayılan Boyuta Sıfırla (%100)"
             >
-              <RotateCcw className="w-4 h-4" />
+              <span>%{Math.round(zoom * 100)}</span>
+              <RotateCcw className="w-3 h-3 text-slate-400" />
+            </button>
+            <button
+              type="button"
+              onClick={() => changeZoom((prev) => prev + 0.15)}
+              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
+              title="Yakınlaştır (Büyüt)"
+            >
+              <ZoomIn className="w-4 h-4" />
             </button>
           </div>
 

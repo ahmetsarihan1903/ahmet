@@ -413,10 +413,10 @@ export const RailDoorSetupScreen: React.FC<RailDoorSetupScreenProps> = ({
         </div>
       </div>
 
-      {/* "KONTROLE BAŞLA" AKSİYON BUTONU */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-slate-900 border border-slate-800 rounded-2xl">
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <Info className="w-4 h-4 text-amber-400 shrink-0" />
+      {/* "FORMU BAŞLAT & KONTROLE GEÇ" AKSİYON BUTONU */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-slate-900 border-2 border-amber-500/40 rounded-2xl shadow-lg">
+        <div className="flex items-center gap-2 text-xs text-slate-300">
+          <Info className="w-5 h-5 text-amber-400 shrink-0" />
           <span>
             Kontrole başladığınızda "1. Ray Kapı Ölçüleri" ve "2. Makine Şase Ölçüleri" sekmeleriyle ölçü karşılaştırmasına geçilecektir.
           </span>
@@ -426,10 +426,10 @@ export const RailDoorSetupScreen: React.FC<RailDoorSetupScreenProps> = ({
           type="button"
           id="btn-start-inspection"
           onClick={onStartInspection}
-          className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer transform active:scale-98 shrink-0"
+          className="btn-amber-action w-full sm:w-auto px-8 py-3.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black text-sm sm:text-base rounded-xl shadow-lg shadow-amber-500/30 flex items-center justify-center gap-2.5 transition-all cursor-pointer transform active:scale-98 shrink-0 border-2 border-amber-600 uppercase tracking-wide"
         >
-          <span>KONTROLE BAŞLA</span>
-          <ArrowRight className="w-4 h-4" />
+          <span>FORMU BAŞLAT (KONTROLE GEÇ)</span>
+          <ArrowRight className="w-5 h-5 text-slate-950" />
         </button>
       </div>
     </div>

@@ -26,12 +26,47 @@ interface RailDoorInspectionModuleProps {
 const STORAGE_KEY = 'beta_asansor_rail_door_inspection_v2_full';
 const HISTORY_KEY = 'beta_asansor_rail_door_history_v1';
 const LAST_SAVED_TIME_KEY = 'beta_asansor_rail_door_last_saved_time';
+const STEP_STORAGE_KEY = 'beta_asansor_rail_door_active_step';
 
 export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> = ({
   onBackToMainMenu,
 }) => {
   const { isDark } = useTheme();
-  const [currentStep, setCurrentStep] = useState<'setup' | 'inspection'>('setup');
+
+  const [currentStep, setCurrentStep] = useState<'setup' | 'inspection'>(() => {
+    try {
+      const savedStep = localStorage.getItem(STEP_STORAGE_KEY);
+      if (savedStep === 'setup' || savedStep === 'inspection') {
+        return savedStep;
+      }
+    } catch (e) {}
+
+    try {
+      const savedDraft = localStorage.getItem(STORAGE_KEY);
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        const hasProjectInfo = Boolean(
+          parsed?.identity?.serialNumber?.trim() ||
+          parsed?.identity?.reference?.trim() ||
+          parsed?.identity?.location?.trim() ||
+          parsed?.identity?.installerMaster?.trim()
+        );
+        if (hasProjectInfo) {
+          return 'inspection';
+        }
+      }
+    } catch (e) {}
+
+    return 'setup';
+  });
+
+  const setStepWithPersistence = (step: 'setup' | 'inspection') => {
+    setCurrentStep(step);
+    try {
+      localStorage.setItem(STEP_STORAGE_KEY, step);
+    } catch (e) {}
+  };
+
   const [showReportModal, setShowReportModal] = useState<boolean>(false);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
@@ -178,7 +213,7 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
 
   const handleRestoreData = (restored: RailDoorInspectionFullData) => {
     setFormData(restored);
-    setCurrentStep('inspection');
+    setStepWithPersistence('inspection');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -196,12 +231,15 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
 
     const newForm = createInitialForm(formData);
     setFormData(newForm);
-    setCurrentStep('setup');
+    setStepWithPersistence('setup');
+    try {
+      localStorage.setItem('beta_asansor_rail_door_active_tab', 'RAIL_DOOR');
+    } catch (e) {}
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleStartInspection = () => {
-    setCurrentStep('inspection');
+    setStepWithPersistence('inspection');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -233,16 +271,28 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
             </div>
           </div>
 
-          {/* Sağ Kısım: Proje Bilgileri Butonu | Kaydet Simgesi | Ayarlar Simgesi */}
+          {/* Sağ Kısım: Rapor Butonu | Proje Bilgileri Butonu | Kaydet Simgesi | Ayarlar Simgesi */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Raporu Önizle ve Yazdır Butonu (Hızlı Erişim) */}
+            <button
+              type="button"
+              id="btn-header-view-report"
+              onClick={() => setShowReportModal(true)}
+              className="btn-amber-action px-2.5 sm:px-3 py-1.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black rounded-lg border-2 border-amber-600 text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-amber-500/20"
+              title="Resmi Kontrol Raporunu Önizle ve Yazdır"
+            >
+              <FileCheck2 className="w-4 h-4 text-slate-950" />
+              <span>Rapor</span>
+            </button>
+
             {/* Proje Bilgileri Butonu */}
             <button
               type="button"
               onClick={() => {
                 if (currentStep === 'setup') {
-                  setCurrentStep('inspection');
+                  setStepWithPersistence('inspection');
                 } else {
-                  setCurrentStep('setup');
+                  setStepWithPersistence('setup');
                 }
               }}
               className="px-2.5 sm:px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:bg-amber-500 active:text-slate-950 text-slate-200 hover:text-white rounded-lg border border-slate-600 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
@@ -292,7 +342,7 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
           <RailDoorInspectionScreen
             data={formData}
             onChange={setFormData}
-            onBackToSetup={() => setCurrentStep('setup')}
+            onBackToSetup={() => setStepWithPersistence('setup')}
             onViewReport={() => setShowReportModal(true)}
             onSaveDraft={handleManualSave}
             isSaved={isSaved}
@@ -316,7 +366,7 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
         onManualSave={handleManualSave}
         onRestoreData={handleRestoreData}
         onEditInspectionInfo={() => {
-          setCurrentStep('setup');
+          setStepWithPersistence('setup');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onResetForm={handleResetForm}

@@ -264,14 +264,14 @@ export const RailDoorNonConformitiesScreen: React.FC<RailDoorNonConformitiesScre
       )}
 
       {/* RAPOR BUTONU */}
-      <div className="pt-2">
+      <div className="pt-3">
         <button
           type="button"
           id="btn-view-report-nonconformities"
           onClick={onViewReport}
-          className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer tracking-wide uppercase"
+          className="btn-amber-action w-full py-4 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 text-sm sm:text-base font-black rounded-2xl flex items-center justify-center gap-2.5 transition-all shadow-xl shadow-amber-500/25 cursor-pointer tracking-wide uppercase border-2 border-amber-600"
         >
-          <FileCheck2 className="w-5 h-5 text-slate-950" />
+          <FileCheck2 className="w-6 h-6 text-slate-950" />
           <span>Raporu Önizle ve Yazdır</span>
         </button>
       </div>

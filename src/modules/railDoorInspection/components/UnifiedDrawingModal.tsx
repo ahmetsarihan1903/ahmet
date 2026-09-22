@@ -34,6 +34,31 @@ export interface UnifiedDrawingModalProps {
   onImageChange?: (name?: string, url?: string) => void;
 }
 
+const STORAGE_KEY_DRAWING_ZOOM = 'beta_drawing_modal_zoom_level';
+
+function getStoredDrawingZoom(): number {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_DRAWING_ZOOM);
+    if (saved) {
+      const parsed = parseFloat(saved);
+      if (!isNaN(parsed) && parsed >= 0.4 && parsed <= 3.5) {
+        return Math.round(parsed * 100) / 100;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+  return 1;
+}
+
+function persistDrawingZoom(val: number) {
+  try {
+    localStorage.setItem(STORAGE_KEY_DRAWING_ZOOM, val.toString());
+  } catch (e) {
+    // ignore
+  }
+}
+
 export const UnifiedDrawingModal: React.FC<UnifiedDrawingModalProps> = ({
   isOpen,
   onClose,
@@ -49,10 +74,26 @@ export const UnifiedDrawingModal: React.FC<UnifiedDrawingModalProps> = ({
   syncKey,
   onImageChange,
 }) => {
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState<number>(getStoredDrawingZoom);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Modal her açıldığında kullanıcının en son belirlediği kalıcı zoom seviyesini tazele
+  useEffect(() => {
+    if (isOpen) {
+      setZoom(getStoredDrawingZoom());
+    }
+  }, [isOpen]);
+
+  const changeZoom = (updater: number | ((prev: number) => number)) => {
+    setZoom((prev) => {
+      const nextVal = typeof updater === 'function' ? updater(prev) : updater;
+      const clamped = Math.round(Math.min(Math.max(nextVal, 0.4), 3.5) * 100) / 100;
+      persistDrawingZoom(clamped);
+      return clamped;
+    });
+  };
 
   // ESC tuşu ile kapatma
   useEffect(() => {
@@ -70,11 +111,6 @@ export const UnifiedDrawingModal: React.FC<UnifiedDrawingModalProps> = ({
       document.body.style.overflow = 'unset';
     };
   }, [isOpen, onClose]);
-
-  // Görünüm veya modal değiştiğinde zoom sıfırla
-  useEffect(() => {
-    setZoom(1);
-  }, [activeSubView, isOpen]);
 
   if (!isOpen) return null;
 
@@ -121,7 +157,6 @@ export const UnifiedDrawingModal: React.FC<UnifiedDrawingModalProps> = ({
 
   const handleClear = () => {
     if (onImageChange) onImageChange(undefined, undefined);
-    setZoom(1);
   };
 
   const isCustom = Boolean(imageUrl && imageUrl !== defaultImageUrl);
@@ -273,31 +308,32 @@ export const UnifiedDrawingModal: React.FC<UnifiedDrawingModalProps> = ({
               </button>
             )}
 
-            {/* Zoom Kontrolleri */}
-            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5">
+            {/* Kalıcı Zoom / Büyütme-Küçültme Kontrolleri */}
+            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5 shadow-sm">
               <button
                 type="button"
-                onClick={() => setZoom((prev) => Math.min(prev + 0.2, 3))}
+                onClick={() => changeZoom((prev) => prev - 0.15)}
                 className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-                title="Yakınlaştır"
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setZoom((prev) => Math.max(prev - 0.2, 0.5))}
-                className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-                title="Uzaklaştır"
+                title="Uzaklaştır (Küçült)"
               >
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
               <button
                 type="button"
-                onClick={() => setZoom(1)}
-                className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-                title="Zoom Sıfırla"
+                onClick={() => changeZoom(1)}
+                className="px-2 py-1 text-[11px] font-mono font-bold text-amber-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer flex items-center gap-1"
+                title="Tıklayarak Varsayılan Boyuta Sıfırla (%100)"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <span>%{Math.round(zoom * 100)}</span>
+                <RotateCcw className="w-3 h-3 text-slate-400" />
+              </button>
+              <button
+                type="button"
+                onClick={() => changeZoom((prev) => prev + 0.15)}
+                className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
+                title="Yakınlaştır (Büyüt)"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>

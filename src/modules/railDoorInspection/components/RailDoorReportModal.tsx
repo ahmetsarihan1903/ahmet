@@ -21,6 +21,7 @@ import {
   CheckCircle2,
   Loader2,
   FileText,
+  Printer,
 } from 'lucide-react';
 import {
   downloadRailDoorPdf,
@@ -183,6 +184,17 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+          {/* Direct Print Button (window.print) */}
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-98 text-white font-black text-xs sm:text-sm shadow-md transition-all cursor-pointer"
+            title="Raporu Yazıcıdan veya PDF Olarak Yazdır"
+          >
+            <Printer className="w-4 h-4 text-white" />
+            <span>Yazdır</span>
+          </button>
+
           {/* Direct PDF Share Button (Sends actual PDF file) */}
           <button
             type="button"

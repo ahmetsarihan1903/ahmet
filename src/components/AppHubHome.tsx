@@ -37,6 +37,12 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
     serial?: string;
   }>({ exists: false });
 
+  const [railDoorDraftInfo, setRailDoorDraftInfo] = useState<{
+    exists: boolean;
+    projectName?: string;
+    step?: string;
+  }>({ exists: false });
+
   useEffect(() => {
     const draft = loadActiveDraft();
     if (draft && (draft.clientProjectName || draft.serialNumber || draft.currentStep !== 'welcome')) {
@@ -56,6 +62,30 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
         step: stepLabel,
       });
     }
+
+    try {
+      const saved = localStorage.getItem('beta_asansor_rail_door_inspection_v2_full');
+      const savedStep = localStorage.getItem('beta_asansor_rail_door_active_step') || 'setup';
+      const savedTab = localStorage.getItem('beta_asansor_rail_door_active_tab') || 'RAIL_DOOR';
+
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const name = parsed?.identity?.location || parsed?.identity?.reference || parsed?.identity?.serialNumber;
+        if (name || savedStep === 'inspection') {
+          let stepName = 'Proje Bilgileri';
+          if (savedStep === 'inspection') {
+            if (savedTab === 'MACHINE_CHASSIS') stepName = '2. Makine Şase';
+            else if (savedTab === 'NON_CONFORMITIES') stepName = 'Uygunsuzluklar';
+            else stepName = '1. Ray & Kapı';
+          }
+          setRailDoorDraftInfo({
+            exists: true,
+            projectName: name || 'Kayıtlı Proje',
+            step: stepName,
+          });
+        }
+      }
+    } catch (e) {}
   }, []);
 
   return (
@@ -159,20 +189,32 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
               }`}>
                 <GitPullRequest className="w-6 h-6" />
               </div>
-              <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2.5">
-                <h2 className={`text-sm sm:text-base font-black truncate transition-colors ${
-                  isDark ? 'text-white group-hover:text-amber-300' : 'text-slate-900 group-hover:text-amber-800'
-                }`}>
-                  2. Ray & Kapı Kontrol Formu
-                </h2>
-                <span className={`text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded shrink-0 flex items-center gap-1 w-fit border ${
-                  isDark
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                    : 'bg-amber-100 text-amber-900 border-amber-300'
-                }`}>
-                  <Sparkles className="w-2.5 h-2.5" />
-                  Aktif
-                </span>
+              <div className="min-w-0 flex flex-col gap-1">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2.5">
+                  <h2 className={`text-sm sm:text-base font-black truncate transition-colors ${
+                    isDark ? 'text-white group-hover:text-amber-300' : 'text-slate-900 group-hover:text-amber-800'
+                  }`}>
+                    2. Ray & Kapı Kontrol Formu
+                  </h2>
+                  <span className={`text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded shrink-0 flex items-center gap-1 w-fit border ${
+                    isDark
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      : 'bg-amber-100 text-amber-900 border-amber-300'
+                  }`}>
+                    <Sparkles className="w-2.5 h-2.5" />
+                    Aktif
+                  </span>
+                </div>
+
+                {/* Devam Eden Ray & Kapı Taslak Göstergesi */}
+                {railDoorDraftInfo.exists && (
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-400 bg-amber-950/60 border border-amber-500/40 px-2 py-0.5 rounded w-fit">
+                    <PlayCircle className="w-3.5 h-3.5 text-amber-400 shrink-0 animate-pulse" />
+                    <span className="truncate">
+                      Kaldığı Yerden Devam Et: <strong>{railDoorDraftInfo.projectName}</strong> ({railDoorDraftInfo.step})
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
