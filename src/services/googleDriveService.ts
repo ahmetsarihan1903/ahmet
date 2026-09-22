@@ -90,7 +90,69 @@ export function clearCachedDriveToken(): void {
 }
 
 /**
- * Requests an OAuth access token using Firebase Auth Google Provider.
+ * Dynamically loads Google Identity Services (GIS) library for direct OAuth token requests
+ * without requiring Firebase Authorized Domains configuration.
+ */
+function loadGisScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') return reject(new Error('Pencere bulunamadı'));
+    if ((window as any).google?.accounts?.oauth2) return resolve();
+    const existing = document.getElementById('google-gis-script');
+    if (existing) {
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => reject(new Error('GIS script yüklenemedi')));
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'google-gis-script';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Google Identity Services kütüphanesi yüklenemedi'));
+    document.head.appendChild(script);
+  });
+}
+
+export async function requestDriveAccessTokenViaGis(): Promise<string> {
+  await loadGisScript();
+  const googleObj = (window as any).google;
+  if (!googleObj?.accounts?.oauth2) {
+    throw new Error('Google OAuth kütüphanesi yüklenemedi.');
+  }
+
+  const clientId = (firebaseConfig as any).oAuthClientId || '31994782267-uehmrfkdgt6l05pbk614v9767d291o6s.apps.googleusercontent.com';
+
+  return new Promise((resolve, reject) => {
+    try {
+      const client = googleObj.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly',
+        callback: (response: any) => {
+          if (response.error) {
+            reject(new Error(`Google Yetkilendirme Hatası: ${response.error_description || response.error}`));
+            return;
+          }
+          if (response.access_token) {
+            saveCachedDriveToken(response.access_token, response.expires_in || 3500);
+            resolve(response.access_token);
+          } else {
+            reject(new Error('Erişim anahtarı alınamadı.'));
+          }
+        },
+        error_callback: (err: any) => {
+          reject(new Error(`Google OAuth penceresi açılırken hata oluştu: ${err?.message || 'Açılır pencere engellendi'}`));
+        },
+      });
+      client.requestAccessToken({ prompt: '' });
+    } catch (e: any) {
+      reject(e);
+    }
+  });
+}
+
+/**
+ * Requests an OAuth access token using GIS token client first, falling back to Firebase Auth Popup.
  */
 export async function requestDriveAccessToken(): Promise<string> {
   const cached = getCachedDriveToken();
@@ -105,6 +167,15 @@ export async function requestDriveAccessToken(): Promise<string> {
   isSigningIn = true;
 
   try {
+    // 1. Direct Google Identity Services (GIS) Token Client
+    try {
+      const token = await requestDriveAccessTokenViaGis();
+      if (token) return token;
+    } catch (gisError: any) {
+      console.warn('GIS Auth attempt failed, falling back to Firebase Auth Popup:', gisError);
+    }
+
+    // 2. Fallback to Firebase Auth Popup
     const result = await signInWithPopup(auth, driveProvider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const accessToken = credential?.accessToken;
