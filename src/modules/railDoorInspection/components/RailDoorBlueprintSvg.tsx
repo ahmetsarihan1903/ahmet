@@ -13,11 +13,8 @@ import {
   ArrowLeft,
   Loader2,
   Image as ImageIcon,
-  Layers,
-  ChevronDown,
 } from 'lucide-react';
 import { compressAndProcessImage } from '../../../utils/imageProcessor';
-import { technicalDrawings } from '../../../data/technicalDrawings';
 
 interface RailDoorBlueprintSvgProps {
   layout?: RailLayoutPosition;
@@ -46,7 +43,6 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
   const [fullZoom, setFullZoom] = useState(1);
   const [showFullModal, setShowFullModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showDrawingMenu, setShowDrawingMenu] = useState(false);
 
   // ESC ile tam ekrandan çıkış
   useEffect(() => {
@@ -65,25 +61,10 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
     };
   }, [showFullModal]);
 
-  const defaultLayoutImageMap: Record<string, string> = {
-    CWT_SIDE_RIGHT: '/teknik-cizimler/ag-yan-sag.jpg',
-    CWT_SIDE_LEFT: '/teknik-cizimler/ag-yan-sol.png',
-    CWT_REAR: '/teknik-cizimler/ag-arka.png',
-    PISTON_SINGLE: '/teknik-cizimler/ag-yan-sag.jpg',
-    PISTON_DOUBLE: '/teknik-cizimler/ag-arka.png',
-  };
-
   const isCustomUploaded = Boolean(attachedImageUrl || attachedPdfDataUrl);
   const layoutTitle = LAYOUT_TITLES[layout] || 'Kuyu Yerleşimi';
-  const currentImageName = attachedImageName || attachedPdfName || `${layoutTitle} Teknik Çizimi`;
-  const currentImageUrl = attachedImageUrl || attachedPdfDataUrl || defaultLayoutImageMap[layout] || '/teknik-cizimler/ag-arka.png';
-
-  const handleSelectBuiltInDrawing = (drawing: typeof technicalDrawings[0]) => {
-    if (onImageChange) {
-      onImageChange(drawing.title, drawing.src);
-    }
-    setShowDrawingMenu(false);
-  };
+  const currentImageName = attachedImageName || attachedPdfName || `${layoutTitle} Çizimi`;
+  const currentImageUrl = attachedImageUrl || attachedPdfDataUrl;
 
   const handleFileProcess = async (file: File | Blob, customName?: string) => {
     setIsProcessing(true);
@@ -145,39 +126,6 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
 
         {/* Sade ve Karışıklıktan Uzak Butonlar */}
         <div className="flex items-center gap-2 shrink-0 self-stretch sm:self-auto justify-end relative">
-          {/* Dahili APK Teknik Resimleri Seçme Butonu */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowDrawingMenu((prev) => !prev)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-bold transition cursor-pointer shadow-xs"
-              title="APK İçindeki 5 Orijinal Teknik Çizimden Birini Seç"
-            >
-              <Layers className="w-3.5 h-3.5 text-amber-400" />
-              <span>Dahili Çizimler</span>
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showDrawingMenu ? 'rotate-180' : ''}`} />
-            </button>
-
-            {showDrawingMenu && (
-              <div className="absolute right-0 top-full mt-1.5 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-30 space-y-1 animate-fadeIn">
-                <div className="px-2 py-1 text-[10px] font-black text-amber-400 uppercase tracking-wider border-b border-slate-800">
-                  Dahili Çizim Seç (APK)
-                </div>
-                {technicalDrawings.map((drw) => (
-                  <button
-                    key={drw.id}
-                    type="button"
-                    onClick={() => handleSelectBuiltInDrawing(drw)}
-                    className="w-full text-left px-2.5 py-1.5 text-xs text-slate-200 hover:text-white hover:bg-amber-500/20 rounded-lg transition flex items-center justify-between cursor-pointer"
-                  >
-                    <span className="font-bold truncate">{drw.title}</span>
-                    <span className="text-[10px] text-slate-500 font-mono">1-Tık</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Tekil Basit Dosya/Fotoğraf Yükleme Butonu */}
           <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 text-xs font-black transition cursor-pointer shadow-md">
             <Upload className="w-3.5 h-3.5 text-slate-950" />

@@ -480,3 +480,41 @@ export function getColumnInferredNominals(
   return result;
 }
 
+// ============================================================================
+// SABİT / REFERANS TEKNİK ÇİZİM VE ŞEMA TANIMLARI
+// ============================================================================
+export const FIXED_LAYOUT_DRAWINGS: Record<RailLayoutPosition, { url: string; title: string }> = {
+  CWT_SIDE_RIGHT: {
+    url: '/teknik-cizimler/ag-yan-sag.jpg',
+    title: 'Ağırlık Yanda Sağ Kuyu Şeması',
+  },
+  CWT_SIDE_LEFT: {
+    url: '/teknik-cizimler/ag-yan-sol.png',
+    title: 'Ağırlık Yanda Sol Kuyu Şeması',
+  },
+  CWT_REAR: {
+    url: '/teknik-cizimler/ag-arka.png',
+    title: 'Ağırlık Arkada Kuyu Şeması',
+  },
+  PISTON_SINGLE: {
+    url: '/teknik-cizimler/ag-yan-sag.jpg',
+    title: 'Tek Piston (Hidrolik) Kuyu Şeması',
+  },
+  PISTON_DOUBLE: {
+    url: '/teknik-cizimler/ag-arka.png',
+    title: 'Çift Piston (Hidrolik) Kuyu Şeması',
+  },
+};
+
+export const FIXED_CHASSIS_DRAWINGS: Record<'SASE_SAG' | 'SASE_SOL', { url: string; title: string }> = {
+  SASE_SAG: {
+    url: '/teknik-cizimler/makine-sase-sag.png',
+    title: 'Makine Şasesi (Sağ) Şeması',
+  },
+  SASE_SOL: {
+    url: '/teknik-cizimler/makine-sase-sol.png',
+    title: 'Makine Şasesi (Sol) Şeması',
+  },
+};
+
+

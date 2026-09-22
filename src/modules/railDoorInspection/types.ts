@@ -133,6 +133,9 @@ export interface RailDoorInspectionFullData {
   // Şema / Yerleşim Bazlı Özel Resimler (Her kuyu şemasının resmi sadece kendi bölümünde gözükür)
   layoutImages?: Partial<Record<RailLayoutPosition, { imageName?: string; imageUrl?: string }>>;
 
+  // Makine Şase Resimleri (Sağ / Sol için kullanıcı yüklemeleri)
+  chassisImages?: Partial<Record<'SASE_SAG' | 'SASE_SOL', { imageName?: string; imageUrl?: string }>>;
+
   // Eklenen Teknik Resim (Aktif seçimin görseli)
   attachedImageName?: string;
   attachedImageUrl?: string;

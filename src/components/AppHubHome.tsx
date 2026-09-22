@@ -16,13 +16,11 @@ import {
   FileCheck2,
   Cpu,
   Tablet,
-  Layers,
 } from 'lucide-react';
 import { FontSizeControl } from './FontSizeControl';
 import { useTheme } from '../context/ThemeContext';
 import { loadActiveDraft } from '../utils/storage';
 import { AndroidDiagnosticModal } from './AndroidDiagnosticModal';
-import { TechnicalDrawingsViewer } from './TechnicalDrawingsViewer';
 
 interface AppHubHomeProps {
   onSelectModule: (module: ActiveAppModule) => void;
@@ -31,7 +29,6 @@ interface AppHubHomeProps {
 export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [showDiagnostic, setShowDiagnostic] = useState(false);
-  const [showDrawingsViewer, setShowDrawingsViewer] = useState(false);
   const { theme, setTheme, isDark } = useTheme();
   const [activeDraftInfo, setActiveDraftInfo] = useState<{
     exists: boolean;
@@ -85,21 +82,8 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
             </div>
           </div>
 
-          {/* Sağ Kısım: Teknik Çizimler & Genel Ayarlar */}
+          {/* Sağ Kısım: Genel Ayarlar */}
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowDrawingsViewer(true)}
-              title="Teknik Çizim Dosyaları Kataloğu (5 Çizim)"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-xs font-bold transition-all border border-amber-500/40 cursor-pointer shadow-xs"
-            >
-              <Layers className="w-3.5 h-3.5 text-amber-400" />
-              <span className="font-bold">Teknik Çizimler</span>
-              <span className="px-1.5 py-0.2 bg-amber-500 text-slate-950 text-[10px] font-black rounded">
-                5
-              </span>
-            </button>
-
             <button
               type="button"
               onClick={() => setShowSettings(true)}
@@ -443,14 +427,6 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
         <AndroidDiagnosticModal
           isOpen={showDiagnostic}
           onClose={() => setShowDiagnostic(false)}
-        />
-      )}
-
-      {/* Technical Drawings Viewer Modal (5 Resim Önizleme) */}
-      {showDrawingsViewer && (
-        <TechnicalDrawingsViewer
-          isOpen={showDrawingsViewer}
-          onClose={() => setShowDrawingsViewer(false)}
         />
       )}
     </div>

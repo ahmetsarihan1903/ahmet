@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   RailDoorInspectionFullData,
   InspectionActiveTab,
@@ -7,11 +7,12 @@ import {
 import {
   getMeasurementDefsForLayout,
   MEASUREMENTS_MACHINE_CHASSIS,
+  LAYOUT_TITLES,
+  FIXED_LAYOUT_DRAWINGS,
+  FIXED_CHASSIS_DRAWINGS,
 } from '../constants';
-import { RailDoorBlueprintSvg } from './RailDoorBlueprintSvg';
-import { MachineChassisSvg } from './MachineChassisSvg';
 import { RailDoorMatrixTable } from './RailDoorMatrixTable';
-import { RailDoorReferenceModal } from './RailDoorReferenceModal';
+import { UnifiedDrawingModal } from './UnifiedDrawingModal';
 import { RailDoorNonConformitiesScreen } from './RailDoorNonConformitiesScreen';
 import {
   Sliders,
@@ -19,6 +20,7 @@ import {
   AlertTriangle,
   Info,
   BookOpen,
+  Eye,
   CheckCircle2,
   FileCheck2,
   Trash2,
@@ -46,6 +48,17 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
   const [selectedMeasureCode, setSelectedMeasureCode] = useState<string | undefined>('1');
   const [isReferenceModalOpen, setIsReferenceModalOpen] = useState(false);
   const [isChassisModalOpen, setIsChassisModalOpen] = useState(false);
+  const [activeChassisView, setActiveChassisView] = useState<'SASE_SAG' | 'SASE_SOL'>(
+    data.layoutPosition === 'CWT_SIDE_LEFT' ? 'SASE_SOL' : 'SASE_SAG'
+  );
+
+  useEffect(() => {
+    if (data.layoutPosition === 'CWT_SIDE_LEFT') {
+      setActiveChassisView('SASE_SOL');
+    } else if (data.layoutPosition === 'CWT_SIDE_RIGHT') {
+      setActiveChassisView('SASE_SAG');
+    }
+  }, [data.layoutPosition]);
 
   // Aktif sekmeye göre ölçü tanımları
   const railDoorDefs = getMeasurementDefsForLayout(data.layoutPosition);
@@ -401,7 +414,7 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
       ) : activeTab === 'MACHINE_CHASSIS' ? (
         /* 2. SEKME: 2. MAKİNE ŞASE & KONSOL MESAFELERİ */
         <div className="space-y-5 animate-fadeIn">
-          {/* Üst Bilgi & ÖLÇÜ GÖR Butonu */}
+          {/* Üst Bilgi & RESMİ GÖR Butonu */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm">
             <div>
               <h3 className="text-sm font-black text-white flex items-center gap-2">
@@ -416,10 +429,11 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
               type="button"
               id="btn-open-chassis-modal"
               onClick={() => setIsChassisModalOpen(true)}
-              className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer"
+              className="min-h-[40px] px-3.5 sm:px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs sm:text-sm flex items-center gap-1.5 transition-all cursor-pointer shadow-md shrink-0 select-none whitespace-nowrap"
+              title="Makine Şase Şemasını Görüntüle"
             >
-              <BookOpen className="w-4 h-4 text-amber-400" />
-              <span>ŞASE ÖLÇÜLERİNİ GÖR</span>
+              <Eye className="w-4 h-4 text-slate-950 shrink-0" />
+              <span>Resmi Gör</span>
             </button>
           </div>
 
@@ -593,77 +607,94 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
         />
       )}
 
-      {/* Sabit Ölçüleri Gör Referans Kılavuzu & Şema Modalı */}
-      <RailDoorReferenceModal
-        isOpen={isReferenceModalOpen}
-        onClose={() => setIsReferenceModalOpen(false)}
-        measurementDefs={railDoorDefs}
-        layoutPosition={data.layoutPosition}
-        activeCode={selectedMeasureCode}
-        onSelectCode={(code) => setSelectedMeasureCode(code)}
-        attachedPdfName={data.attachedPdfName}
-        attachedPdfDataUrl={data.attachedPdfDataUrl}
-        onPdfChange={(name, url) => onChange((prev) => ({
-          ...prev,
-          attachedPdfName: name,
-          attachedPdfDataUrl: url,
-        }))}
-        attachedImageName={data.layoutImages?.[data.layoutPosition]?.imageName ?? data.attachedImageName}
-        attachedImageUrl={data.layoutImages?.[data.layoutPosition]?.imageUrl ?? data.attachedImageUrl}
-        onImageChange={(name, url) => {
-          const currentLayout = data.layoutPosition;
-          onChange((prev) => {
-            const updatedLayoutImages = {
-              ...(prev.layoutImages || {}),
-            };
-            if (url) {
-              updatedLayoutImages[currentLayout] = { imageName: name, imageUrl: url };
-            } else {
-              delete updatedLayoutImages[currentLayout];
-            }
-            return {
-              ...prev,
-              layoutImages: updatedLayoutImages,
-              attachedImageName: name,
-              attachedImageUrl: url,
-            };
-          });
-        }}
-      />
-      {/* 2. Makine Şase ve Askı Şeması Referans Modalı */}
-      {isChassisModalOpen && (
-        <div
-          id="machine-chassis-modal-backdrop"
-          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn cursor-pointer overflow-y-auto"
-          onClick={() => setIsChassisModalOpen(false)}
-        >
-          <div
-            id="machine-chassis-modal-card"
-            className="relative bg-slate-900 border border-slate-700/80 rounded-2xl p-3 sm:p-5 max-w-xl w-full shadow-2xl cursor-default my-auto flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <Wrench className="w-5 h-5 text-amber-400" />
-                <span className="text-xs sm:text-sm font-black text-white tracking-wide uppercase">
-                  Makine Şase ve Askı Eksenleri Referans Şeması
-                </span>
-              </div>
-              <button
-                type="button"
-                id="btn-close-chassis-modal"
-                onClick={() => setIsChassisModalOpen(false)}
-                className="p-1 sm:p-1.5 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white rounded-xl border border-slate-700 transition-colors cursor-pointer shadow flex items-center gap-1 text-xs font-bold px-2.5"
-              >
-                <X className="w-4 h-4" />
-                <span>Kapat</span>
-              </button>
-            </div>
+      {/* 1. Kuyu Ölçü Referans Şeması Modalı (Resmi Gör) */}
+      {(() => {
+        const fixedLayout = FIXED_LAYOUT_DRAWINGS[data.layoutPosition];
+        const rawLayoutImgUrl = data.layoutImages?.[data.layoutPosition]?.imageUrl || data.attachedImageUrl;
+        const isCustomLayout = Boolean(rawLayoutImgUrl && !rawLayoutImgUrl.startsWith('/teknik-cizimler/'));
+        const customLayoutImgUrl = isCustomLayout ? rawLayoutImgUrl : undefined;
+        const customLayoutImgName = isCustomLayout
+          ? (data.layoutImages?.[data.layoutPosition]?.imageName || data.attachedImageName)
+          : undefined;
 
-            <MachineChassisSvg />
-          </div>
-        </div>
-      )}
+        const fixedChassis = FIXED_CHASSIS_DRAWINGS[activeChassisView];
+        const rawChassisImgUrl = data.chassisImages?.[activeChassisView]?.imageUrl;
+        const isCustomChassis = Boolean(rawChassisImgUrl && !rawChassisImgUrl.startsWith('/teknik-cizimler/'));
+        const customChassisImgUrl = isCustomChassis ? rawChassisImgUrl : undefined;
+        const customChassisImgName = isCustomChassis
+          ? data.chassisImages?.[activeChassisView]?.imageName
+          : undefined;
+
+        return (
+          <>
+            <UnifiedDrawingModal
+              isOpen={isReferenceModalOpen}
+              onClose={() => setIsReferenceModalOpen(false)}
+              title="Kuyu Ölçü Referans Şeması"
+              badge={LAYOUT_TITLES[data.layoutPosition] || data.layoutPosition}
+              imageName={customLayoutImgName}
+              imageUrl={customLayoutImgUrl}
+              defaultImageName={fixedLayout?.title}
+              defaultImageUrl={fixedLayout?.url}
+              syncKey={data.layoutPosition}
+              onImageChange={(name, url) => {
+                const currentLayout = data.layoutPosition;
+                onChange((prev) => {
+                  const updatedLayoutImages = {
+                    ...(prev.layoutImages || {}),
+                  };
+                  if (url) {
+                    updatedLayoutImages[currentLayout] = { imageName: name, imageUrl: url };
+                  } else {
+                    delete updatedLayoutImages[currentLayout];
+                  }
+                  return {
+                    ...prev,
+                    layoutImages: updatedLayoutImages,
+                    attachedImageName: name,
+                    attachedImageUrl: url,
+                  };
+                });
+              }}
+            />
+
+            {/* 2. Makine Şase ve Askı Şeması Referans Modalı (Resmi Gör) */}
+            <UnifiedDrawingModal
+              isOpen={isChassisModalOpen}
+              onClose={() => setIsChassisModalOpen(false)}
+              title="Makine Şase Referans Şeması"
+              badge={activeChassisView === 'SASE_SOL' ? 'Şase (Sol)' : 'Şase (Sağ)'}
+              subViews={[
+                { id: 'SASE_SAG', label: 'Makine Şasesi (Sağ)' },
+                { id: 'SASE_SOL', label: 'Makine Şasesi (Sol)' },
+              ]}
+              activeSubView={activeChassisView}
+              onSubViewChange={(id) => setActiveChassisView(id as 'SASE_SAG' | 'SASE_SOL')}
+              imageName={customChassisImgName}
+              imageUrl={customChassisImgUrl}
+              defaultImageName={fixedChassis?.title}
+              defaultImageUrl={fixedChassis?.url}
+              syncKey={activeChassisView}
+              onImageChange={(name, url) => {
+                onChange((prev) => {
+                  const updatedChassis = {
+                    ...(prev.chassisImages || {}),
+                  };
+                  if (url) {
+                    updatedChassis[activeChassisView] = { imageName: name, imageUrl: url };
+                  } else {
+                    delete updatedChassis[activeChassisView];
+                  }
+                  return {
+                    ...prev,
+                    chassisImages: updatedChassis,
+                  };
+                });
+              }}
+            />
+          </>
+        );
+      })()}
     </div>
   );
 };

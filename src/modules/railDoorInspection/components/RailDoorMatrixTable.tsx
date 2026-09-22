@@ -7,6 +7,7 @@ import {
   ChevronUp,
   ChevronDown,
   BookOpen,
+  Eye,
   Plus,
   X,
   Trash2,
@@ -277,7 +278,7 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
           </button>
         </div>
 
-        {/* En Sonda: ÖLÇÜLERİ GÖR BUTONU */}
+        {/* En Sonda: RESMİ GÖR BUTONU */}
         {onOpenReferenceGuide && (
           <button
             type="button"
@@ -286,8 +287,8 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
             className="min-h-[40px] px-3.5 sm:px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs sm:text-sm flex items-center gap-1.5 transition-all cursor-pointer shadow-md shrink-0 select-none whitespace-nowrap"
             title="Kuyu Ölçüm Şemasını Görüntüle"
           >
-            <BookOpen className="w-4 h-4 text-slate-950 shrink-0" />
-            <span>Ölçüleri Gör</span>
+            <Eye className="w-4 h-4 text-slate-950 shrink-0" />
+            <span>Resmi Gör</span>
           </button>
         )}
       </div>

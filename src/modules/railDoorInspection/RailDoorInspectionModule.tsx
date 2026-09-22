@@ -17,6 +17,7 @@ import {
   FileCheck2,
 } from 'lucide-react';
 import { getCurrentDateFormatted } from '../../utils/textUtils';
+import { autoSyncLocalDrawings, syncDrawingsToServer } from './utils/drawingSync';
 
 interface RailDoorInspectionModuleProps {
   onBackToMainMenu: () => void;
@@ -122,6 +123,25 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
       console.error('LocalStorage save error', e);
     }
   }, [formData]);
+
+  // Çizimleri otomatik olarak sunucu/APK dosya sistemine sabitle
+  useEffect(() => {
+    autoSyncLocalDrawings();
+  }, []);
+
+  useEffect(() => {
+    if (formData.chassisImages) {
+      const payload: Record<string, { dataUrl?: string; name?: string }> = {};
+      Object.entries(formData.chassisImages).forEach(([k, val]: [string, any]) => {
+        if (val?.imageUrl?.startsWith('data:')) {
+          payload[k] = { dataUrl: val.imageUrl, name: val.imageName };
+        }
+      });
+      if (Object.keys(payload).length > 0) {
+        syncDrawingsToServer(payload);
+      }
+    }
+  }, [formData.chassisImages]);
 
   const handleManualSave = () => {
     try {

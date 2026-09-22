@@ -1,14 +1,78 @@
-import React, { useState } from 'react';
-import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ZoomIn, ZoomOut, RotateCcw, Upload, Trash2 } from 'lucide-react';
+import { RailLayoutPosition } from '../types';
 
 interface MachineChassisSvgProps {
   activeCode?: string;
   onSelectCode?: (code: string) => void;
+  layoutPosition?: RailLayoutPosition;
 }
 
-export const MachineChassisSvg: React.FC<MachineChassisSvgProps> = () => {
-  const [viewMode, setViewMode] = useState<'SASE_SAG' | 'SASE_SOL'>('SASE_SAG');
+export const MachineChassisSvg: React.FC<MachineChassisSvgProps> = ({
+  layoutPosition,
+}) => {
+  const initialMode = layoutPosition === 'CWT_SIDE_LEFT' ? 'SASE_SOL' : 'SASE_SAG';
+  const [viewMode, setViewMode] = useState<'SASE_SAG' | 'SASE_SOL'>(initialMode);
   const [zoom, setZoom] = useState(1);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Özel yüklenen şase çizimleri (localStorage destekli)
+  const [customImages, setCustomImages] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem('asansor_custom_chassis_images');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Kuyu yerleşimi değiştiğinde veya modal açıldığında otomatik olarak ilgili şaseyi göster
+  useEffect(() => {
+    if (layoutPosition === 'CWT_SIDE_LEFT') {
+      setViewMode('SASE_SOL');
+    } else if (layoutPosition === 'CWT_SIDE_RIGHT') {
+      setViewMode('SASE_SAG');
+    }
+  }, [layoutPosition]);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setCustomImages((prev) => {
+          const updated = { ...prev, [viewMode]: dataUrl };
+          try {
+            localStorage.setItem('asansor_custom_chassis_images', JSON.stringify(updated));
+          } catch (err) {
+            console.warn('Storage limit reached:', err);
+          }
+          return updated;
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+    if (e.target) e.target.value = '';
+  };
+
+  const handleClearCustomImage = () => {
+    setCustomImages((prev) => {
+      const updated = { ...prev };
+      delete updated[viewMode];
+      try {
+        localStorage.setItem('asansor_custom_chassis_images', JSON.stringify(updated));
+      } catch (err) {
+        console.warn('Storage error:', err);
+      }
+      return updated;
+    });
+  };
+
+  const currentCustomImage = customImages[viewMode];
+  const effectiveImageSrc = currentCustomImage;
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col items-center w-full">
@@ -45,64 +109,81 @@ export const MachineChassisSvg: React.FC<MachineChassisSvgProps> = () => {
           </button>
         </div>
 
-        {/* Zoom Kontrolleri */}
-        <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5 self-end sm:self-auto">
+        {/* Aksiyonlar: Yükle & Zoom */}
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          {/* Özel Resim Yükle Butonu */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
           <button
             type="button"
-            onClick={() => setZoom((prev) => Math.min(prev + 0.2, 3))}
-            className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-            title="Yakınlaştır"
+            onClick={() => fileInputRef.current?.click()}
+            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer"
+            title="Kendi Çiziminizi Yükleyin"
           >
-            <ZoomIn className="w-3.5 h-3.5" />
+            <Upload className="w-3.5 h-3.5 text-amber-400" />
+            <span>Resim Yükle</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setZoom((prev) => Math.max(prev - 0.2, 0.6))}
-            className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-            title="Uzaklaştır"
-          >
-            <ZoomOut className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setZoom(1)}
-            className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-            title="Sıfırla"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
+
+          {currentCustomImage && (
+            <button
+              type="button"
+              onClick={handleClearCustomImage}
+              className="p-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-xl text-xs transition cursor-pointer"
+              title="Varsayılan Çizime Dön"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+            </button>
+          )}
+
+          {/* Zoom Kontrolleri */}
+          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5">
+            <button
+              type="button"
+              onClick={() => setZoom((prev) => Math.min(prev + 0.2, 3))}
+              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
+              title="Yakınlaştır"
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom((prev) => Math.max(prev - 0.2, 0.6))}
+              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
+              title="Uzaklaştır"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom(1)}
+              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
+              title="Sıfırla"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Görsel Alanı - %100 Orijinal Teknik Resim */}
+      {/* Görsel Alanı */}
       <div className="w-full min-h-[380px] max-h-[550px] bg-slate-950 rounded-xl border border-slate-800 p-2 flex items-center justify-center relative overflow-auto">
-        {viewMode === 'SASE_SAG' ? (
-          <div className="flex items-center justify-center p-2 w-full h-full">
-            <img
-              src="/teknik-cizimler/makine-sase-sag.png"
-              alt="Makine Şasesi Sağ"
-              style={{
-                transform: `scale(${zoom})`,
-                transformOrigin: 'center center',
-                transition: 'transform 0.15s ease-out',
-              }}
-              className="max-h-[500px] w-auto object-contain rounded-lg shadow-xl bg-white"
-            />
-          </div>
-        ) : (
-          <div className="flex items-center justify-center p-2 w-full h-full">
-            <img
-              src="/teknik-cizimler/makine-sase-sol.png"
-              alt="Makine Şasesi Sol"
-              style={{
-                transform: `scale(${zoom})`,
-                transformOrigin: 'center center',
-                transition: 'transform 0.15s ease-out',
-              }}
-              className="max-h-[500px] w-auto object-contain rounded-lg shadow-xl bg-white"
-            />
-          </div>
-        )}
+        <div className="flex items-center justify-center p-2 w-full h-full">
+          <img
+            src={effectiveImageSrc}
+            alt={viewMode === 'SASE_SAG' ? 'Makine Şasesi Sağ' : 'Makine Şasesi Sol'}
+            style={{
+              transform: `scale(${zoom})`,
+              transformOrigin: 'center center',
+              transition: 'transform 0.15s ease-out',
+            }}
+            className="max-h-[500px] w-auto object-contain rounded-lg shadow-xl bg-white"
+          />
+        </div>
       </div>
     </div>
   );
