@@ -16,9 +16,12 @@ export default defineConfig(() => {
     },
     esbuild: {
       target: 'chrome60',
+      supported: {
+        'top-level-await': false,
+      },
     },
     build: {
-      target: ['es2015', 'chrome60'],
+      target: ['es2015', 'chrome60', 'safari11'],
       cssTarget: 'chrome60',
     },
     server: {

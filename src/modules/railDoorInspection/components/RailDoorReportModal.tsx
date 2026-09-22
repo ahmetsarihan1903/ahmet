@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { RailDoorInspectionFullData } from '../types';
 import {
   ELEVATOR_TYPE_CONFIGS,
@@ -15,10 +15,18 @@ import {
   Share2,
   X,
   AlertTriangle,
-  Printer,
   Sliders,
   Wrench,
+  Download,
+  CheckCircle2,
+  Loader2,
+  FileText,
 } from 'lucide-react';
+import {
+  downloadRailDoorPdf,
+  shareRailDoorPdf,
+  getRailDoorStandardizedFileName,
+} from '../utils/railDoorPdfGenerator';
 
 interface RailDoorReportModalProps {
   data: RailDoorInspectionFullData;
@@ -29,6 +37,10 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
   data,
   onClose,
 }) => {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
   const railDefs = getMeasurementDefsForLayout(data.layoutPosition);
   const chassisDefs = MEASUREMENTS_MACHINE_CHASSIS;
   const typeConfig = ELEVATOR_TYPE_CONFIGS.find((c) => c.type === data.mainType);
@@ -116,63 +128,91 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
 
   const totalDeviationsCount = matrixDeviations.length + chassisDeviations.length;
 
-  const handlePrint = () => {
-    window.focus();
-    setTimeout(() => {
-      window.print();
-    }, 100);
+  const handleDownloadPDF = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+    setStatusMessage(null);
+    try {
+      const res = await downloadRailDoorPdf(data);
+      if (res.success) {
+        setStatusMessage({ text: res.message, type: 'success' });
+      } else {
+        setStatusMessage({ text: res.message, type: 'error' });
+      }
+      setTimeout(() => setStatusMessage(null), 6000);
+    } catch (err: any) {
+      setStatusMessage({ text: 'PDF indirme hatası: ' + err.message, type: 'error' });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
-  const handleWhatsAppShare = () => {
-    const title = `*BETA ASANSÖR - RAY KAPI VE MAKİNE ŞASE KONTROL RAPORU*`;
-    const details = [
-      title,
-      `*Seri No:* ${data.identity.serialNumber || '-'}`,
-      `*Referans:* ${data.identity.reference || '-'}`,
-      `*Tesis Yeri:* ${data.identity.location || '-'}`,
-      `*Durak Sayısı:* ${data.stopCount || 1} Durak`,
-      `*Montaj Ustası:* ${data.identity.installerMaster || '-'}`,
-      `*Proje Sorumlusu:* ${data.identity.projectManager || '-'}`,
-      `*Kontrol Eden:* ${data.identity.inspector || '-'}`,
-      `*Tarih:* ${data.inspectionDateDisplay}`,
-      `*Asansör Tipi:* ${typeConfig?.label} (${layoutObj?.label})`,
-      `*Birim:* Tüm Ölçüler Milimetre (mm) Cinsindendir`,
-      `*Tespit Edilen Toplam Sapma:* ${totalDeviationsCount} adet`,
-      `*Saha Uygunsuzlukları:* ${data.nonConformities?.length || 0} adet`,
-    ].join('\n');
-
-    const encoded = encodeURIComponent(details);
-    window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
+  const handleSharePDF = async () => {
+    if (isSharing) return;
+    setIsSharing(true);
+    setStatusMessage(null);
+    try {
+      const res = await shareRailDoorPdf(data);
+      if (res.success) {
+        setStatusMessage({ text: res.message, type: 'success' });
+      } else {
+        setStatusMessage({ text: res.message, type: 'error' });
+      }
+      setTimeout(() => setStatusMessage(null), 6000);
+    } catch (err: any) {
+      setStatusMessage({ text: 'PDF paylaşma hatası: ' + err.message, type: 'error' });
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex flex-col justify-start items-center p-2 sm:p-4 overflow-y-auto">
       {/* Üst İşlem Çubuğu (Modal Bar) */}
-      <div className="w-full max-w-5xl bg-slate-900 border border-slate-700 rounded-2xl p-3 sm:p-4 mb-4 flex items-center justify-between shadow-xl shrink-0 print:hidden">
+      <div className="w-full max-w-5xl bg-slate-900 border border-slate-700 rounded-2xl p-3 sm:p-4 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl shrink-0 print:hidden">
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
-          <span className="text-xs sm:text-sm font-black text-white">
-            Ray, Kapı ve Makine Şase Kontrol Raporu Önizleme
-          </span>
+          <div>
+            <div className="text-xs sm:text-sm font-black text-white">
+              Ray, Kapı ve Makine Şase Kontrol Raporu
+            </div>
+            <div className="text-[11px] text-slate-400 font-mono">
+              {getRailDoorStandardizedFileName(data)}
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+          {/* Direct PDF Share Button (Sends actual PDF file) */}
           <button
             type="button"
-            onClick={handleWhatsAppShare}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-sm transition-all cursor-pointer"
+            onClick={handleSharePDF}
+            disabled={isSharing || isDownloading}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-black text-xs sm:text-sm shadow-md transition-all cursor-pointer disabled:bg-slate-700"
+            title="PDF Dosyasını WhatsApp, Telegram veya Drive ile doğrudan belge olarak paylaş"
           >
-            <Share2 className="w-4 h-4" />
-            <span className="hidden sm:inline">WhatsApp</span>
+            {isSharing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Share2 className="w-4 h-4" />
+            )}
+            <span>PDF Paylaş</span>
           </button>
 
+          {/* Direct PDF Download Button (Generates & saves PDF file) */}
           <button
             type="button"
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm shadow-sm transition-all cursor-pointer"
+            onClick={handleDownloadPDF}
+            disabled={isDownloading || isSharing}
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-98 text-slate-950 font-black text-xs sm:text-sm shadow-md transition-all cursor-pointer disabled:bg-slate-700"
+            title="PDF dosyasını tablete veya bilgisayara indir ve kaydet"
           >
-            <Printer className="w-4 h-4" />
-            <span>PDF İndir / Yazdır</span>
+            {isDownloading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span>PDF İndir</span>
           </button>
 
           <button
@@ -185,6 +225,24 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Status Feedback Toast */}
+      {statusMessage && (
+        <div
+          className={`w-full max-w-5xl mb-4 p-3 rounded-xl border flex items-center gap-2.5 text-xs sm:text-sm font-bold shadow-lg animate-in fade-in duration-200 ${
+            statusMessage.type === 'success'
+              ? 'bg-emerald-950/90 border-emerald-500 text-emerald-100'
+              : 'bg-red-950/90 border-red-500 text-red-100'
+          }`}
+        >
+          {statusMessage.type === 'success' ? (
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+          )}
+          <span>{statusMessage.text}</span>
+        </div>
+      )}
 
       {/* RESMİ A4 PDF ÇIKTI ALANI (Minimum 11 punto / text-xs ve üzeri) */}
       <div

@@ -241,20 +241,73 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
         {/* Action Controls */}
         <div className="space-y-2 mb-3">
           {!isConnected ? (
-            <button
-              type="button"
-              id="btn-drive-connect"
-              onClick={handleConnect}
-              disabled={isLoading}
-              className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
-            >
-              {isLoading ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Cloud className="w-4 h-4" />
-              )}
-              <span>Google Drive ile Oturum Aç & Klasöre Bağlan</span>
-            </button>
+            <div className="space-y-2">
+              <button
+                type="button"
+                id="btn-drive-connect"
+                onClick={handleConnect}
+                disabled={isLoading}
+                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white rounded-lg text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+              >
+                {isLoading ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Cloud className="w-4 h-4" />
+                )}
+                <span>Google Drive ile Oturum Aç & Klasöre Bağlan</span>
+              </button>
+
+              {/* Direct Offline / File Option for Tablet APK */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <label className="py-2 px-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer text-center">
+                  <HardDrive className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Cihazdan Dosya Aç</span>
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (evt) => {
+                        try {
+                          const parsed = JSON.parse(evt.target?.result as string);
+                          onLoadAuditFromDrive(parsed);
+                          setStatusMsg({
+                            type: 'success',
+                            text: `"${parsed.clientProjectName || parsed.serialNumber || 'Proje'}" cihazdan başarıyla yüklendi!`,
+                          });
+                          setTimeout(() => onClose(), 800);
+                        } catch (err: any) {
+                          setStatusMsg({ type: 'error', text: 'Dosya okunamadı: ' + err?.message });
+                        }
+                      };
+                      reader.readAsText(file);
+                    }}
+                    className="hidden"
+                  />
+                </label>
+
+                {currentAuditData && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(currentAuditData, null, 2));
+                      const dlAnchor = document.createElement('a');
+                      const fName = `Beta_Denetim_${currentAuditData.serialNumber || currentAuditData.clientProjectName || 'Proje'}.json`;
+                      dlAnchor.setAttribute('href', dataStr);
+                      dlAnchor.setAttribute('download', fName);
+                      dlAnchor.click();
+                      setStatusMsg({ type: 'success', text: 'Proje cihaz hafızasına JSON olarak indirildi!' });
+                    }}
+                    className="py-2 px-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Cihaza İndir (JSON)</span>
+                  </button>
+                )}
+              </div>
+            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {/* Upload Active Audit */}

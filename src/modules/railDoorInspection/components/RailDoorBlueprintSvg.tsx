@@ -13,8 +13,11 @@ import {
   ArrowLeft,
   Loader2,
   Image as ImageIcon,
+  Layers,
+  ChevronDown,
 } from 'lucide-react';
 import { compressAndProcessImage } from '../../../utils/imageProcessor';
+import { technicalDrawings } from '../../../data/technicalDrawings';
 
 interface RailDoorBlueprintSvgProps {
   layout?: RailLayoutPosition;
@@ -43,6 +46,7 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
   const [fullZoom, setFullZoom] = useState(1);
   const [showFullModal, setShowFullModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showDrawingMenu, setShowDrawingMenu] = useState(false);
 
   // ESC ile tam ekrandan çıkış
   useEffect(() => {
@@ -62,15 +66,24 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
   }, [showFullModal]);
 
   const defaultLayoutImageMap: Record<string, string> = {
-    CWT_SIDE_RIGHT: '/agirlik_yanda_sagda.svg',
-    CWT_SIDE_LEFT: '/agirlik_yanda_solda.svg',
-    CWT_REAR: '/agirlik_arkada.svg',
+    CWT_SIDE_RIGHT: '/teknik-cizimler/ag-yan-sag.jpg',
+    CWT_SIDE_LEFT: '/teknik-cizimler/ag-yan-sol.png',
+    CWT_REAR: '/teknik-cizimler/ag-arka.png',
+    PISTON_SINGLE: '/teknik-cizimler/ag-yan-sag.jpg',
+    PISTON_DOUBLE: '/teknik-cizimler/ag-arka.png',
   };
 
   const isCustomUploaded = Boolean(attachedImageUrl || attachedPdfDataUrl);
   const layoutTitle = LAYOUT_TITLES[layout] || 'Kuyu Yerleşimi';
   const currentImageName = attachedImageName || attachedPdfName || `${layoutTitle} Teknik Çizimi`;
-  const currentImageUrl = attachedImageUrl || attachedPdfDataUrl || defaultLayoutImageMap[layout];
+  const currentImageUrl = attachedImageUrl || attachedPdfDataUrl || defaultLayoutImageMap[layout] || '/teknik-cizimler/ag-arka.png';
+
+  const handleSelectBuiltInDrawing = (drawing: typeof technicalDrawings[0]) => {
+    if (onImageChange) {
+      onImageChange(drawing.title, drawing.src);
+    }
+    setShowDrawingMenu(false);
+  };
 
   const handleFileProcess = async (file: File | Blob, customName?: string) => {
     setIsProcessing(true);
@@ -101,169 +114,12 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
     setFullZoom(1);
   };
 
-  // Dinamik Dahili SVG Şeması (Kullanıcı özel resim yüklemediğinde şema tipine göre çizilir)
-  const renderBuiltInShaftSvg = () => {
-    const isCwtRear = layout === 'CWT_REAR';
-    const isCwtLeft = layout === 'CWT_SIDE_LEFT';
-    const isCwtRight = layout === 'CWT_SIDE_RIGHT';
-    const isHydraulic = layout === 'PISTON_SINGLE' || layout === 'PISTON_DOUBLE';
-
-    return (
-      <svg
-        viewBox="0 0 540 500"
-        className="w-full h-full select-none max-h-[440px]"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <defs>
-          <pattern id="shaftGridPattern" width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#1e293b" strokeWidth="0.5" />
-          </pattern>
-          <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#f59e0b" />
-          </marker>
-        </defs>
-
-        {/* Arka Plan Izgara */}
-        <rect width="540" height="500" fill="url(#shaftGridPattern)" />
-
-        {/* KUYU DIŞ DUVARLARI (Betonarme Kuyu Kesiti) */}
-        <rect x="30" y="30" width="480" height="440" fill="#0b1329" stroke="#334155" strokeWidth="4" rx="12" />
-        <rect x="40" y="40" width="460" height="420" fill="none" stroke="#1e293b" strokeWidth="1" strokeDasharray="4 4" />
-
-        {/* Kuyu Yön Başlıkları */}
-        <text x="270" y="24" fill="#94a3b8" fontSize="11" fontWeight="900" textAnchor="middle" letterSpacing="2">KUYU ARKA DUVARI</text>
-        <text x="270" y="492" fill="#94a3b8" fontSize="11" fontWeight="900" textAnchor="middle" letterSpacing="2">ÖN DUVAR / DURAK KAPISI</text>
-        <text x="18" y="250" fill="#64748b" fontSize="10" fontWeight="bold" textAnchor="middle" transform="rotate(-90 18 250)">SOL DUVAR</text>
-        <text x="522" y="250" fill="#64748b" fontSize="10" fontWeight="bold" textAnchor="middle" transform="rotate(90 522 250)">SAĞ DUVAR</text>
-
-        {/* KABİN GÖVDESİ (Ortada) */}
-        <rect
-          x={isCwtRight ? "80" : isCwtLeft ? "160" : "100"}
-          y={isCwtRear ? "150" : "110"}
-          width={isCwtRear ? "340" : "300"}
-          height={isCwtRear ? "250" : "280"}
-          fill="#0f172a"
-          stroke="#0284c7"
-          strokeWidth="3"
-          rx="6"
-        />
-        <text
-          x={isCwtRight ? "230" : isCwtLeft ? "310" : "270"}
-          y={isCwtRear ? "280" : "250"}
-          fill="#38bdf8"
-          fontSize="14"
-          fontWeight="900"
-          textAnchor="middle"
-        >
-          KABİN KARKASI
-        </text>
-
-        {/* KABİN RAYLARI (DBG Aksı) */}
-        {/* Sol Kabin Rayı */}
-        <path
-          d={isCwtRight ? "M 75 235 L 85 240 L 85 260 L 75 265 Z" : isCwtLeft ? "M 155 235 L 165 240 L 165 260 L 155 265 Z" : "M 95 260 L 105 265 L 105 285 L 95 290 Z"}
-          fill="#38bdf8"
-          stroke="#0284c7"
-          strokeWidth="1.5"
-        />
-        {/* Sağ Kabin Rayı */}
-        <path
-          d={isCwtRight ? "M 385 235 L 375 240 L 375 260 L 385 265 Z" : isCwtLeft ? "M 465 235 L 455 240 L 455 260 L 465 265 Z" : "M 445 260 L 435 265 L 435 285 L 445 290 Z"}
-          fill="#38bdf8"
-          stroke="#0284c7"
-          strokeWidth="1.5"
-        />
-
-        {/* AĞIRLIK YERLEŞİMİ (Layout Tipine Göre Konumlanır) */}
-        {isCwtRear && (
-          /* Arkadan Ağırlık */
-          <g>
-            <rect x="140" y="55" width="260" height="48" fill="#1e293b" stroke="#f59e0b" strokeWidth="2.5" rx="4" />
-            {/* Ağırlık Rayları */}
-            <rect x="180" y="45" width="12" height="15" fill="#f59e0b" />
-            <rect x="348" y="45" width="12" height="15" fill="#f59e0b" />
-            <text x="270" y="85" fill="#f59e0b" fontSize="12" fontWeight="900" textAnchor="middle">
-              KARŞI AĞIRLIK (ARKADA)
-            </text>
-          </g>
-        )}
-
-        {isCwtRight && (
-          /* Sağdan Ağırlık */
-          <g>
-            <rect x="405" y="140" width="50" height="220" fill="#1e293b" stroke="#f59e0b" strokeWidth="2.5" rx="4" />
-            {/* Ağırlık Rayları */}
-            <rect x="420" y="125" width="20" height="12" fill="#f59e0b" />
-            <rect x="420" y="363" width="20" height="12" fill="#f59e0b" />
-            <text x="430" y="255" fill="#f59e0b" fontSize="11" fontWeight="900" textAnchor="middle" transform="rotate(90 430 255)">
-              AĞIRLIK (SAĞDA)
-            </text>
-          </g>
-        )}
-
-        {isCwtLeft && (
-          /* Soldan Ağırlık */
-          <g>
-            <rect x="85" y="140" width="50" height="220" fill="#1e293b" stroke="#f59e0b" strokeWidth="2.5" rx="4" />
-            {/* Ağırlık Rayları */}
-            <rect x="100" y="125" width="20" height="12" fill="#f59e0b" />
-            <rect x="100" y="363" width="20" height="12" fill="#f59e0b" />
-            <text x="110" y="255" fill="#f59e0b" fontSize="11" fontWeight="900" textAnchor="middle" transform="rotate(-90 110 255)">
-              AĞIRLIK (SOLDA)
-            </text>
-          </g>
-        )}
-
-        {isHydraulic && (
-          /* Hidrolik Piston */
-          <g>
-            <circle cx="95" cy="250" r="28" fill="#1e293b" stroke="#10b981" strokeWidth="3" />
-            <circle cx="95" cy="250" r="14" fill="#10b981" />
-            <text x="95" y="295" fill="#10b981" fontSize="10" fontWeight="bold" textAnchor="middle">PİSTON</text>
-          </g>
-        )}
-
-        {/* ÖN KAPI AÇIKLIĞI VE KAPI KANATLARI */}
-        <rect
-          x={isCwtRight ? "120" : isCwtLeft ? "200" : "150"}
-          y="420"
-          width="220"
-          height="35"
-          fill="#1e1b4b"
-          stroke="#818cf8"
-          strokeWidth="2.5"
-          rx="4"
-        />
-        <text
-          x={isCwtRight ? "230" : isCwtLeft ? "310" : "260"}
-          y="442"
-          fill="#c7d2fe"
-          fontSize="11"
-          fontWeight="bold"
-          textAnchor="middle"
-        >
-          OTOMATİK KAT KAPISI
-        </text>
-
-        {/* Aktif Ölçü Seçimi Vurgusu (activeCode) */}
-        {activeCode && (
-          <g>
-            <rect x="42" y="44" width="130" height="26" fill="#0f172a" stroke="#f59e0b" strokeWidth="1.5" rx="6" />
-            <text x="107" y="61" fill="#f59e0b" fontSize="11" fontWeight="bold" textAnchor="middle">
-              Seçili Ölçü: No {activeCode}
-            </text>
-          </g>
-        )}
-      </svg>
-    );
-  };
-
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-2xl p-3 sm:p-4 text-center shadow-2xl relative overflow-hidden">
       {/* Basit ve Net Üst Başlık Çubuğu */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 mb-3 pb-2.5 border-b border-slate-800">
         <div className="flex items-center gap-2 text-left">
-          <span className={`w-3 h-3 rounded-full ${currentImageUrl ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+          <span className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs sm:text-sm font-black text-white tracking-wide uppercase">
@@ -275,20 +131,53 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
                 </span>
               ) : (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  📐 Standart CAD Proje Çizimi
+                  📐 Orijinal Teknik Çizim (APK)
                 </span>
               )}
             </div>
             <span className="text-[10px] text-slate-400 block mt-0.5">
               {isCustomUploaded
-                ? `Dosya: ${currentImageName} (Sadece bu seçimde gösterilir)`
-                : `${layoutTitle} için standart teknik CAD projesi referans alınmaktadır.`}
+                ? `Dosya: ${currentImageName}`
+                : `${currentImageName} doğrudan APK hafızasından yüklenmiştir.`}
             </span>
           </div>
         </div>
 
         {/* Sade ve Karışıklıktan Uzak Butonlar */}
-        <div className="flex items-center gap-2 shrink-0 self-stretch sm:self-auto justify-end">
+        <div className="flex items-center gap-2 shrink-0 self-stretch sm:self-auto justify-end relative">
+          {/* Dahili APK Teknik Resimleri Seçme Butonu */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowDrawingMenu((prev) => !prev)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-bold transition cursor-pointer shadow-xs"
+              title="APK İçindeki 5 Orijinal Teknik Çizimden Birini Seç"
+            >
+              <Layers className="w-3.5 h-3.5 text-amber-400" />
+              <span>Dahili Çizimler</span>
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showDrawingMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showDrawingMenu && (
+              <div className="absolute right-0 top-full mt-1.5 w-64 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1.5 z-30 space-y-1 animate-fadeIn">
+                <div className="px-2 py-1 text-[10px] font-black text-amber-400 uppercase tracking-wider border-b border-slate-800">
+                  Dahili Çizim Seç (APK)
+                </div>
+                {technicalDrawings.map((drw) => (
+                  <button
+                    key={drw.id}
+                    type="button"
+                    onClick={() => handleSelectBuiltInDrawing(drw)}
+                    className="w-full text-left px-2.5 py-1.5 text-xs text-slate-200 hover:text-white hover:bg-amber-500/20 rounded-lg transition flex items-center justify-between cursor-pointer"
+                  >
+                    <span className="font-bold truncate">{drw.title}</span>
+                    <span className="text-[10px] text-slate-500 font-mono">1-Tık</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Tekil Basit Dosya/Fotoğraf Yükleme Butonu */}
           <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 text-xs font-black transition cursor-pointer shadow-md">
             <Upload className="w-3.5 h-3.5 text-slate-950" />
@@ -313,51 +202,47 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
             </button>
           )}
 
-          {currentImageUrl && (
-            <>
-              {/* Zoom Araçları */}
-              <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setZoom((prev) => Math.min(prev + 0.15, 2.5))}
-                  className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-                  title="Yakınlaştır"
-                >
-                  <ZoomIn className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setZoom((prev) => Math.max(prev - 0.15, 0.5))}
-                  className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-                  title="Uzaklaştır"
-                >
-                  <ZoomOut className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setZoom(1)}
-                  className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
-                  title="Sıfırla"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-              </div>
+          {/* Zoom Araçları */}
+          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-0.5">
+            <button
+              type="button"
+              onClick={() => setZoom((prev) => Math.min(prev + 0.15, 2.5))}
+              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
+              title="Yakınlaştır"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom((prev) => Math.max(prev - 0.15, 0.5))}
+              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
+              title="Uzaklaştır"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom(1)}
+              className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition cursor-pointer"
+              title="Sıfırla"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+          </div>
 
-              {/* Tam Ekran Butonu */}
-              <button
-                type="button"
-                onClick={() => setShowFullModal(true)}
-                className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 transition cursor-pointer"
-                title="Tam Ekran İncele"
-              >
-                <Maximize2 className="w-4 h-4" />
-              </button>
-            </>
-          )}
+          {/* Tam Ekran Butonu */}
+          <button
+            type="button"
+            onClick={() => setShowFullModal(true)}
+            className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 transition cursor-pointer"
+            title="Tam Ekran İncele"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* Ana Görsel / SVG Çizim Alanı */}
+      {/* Ana Görsel Alanı: Doğrudan Orijinal Dosya */}
       <div className="w-full overflow-auto p-2 sm:p-3 rounded-2xl border border-slate-800 bg-slate-950 flex items-center justify-center min-h-[340px] relative">
         {isProcessing && (
           <div className="absolute inset-0 bg-slate-950/85 backdrop-blur-xs flex flex-col items-center justify-center z-20 space-y-2">
@@ -366,24 +251,18 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
           </div>
         )}
 
-        {currentImageUrl ? (
-          <div className="relative w-full flex items-center justify-center p-2">
-            <img
-              src={currentImageUrl}
-              alt={currentImageName || 'Proje Görseli'}
-              style={{
-                transform: `scale(${zoom})`,
-                transformOrigin: 'center center',
-                transition: 'transform 0.2s ease-out',
-              }}
-              className="max-h-[460px] w-auto object-contain rounded-xl bg-white shadow-2xl"
-            />
-          </div>
-        ) : (
-          <div className="w-full flex flex-col items-center justify-center">
-            {renderBuiltInShaftSvg()}
-          </div>
-        )}
+        <div className="relative w-full flex items-center justify-center p-2">
+          <img
+            src={currentImageUrl}
+            alt={currentImageName || 'Teknik Çizim'}
+            style={{
+              transform: `scale(${zoom})`,
+              transformOrigin: 'center center',
+              transition: 'transform 0.2s ease-out',
+            }}
+            className="max-h-[460px] w-auto object-contain rounded-xl bg-white shadow-2xl"
+          />
+        </div>
       </div>
 
       {/* Tam Ekran Modal (Portal ile) */}
@@ -463,22 +342,16 @@ export const RailDoorBlueprintSvg: React.FC<RailDoorBlueprintSvgProps> = ({
               className="w-full h-full flex items-center justify-center cursor-default"
               onClick={(e) => e.stopPropagation()}
             >
-              {currentImageUrl ? (
-                <img
-                  src={currentImageUrl}
-                  alt={currentImageName || 'Proje Görseli'}
-                  style={{
-                    transform: `scale(${fullZoom})`,
-                    transformOrigin: 'center center',
-                    transition: 'transform 0.15s ease-out',
-                  }}
-                  className="max-h-[82vh] max-w-full object-contain rounded-xl bg-white shadow-2xl"
-                />
-              ) : (
-                <div className="max-w-2xl w-full p-4 bg-slate-900 rounded-2xl border border-slate-800">
-                  {renderBuiltInShaftSvg()}
-                </div>
-              )}
+              <img
+                src={currentImageUrl}
+                alt={currentImageName || 'Proje Görseli'}
+                style={{
+                  transform: `scale(${fullZoom})`,
+                  transformOrigin: 'center center',
+                  transition: 'transform 0.15s ease-out',
+                }}
+                className="max-h-[82vh] max-w-full object-contain rounded-xl bg-white shadow-2xl"
+              />
             </div>
           </div>
         </div>,

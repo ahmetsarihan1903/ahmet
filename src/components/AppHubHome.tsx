@@ -14,10 +14,15 @@ import {
   Sun,
   PlayCircle,
   FileCheck2,
+  Cpu,
+  Tablet,
+  Layers,
 } from 'lucide-react';
 import { FontSizeControl } from './FontSizeControl';
 import { useTheme } from '../context/ThemeContext';
 import { loadActiveDraft } from '../utils/storage';
+import { AndroidDiagnosticModal } from './AndroidDiagnosticModal';
+import { TechnicalDrawingsViewer } from './TechnicalDrawingsViewer';
 
 interface AppHubHomeProps {
   onSelectModule: (module: ActiveAppModule) => void;
@@ -25,6 +30,8 @@ interface AppHubHomeProps {
 
 export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
   const [showSettings, setShowSettings] = useState(false);
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
+  const [showDrawingsViewer, setShowDrawingsViewer] = useState(false);
   const { theme, setTheme, isDark } = useTheme();
   const [activeDraftInfo, setActiveDraftInfo] = useState<{
     exists: boolean;
@@ -78,16 +85,31 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
             </div>
           </div>
 
-          {/* Sağ Kısım: Genel Ayarlar & Punto Büyütme Butonu */}
-          <button
-            type="button"
-            onClick={() => setShowSettings(true)}
-            title="Genel Ayarlar, Yazı Boyutu & Tema"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-lg text-xs font-bold transition-all border border-white/25 cursor-pointer shadow-xs"
-          >
-            <Settings className="w-3.5 h-3.5 text-amber-300" />
-            <span className="hidden sm:inline font-bold">Görünüm & Punto</span>
-          </button>
+          {/* Sağ Kısım: Teknik Çizimler & Genel Ayarlar */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowDrawingsViewer(true)}
+              title="Teknik Çizim Dosyaları Kataloğu (5 Çizim)"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-xs font-bold transition-all border border-amber-500/40 cursor-pointer shadow-xs"
+            >
+              <Layers className="w-3.5 h-3.5 text-amber-400" />
+              <span className="font-bold">Teknik Çizimler</span>
+              <span className="px-1.5 py-0.2 bg-amber-500 text-slate-950 text-[10px] font-black rounded">
+                5
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowSettings(true)}
+              title="Genel Ayarlar, Yazı Boyutu & Tema"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-lg text-xs font-bold transition-all border border-white/25 cursor-pointer shadow-xs"
+            >
+              <Settings className="w-3.5 h-3.5 text-amber-300" />
+              <span className="hidden sm:inline font-bold">Görünüm & Punto</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -373,6 +395,34 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
 
               {/* Yazı Boyutu & Punto Kontrolü */}
               <FontSizeControl />
+
+              {/* Android 8.1 Tablet Teşhisi & Çevrimdışı Aktarım */}
+              <div className={`p-3.5 rounded-lg border ${
+                isDark ? 'bg-slate-950 border-slate-800' : 'bg-emerald-50/70 border-emerald-200'
+              }`}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${
+                    isDark ? 'text-emerald-400' : 'text-emerald-900'
+                  }`}>
+                    <Cpu className="w-3.5 h-3.5" />
+                    Android 8.1.0 Tablet Doktoru & Konsol
+                  </span>
+                </div>
+                <p className={`text-[11px] mb-2.5 ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>
+                  Tablet donanım/tarayıcı uyumluluk kontrolü, canlı hata günlüğü ve çevrimdışı JSON dosya aktarımı.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSettings(false);
+                    setShowDiagnostic(true);
+                  }}
+                  className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-xs cursor-pointer"
+                >
+                  <Cpu className="w-4 h-4" />
+                  <span>Teşhis Paneli ve Hata Konsolunu Aç</span>
+                </button>
+              </div>
             </div>
 
             <div className={`mt-4 pt-3 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
@@ -386,6 +436,22 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Android 8.1 Diagnostic Modal */}
+      {showDiagnostic && (
+        <AndroidDiagnosticModal
+          isOpen={showDiagnostic}
+          onClose={() => setShowDiagnostic(false)}
+        />
+      )}
+
+      {/* Technical Drawings Viewer Modal (5 Resim Önizleme) */}
+      {showDrawingsViewer && (
+        <TechnicalDrawingsViewer
+          isOpen={showDrawingsViewer}
+          onClose={() => setShowDrawingsViewer(false)}
+        />
       )}
     </div>
   );

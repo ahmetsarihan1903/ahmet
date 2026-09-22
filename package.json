@@ -38,6 +38,7 @@
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
     "lightningcss": "^1.33.0",
+    "node-unrar-js": "^2.0.2",
     "tailwindcss": "^4.1.14",
     "terser": "^5.51.2",
     "tsx": "^4.21.0",
