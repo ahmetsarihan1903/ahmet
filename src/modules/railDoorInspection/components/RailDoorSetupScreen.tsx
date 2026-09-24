@@ -17,7 +17,9 @@ import {
   Calendar,
   Sparkles,
   Info,
+  Lock,
 } from 'lucide-react';
+import { useUser } from '../../../context/UserContext';
 
 interface RailDoorSetupScreenProps {
   data: RailDoorInspectionFullData;
@@ -30,8 +32,25 @@ export const RailDoorSetupScreen: React.FC<RailDoorSetupScreenProps> = ({
   onChange,
   onStartInspection,
 }) => {
+  const { userName, isNameRegistered } = useUser();
   const currentFloors = calculateFloors(data.stopCount, data.startFloor);
   const selectedTypeConfig = ELEVATOR_TYPE_CONFIGS.find((c) => c.type === data.mainType) || ELEVATOR_TYPE_CONFIGS[0];
+
+  const handleIdentityChange = (field: keyof typeof data.identity, val: string) => {
+    onChange((prev) => ({
+      ...prev,
+      identity: {
+        ...prev.identity,
+        [field]: val,
+      },
+    }));
+  };
+
+  React.useEffect(() => {
+    if (userName && isNameRegistered && (!data.identity.inspector || data.identity.inspector !== userName)) {
+      handleIdentityChange('inspector', userName);
+    }
+  }, [userName, isNameRegistered, data.identity.inspector]);
 
   const handleMainTypeChange = (newType: RailElevatorMainType) => {
     const config = ELEVATOR_TYPE_CONFIGS.find((c) => c.type === newType);
@@ -59,16 +78,6 @@ export const RailDoorSetupScreen: React.FC<RailDoorSetupScreenProps> = ({
         attachedImageUrl: activeImg?.imageUrl,
       };
     });
-  };
-
-  const handleIdentityChange = (field: keyof typeof data.identity, value: string) => {
-    onChange((prev) => ({
-      ...prev,
-      identity: {
-        ...prev.identity,
-        [field]: value,
-      },
-    }));
   };
 
   const handleStopCountChange = (val: number) => {
@@ -206,18 +215,36 @@ export const RailDoorSetupScreen: React.FC<RailDoorSetupScreenProps> = ({
 
           {/* Kontrolü Yapan */}
           <div>
-            <label className="text-xs font-bold text-slate-300 block mb-1.5 flex items-center gap-1.5">
-              <FileCheck2 className="w-3.5 h-3.5 text-amber-400" />
-              Kontrolü Yapan (Denetçi) *
-            </label>
-            <input
-              type="text"
-              id="input-inspector"
-              value={data.identity.inspector}
-              onChange={(e) => handleIdentityChange('inspector', e.target.value)}
-              placeholder="Örn: AHMET SARIHAN"
-              className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-sm text-white font-medium outline-none transition-all placeholder:text-slate-500"
-            />
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <FileCheck2 className="w-3.5 h-3.5 text-amber-400" />
+                Kontrolü Yapan (Denetçi) *
+              </label>
+              {isNameRegistered && userName && (
+                <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                  <Lock className="w-3 h-3" />
+                  Kullanıcı Profilinden Sabitlendi
+                </span>
+              )}
+            </div>
+
+            {isNameRegistered && userName ? (
+              <div className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-xs">
+                <span className="text-sm text-white font-black tracking-wide">
+                  {userName}
+                </span>
+                <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+              </div>
+            ) : (
+              <input
+                type="text"
+                id="input-inspector"
+                value={data.identity.inspector}
+                onChange={(e) => handleIdentityChange('inspector', e.target.value)}
+                placeholder="Örn: AHMET SARIHAN"
+                className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-sm text-white font-medium outline-none transition-all placeholder:text-slate-500"
+              />
+            )}
           </div>
         </div>
       </div>

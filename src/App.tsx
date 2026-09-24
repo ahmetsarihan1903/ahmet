@@ -5,6 +5,7 @@ import { QualityControlModule } from './modules/qualityControl/QualityControlMod
 import { CustomerPreInspectionModule } from './modules/customerPreInspection/CustomerPreInspectionModule';
 import { RailDoorInspectionModule } from './modules/railDoorInspection/RailDoorInspectionModule';
 import { UnderConstructionModule } from './components/UnderConstructionModule';
+import { InitialUserSetupModal } from './components/InitialUserSetupModal';
 import { useTheme } from './context/ThemeContext';
 
 export default function App() {
@@ -40,6 +41,9 @@ export default function App() {
         isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'
       }`}
     >
+      {/* İlk Kurulum / Kullanıcı Kayıt Zorunlu Modalı */}
+      <InitialUserSetupModal />
+
       {/* 0. ANA GİRİŞ HUB PORTALI */}
       {activeModule === 'hub' && (
         <AppHubHome onSelectModule={(module) => handleSelectModule(module)} />

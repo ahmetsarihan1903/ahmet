@@ -14,6 +14,7 @@ import {
 } from '../../utils/pdfGenerator';
 import { formatDateDMY } from '../../utils/dateUtils';
 import { BetaLogo } from '../../components/BetaLogo';
+import { useUser } from '../../context/UserContext';
 
 interface ReportPreviewModalProps {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export const CustomerReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
   metadata,
   items,
 }) => {
+  const { deviceProfile } = useUser();
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
@@ -223,6 +225,10 @@ export const CustomerReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
                     {defectiveItems.length > 0 ? `${defectiveItems.length} Adet Eksik` : 'Kusursuz / Eksiksiz'}
                   </span>
                 </div>
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-200 text-[10px]">
+                  <span className="font-semibold text-slate-500 shrink-0">Cihaz Güvenlik No:</span>
+                  <span className="font-black text-slate-900 font-mono text-right">{deviceProfile.hardwareId} (#{deviceProfile.installationId})</span>
+                </div>
               </div>
             </div>
           </div>
@@ -308,8 +314,8 @@ export const CustomerReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
         </div>
 
         {/* FOOTER METADATA */}
-        <div className="mt-6 pt-2.5 border-t border-slate-200 flex items-center justify-between text-[9px] text-slate-400">
-          <span>Beta Asansör Denetim Sistemi • %100 Çevrimdışı Sistem</span>
+        <div className="mt-6 pt-2.5 border-t border-slate-200 flex flex-wrap items-center justify-between gap-1 text-[9px] text-slate-400">
+          <span>Beta Asansör Denetim Sistemi • Cihaz Donanım No: {deviceProfile.hardwareId} (#{deviceProfile.installationId})</span>
           <span>Seri No: {metadata.serialNumber} • Tarih: {formatDateDMY(metadata.inspectionDate)}</span>
         </div>
       </div>

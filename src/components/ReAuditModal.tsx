@@ -5,9 +5,12 @@ import {
   Save,
   ShieldCheck,
   Check,
+  User,
+  Lock,
 } from 'lucide-react';
 import { AuditFormData, InspectionItem } from '../types';
 import { useTheme } from '../context/ThemeContext';
+import { useUser } from '../context/UserContext';
 
 interface ReAuditModalProps {
   isOpen: boolean;
@@ -30,15 +33,18 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
   onSaveReAudit,
 }) => {
   const { isDark } = useTheme();
+  const { userName, isNameRegistered } = useUser();
 
   // Working state copy of entire formData
   const [workingData, setWorkingData] = useState<AuditFormData>(() =>
     JSON.parse(JSON.stringify(data))
   );
 
-  const [inspectorName, setInspectorName] = useState<string>(
-    data.reAuditInspector || data.inspectorName || ''
-  );
+  // Re-audit inspector is the current device user if available, otherwise previous reAuditInspector or data.inspectorName
+  const [inspectorName, setInspectorName] = useState<string>(() => {
+    if (userName && isNameRegistered) return userName;
+    return data.reAuditInspector || data.inspectorName || '';
+  });
 
   const [reAuditDate, setReAuditDate] = useState<string>(() => {
     if (data.reAuditDate) return data.reAuditDate;
@@ -55,7 +61,12 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setWorkingData(JSON.parse(JSON.stringify(data)));
-      setInspectorName(data.reAuditInspector || data.inspectorName || '');
+      // If active user is registered on this device, they are the one conducting the re-audit
+      if (userName && isNameRegistered) {
+        setInspectorName(userName);
+      } else {
+        setInspectorName(data.reAuditInspector || data.inspectorName || '');
+      }
       if (!data.reAuditDate) {
         const now = new Date();
         const d = String(now.getDate()).padStart(2, '0');
@@ -68,7 +79,7 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
         setReAuditDate(data.reAuditDate);
       }
     }
-  }, [isOpen, data]);
+  }, [isOpen, data, userName, isNameRegistered]);
 
   if (!isOpen) return null;
 
@@ -194,7 +205,7 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
           <div className="flex items-center gap-2">
             <RotateCcw className="w-4 h-4 text-amber-400 shrink-0" />
             <h2 className="text-sm sm:text-base font-black uppercase tracking-tight">
-              Eksik Kapatma
+              Eksik Kapatma & 2. Kontrol
             </h2>
             <span className="text-xs font-bold text-amber-400">
               ({resolvedCount}/{totalUDCount} Giderildi)
@@ -210,6 +221,29 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* 1. DENETÇİ & 2. KONTROLÜ YAPAN OTOMATİK BİLGİ ŞERİDİ */}
+        <div
+          className={`px-3 sm:px-4 py-1.5 border-b text-[11px] flex flex-wrap items-center justify-between gap-2 shrink-0 ${
+            isDark
+              ? 'bg-slate-950/80 border-slate-800 text-slate-300'
+              : 'bg-slate-100 border-slate-200 text-slate-700'
+          }`}
+        >
+          <div className="flex items-center gap-1.5 truncate">
+            <span className="font-bold text-slate-400">1. Denetim:</span>
+            <span className="font-black text-slate-200 truncate">{data.inspectorName || '-'}</span>
+            <span className="text-slate-500 font-mono">({data.dateDisplay || '-'})</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded text-emerald-400 font-bold">
+            <Lock className="w-3 h-3 text-emerald-400" />
+            <span>2. Kontrolü Yapan:</span>
+            <span className="font-black uppercase tracking-wide text-white">
+              {inspectorName || 'Denetçi'}
+            </span>
+          </div>
         </div>
 
         {/* EKSİK LİSTESİ - KOMPAKT TASARIM: TABLETTE EN AZ 3-4 MADDE DİREKT GÖRÜNÜR */}

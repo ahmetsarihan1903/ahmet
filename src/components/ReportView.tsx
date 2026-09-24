@@ -20,7 +20,10 @@ import {
   Eye,
   Cloud,
   UploadCloud,
+  Smartphone,
+  ShieldCheck,
 } from 'lucide-react';
+import { useUser } from '../context/UserContext';
 import { AuditFormData, InspectionItem } from '../types';
 import { BetaLogo } from './BetaLogo';
 import { getBetaLogoDataUrl } from '../utils/logoUtils';
@@ -59,6 +62,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
   onNewInspection,
   onUpdateData,
 }) => {
+  const { deviceProfile } = useUser();
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
@@ -266,6 +270,26 @@ export const ReportView: React.FC<ReportViewProps> = ({
           },
         },
         cleanTr(data.serialNumber || 'BETA-QC'),
+      ],
+      [
+        {
+          content: 'CIHAZ DONANIM NO:',
+          styles: {
+            fontStyle: 'bold' as const,
+            fillColor: [241, 245, 249] as [number, number, number],
+            textColor: [15, 23, 42] as [number, number, number],
+          },
+        },
+        cleanTr(deviceProfile.hardwareId),
+        {
+          content: 'KURULUM GUVENLIK ID:',
+          styles: {
+            fontStyle: 'bold' as const,
+            fillColor: [241, 245, 249] as [number, number, number],
+            textColor: [15, 23, 42] as [number, number, number],
+          },
+        },
+        cleanTr(`#${deviceProfile.installationId}`),
       ],
     ];
 
@@ -558,7 +582,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
       doc.setTextColor(148, 163, 184); // Slate 400
       doc.setFont('helvetica', 'normal');
       doc.text(
-        'Beta Asansor Kalite Kontrol Sistemi tarafindan otomatik olarak derlenmistir. Bu belge resmi denetim kaydidir.',
+        `Beta Asansor Kalite Kontrol - Cihaz Donanim No: ${cleanTr(deviceProfile.hardwareId)} (#${cleanTr(deviceProfile.installationId)}) - Resmi Denetim Kaydi`,
         margin,
         pageHeight - 8
       );
@@ -1056,6 +1080,27 @@ export const ReportView: React.FC<ReportViewProps> = ({
             <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Toplam Süre:</span>
             <span className="text-xs font-black text-slate-950">{data.totalDurationFormatted || '-'}</span>
           </div>
+
+          {/* Cihaz Donanım & Kurulum Güvenlik Kimliği */}
+          <div className="col-span-full pt-2 mt-1 border-t border-slate-300 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+            <div className="flex items-center gap-1.5">
+              <Smartphone className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span className="font-bold text-slate-600 uppercase tracking-wider">Cihaz Donanım No:</span>
+              <span className="font-black text-slate-950 font-mono bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300">
+                {deviceProfile.hardwareId}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="font-bold text-slate-600 uppercase tracking-wider">Kurulum Güvenlik ID:</span>
+              <span className="font-black text-emerald-900 font-mono bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">
+                #{deviceProfile.installationId}
+              </span>
+              <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
+                ({deviceProfile.hardwareDetails})
+              </span>
+            </div>
+          </div>
         </div>
 
         {/* Section: UD LISTESI (Hatalar ve Uygunsuzluklar) & EKSİK KAPATMA */}
@@ -1263,7 +1308,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
 
         {/* Footer Note */}
         <div className="mt-6 pt-3 border-t-2 border-slate-300 text-center text-[11px] font-bold text-slate-600 footer-text">
-          Beta Asansör Kalite Kontrol Sistemi tarafından otomatik olarak derlenmiştir. Bu belge resmi denetim kaydıdır.
+          Beta Asansör Kalite Kontrol Sistemi • Cihaz Donanım No: {deviceProfile.hardwareId} (Kurulum ID: #{deviceProfile.installationId}) • Bu belge resmi denetim kaydıdır.
         </div>
       </div>
 

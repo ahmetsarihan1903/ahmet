@@ -25,6 +25,7 @@ import { useTheme } from '../context/ThemeContext';
 import { getLastSavedTime, loadActiveDraft, getAuditHistory } from '../utils/storage';
 import { AuditFormData } from '../types';
 import { FontSizeControl } from './FontSizeControl';
+import { AdminUserSettingsSection } from './AdminUserSettingsSection';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -213,7 +214,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* 2. Font Size (Punto Büyütme) Kontrolü */}
               <FontSizeControl />
 
-              {/* 3. Manual Save Action */}
+              {/* 3. Denetçi Profili & Yönetici Paneli */}
+              <AdminUserSettingsSection />
+
+              {/* 4. Manual Save Action */}
               <div className={`p-3.5 rounded-lg border ${
                 isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
               }`}>

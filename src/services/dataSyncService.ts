@@ -7,27 +7,101 @@ export interface DataSyncResult {
   data?: Record<string, InspectionItem[]>;
 }
 
+// Get all candidate export URLs for a given Google Sheet link to avoid 400 Bad Request or CORS issues
+export function getGoogleSheetUrlCandidates(url: string): string[] {
+  const trimmed = url.trim();
+  if (!trimmed) return [];
+
+  const candidates: string[] = [];
+
+  // Extract gid (tab ID) if present
+  const gidMatch = trimmed.match(/[#&?]gid=([0-9]+)/);
+  const gid = gidMatch ? gidMatch[1] : '0';
+
+  // 1. Check for "Web'de Yayınla" (Publish to Web) format: /spreadsheets/d/e/2PACX-.../pub...
+  const pubWebMatch = trimmed.match(/\/spreadsheets\/d\/e\/([a-zA-Z0-9-_]+)/);
+  if (pubWebMatch && pubWebMatch[1]) {
+    const pubId = pubWebMatch[1];
+    candidates.push(`https://docs.google.com/spreadsheets/d/e/${pubId}/pub?output=csv&gid=${gid}`);
+    candidates.push(`https://docs.google.com/spreadsheets/d/e/${pubId}/pub?output=csv`);
+    return candidates;
+  }
+
+  // 2. Standard Google Sheets share or edit URL: /spreadsheets/d/{SPREADSHEET_ID}/...
+  // Make sure not to match if it's the "e" path
+  const standardMatch = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (standardMatch && standardMatch[1] && standardMatch[1] !== 'e') {
+    const sheetId = standardMatch[1];
+    // Candidate A: Google Visualization API CSV export (Best CORS support & handles public sheets without auth)
+    candidates.push(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`);
+    // Candidate B: Direct export endpoint
+    candidates.push(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`);
+    // Candidate C: Publish endpoint
+    candidates.push(`https://docs.google.com/spreadsheets/d/${sheetId}/pub?output=csv&gid=${gid}`);
+    return candidates;
+  }
+
+  // 3. Google Drive file URL: /file/d/{FILE_ID}/view
+  const driveMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9-_]+)/);
+  if (driveMatch && driveMatch[1]) {
+    const fileId = driveMatch[1];
+    candidates.push(`https://docs.google.com/spreadsheets/d/${fileId}/gviz/tq?tqx=out:csv`);
+    candidates.push(`https://drive.google.com/uc?export=download&id=${fileId}`);
+    return candidates;
+  }
+
+  // 4. If already an explicit export or CSV URL
+  if (trimmed.includes('output=csv') || trimmed.includes('/export?format=csv') || trimmed.includes('gviz/tq?tqx=out:csv')) {
+    candidates.push(trimmed);
+    return candidates;
+  }
+
+  candidates.push(trimmed);
+  return candidates;
+}
+
 // Convert any standard Google Sheet Share link or Published CSV link into a direct CSV export URL
 export function formatGoogleSheetUrl(url: string): string {
-  const trimmed = url.trim();
-  if (!trimmed) return '';
+  const candidates = getGoogleSheetUrlCandidates(url);
+  return candidates[0] || url.trim();
+}
 
-  // Already a direct CSV link or export link
-  if (trimmed.includes('output=csv') || trimmed.includes('/export?format=csv')) {
-    return trimmed;
+// Helper to fetch CSV text trying all candidate URLs
+export async function fetchGoogleSheetCsvText(url: string): Promise<string> {
+  const candidates = getGoogleSheetUrlCandidates(url);
+  if (candidates.length === 0) {
+    throw new Error('Geçersiz Google E-Tablo URL bağlantısı.');
   }
 
-  // Matches Google Spreadsheet ID: https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/...
-  const match = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  if (match && match[1]) {
-    const sheetId = match[1];
-    // Check if a specific gid exists (e.g. #gid=0 or &gid=123)
-    const gidMatch = trimmed.match(/[#&?]gid=([0-9]+)/);
-    const gid = gidMatch ? gidMatch[1] : '0';
-    return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+  let lastError: any = null;
+
+  for (const candidateUrl of candidates) {
+    try {
+      const response = await fetch(candidateUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'text/csv, text/plain, */*',
+        },
+      });
+
+      if (response.ok) {
+        const text = await response.text();
+        // Check if returned text looks like HTML login page instead of CSV
+        if (text && text.trim().length > 0) {
+          if (text.includes('<!DOCTYPE html>') || text.includes('<html') || text.includes('accounts.google.com')) {
+            throw new Error('E-Tablo gizli görünüyor. Lütfen paylaşım ayarını "Bağlantıya sahip olan herkes görüntüleyebilir" yapın.');
+          }
+          return text;
+        }
+      } else {
+        lastError = new Error(`Ağ hatası: ${response.status} ${response.statusText}`);
+      }
+    } catch (err: any) {
+      lastError = err;
+    }
   }
 
-  return trimmed;
+  throw lastError || new Error('E-Tabloya erişilemedi. Lütfen bağlantının "Bağlantıya sahip olan herkes görüntüleyebilir" veya "Web\'de Yayınla" olarak paylaşıldığından emin olun.');
 }
 
 // Simple robust CSV parser handling commas, quotes, and newlines
@@ -100,24 +174,8 @@ function normalizeCategoryKey(rawCategory: string): string | null {
 
 // Fetches and parses items from Google Sheet or CSV URL
 export async function syncItemsFromGoogleSheet(url: string): Promise<DataSyncResult> {
-  const fetchUrl = formatGoogleSheetUrl(url);
-  if (!fetchUrl) {
-    return { success: false, message: 'Geçersiz Google E-Tablo URL bağlantısı.' };
-  }
-
   try {
-    const response = await fetch(fetchUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'text/csv, text/plain, */*',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Bağlantı hatası: ${response.status} ${response.statusText}`);
-    }
-
-    const csvText = await response.text();
+    const csvText = await fetchGoogleSheetCsvText(url);
     if (!csvText || csvText.trim().length === 0) {
       throw new Error('E-Tablo boş veya okunamadı.');
     }

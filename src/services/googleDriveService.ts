@@ -14,11 +14,12 @@ import firebaseConfig from '../../firebase-applet-config.json';
 
 export const DEFAULT_DRIVE_FOLDER_ID = '1GAUJoTIEtCpSRepZqHNkzq_dx64JRQ_4';
 export const DEFAULT_DRIVE_FOLDER_URL = `https://drive.google.com/drive/folders/${DEFAULT_DRIVE_FOLDER_ID}`;
-export const DEFAULT_DRIVE_ACCOUNT = 'betaasansormontaj@gmail.com';
+export const DEFAULT_DRIVE_ACCOUNT = 'ahmetsarihan1903@gmail.com';
 
 const STORAGE_TOKEN_KEY = 'beta_drive_access_token_v1';
 const STORAGE_TOKEN_EXPIRY_KEY = 'beta_drive_token_expiry_v1';
 const STORAGE_FOLDER_ID_KEY = 'beta_drive_target_folder_id_v1';
+const STORAGE_FOLDER_URL_KEY = 'beta_drive_folder_url_v1';
 
 // Firebase Auth App and Provider Initialization
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -32,6 +33,174 @@ driveProvider.setCustomParameters({
 
 let inMemoryDriveToken: string | null = null;
 let isSigningIn = false;
+
+export const STORAGE_SCRIPT_URL_KEY = 'beta_drive_script_webhook_url_v1';
+
+export const GOOGLE_APPS_SCRIPT_TEMPLATE = `// =======================================================
+// BETA ASANSÖR - GOOGLE DRIVE BULUT KÖPRÜSÜ
+// Yetkili Hesap: ahmetsarihan1903@gmail.com
+// =======================================================
+var DEFAULT_FOLDER_ID = "1GAUJoTIEtCpSRepZqHNkzq_dx64JRQ_4";
+var FOLDER_NAME = "KALITEKONTROL ARSIV";
+
+function getTargetFolder(folderId) {
+  if (folderId) {
+    try {
+      return DriveApp.getFolderById(folderId);
+    } catch (err) {
+      // Belirtilen ID'ye erişilemezse ada göre ara
+    }
+  }
+  var folders = DriveApp.getFoldersByName(FOLDER_NAME);
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+  // Klasör hesapta yoksa otomatik olarak oluşturur
+  return DriveApp.createFolder(FOLDER_NAME);
+}
+
+function doGet(e) {
+  try {
+    var action = (e && e.parameter && e.parameter.action) || 'list';
+    var folderId = (e && e.parameter && e.parameter.folderId) || DEFAULT_FOLDER_ID;
+    var folder = getTargetFolder(folderId);
+
+    // 1. Dosya İndirme (JSON Proje Verisi)
+    if (action === 'download') {
+      var fileId = e.parameter.fileId;
+      var file = DriveApp.getFileById(fileId);
+      return ContentService.createTextOutput(file.getBlob().getDataAsString())
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 2. Klasör Dosyalarını Listeleme
+    var files = folder.getFiles();
+    var list = [];
+    while (files.hasNext()) {
+      var f = files.next();
+      list.push({
+        id: f.getId(),
+        name: f.getName(),
+        mimeType: f.getMimeType(),
+        modifiedTime: f.getLastUpdated().toISOString(),
+        webViewLink: f.getUrl(),
+        size: f.getSize(),
+        isAuditData: f.getName().toLowerCase().endsWith('.json')
+      });
+    }
+
+    // En son değiştirilen en üstte
+    list.sort(function(a, b) {
+      return new Date(b.modifiedTime) - new Date(a.modifiedTime);
+    });
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      folderId: folder.getId(),
+      folderUrl: folder.getUrl(),
+      files: list
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var folderId = data.folderId || DEFAULT_FOLDER_ID;
+    var folder = getTargetFolder(folderId);
+    var action = data.action || 'uploadJson';
+    var fileName = data.fileName || 'Proje_Verisi.json';
+
+    // 1. PDF Raporu Yükleme
+    if (action === 'uploadPdf') {
+      var decoded = Utilities.base64Decode(data.base64);
+      var blob = Utilities.newBlob(decoded, 'application/pdf', fileName);
+      var pdfFile = folder.createFile(blob);
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        fileId: pdfFile.getId(),
+        fileName: pdfFile.getName(),
+        webViewLink: pdfFile.getUrl(),
+        folderUrl: folder.getUrl()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 2. JSON Denetim Dosyası Yükleme (Mevcut referans varsa üzerine yazar)
+    var content = typeof data.content === 'string' ? data.content : JSON.stringify(data.content, null, 2);
+    var existingFiles = folder.getFilesByName(fileName);
+    var targetFile;
+    var isUpdated = false;
+
+    if (existingFiles.hasNext()) {
+      targetFile = existingFiles.next();
+      targetFile.setContent(content);
+      isUpdated = true;
+    } else {
+      targetFile = folder.createFile(fileName, content, 'application/json');
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      fileId: targetFile.getId(),
+      fileName: targetFile.getName(),
+      webViewLink: targetFile.getUrl(),
+      folderUrl: folder.getUrl(),
+      isUpdated: isUpdated
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+
+export function getSavedDriveFolderUrl(): string {
+  try {
+    return localStorage.getItem(STORAGE_FOLDER_URL_KEY) || DEFAULT_DRIVE_FOLDER_URL;
+  } catch {
+    return DEFAULT_DRIVE_FOLDER_URL;
+  }
+}
+
+export function setSavedDriveFolderUrl(url: string): void {
+  try {
+    if (url.trim()) {
+      localStorage.setItem(STORAGE_FOLDER_URL_KEY, url.trim());
+    }
+  } catch (e) {
+    console.warn('Folder URL save error:', e);
+  }
+}
+
+export const DEFAULT_SCRIPT_WEBHOOK_URL =
+  'https://script.google.com/macros/s/AKfycbzPnUqLVf4oHwS5OIHO15sR0O2y62Z1pw2HUx1PFhGGQnBuFUuHY9AGi7iUI3VtnHEA/exec';
+
+export function getSavedDriveScriptUrl(): string {
+  try {
+    return localStorage.getItem(STORAGE_SCRIPT_URL_KEY) || DEFAULT_SCRIPT_WEBHOOK_URL;
+  } catch {
+    return DEFAULT_SCRIPT_WEBHOOK_URL;
+  }
+}
+
+export function setSavedDriveScriptUrl(url: string): void {
+  try {
+    const trimmed = url.trim();
+    if (trimmed) {
+      localStorage.setItem(STORAGE_SCRIPT_URL_KEY, trimmed);
+    } else {
+      localStorage.removeItem(STORAGE_SCRIPT_URL_KEY);
+    }
+  } catch (e) {
+    console.warn('Script URL save error:', e);
+  }
+}
+
+export function isCloudConfigured(): boolean {
+  return !!getSavedDriveScriptUrl() || !!getCachedDriveToken();
+}
 
 export function getSavedDriveFolderId(): string {
   try {
@@ -219,6 +388,26 @@ export interface DriveProjectFile {
  * Lists files in the target Google Drive folder
  */
 export async function listDriveFolderFiles(targetFolderId = getSavedDriveFolderId()): Promise<DriveProjectFile[]> {
+  const scriptUrl = getSavedDriveScriptUrl();
+  if (scriptUrl) {
+    const separator = scriptUrl.includes('?') ? '&' : '?';
+    const response = await fetch(`${scriptUrl}${separator}action=list&folderId=${encodeURIComponent(targetFolderId)}`);
+    if (!response.ok) {
+      throw new Error(`Bulut listesi alınamadı (${response.status})`);
+    }
+    const data = await response.json();
+    if (!data.success && data.error) {
+      throw new Error(`Bulut Hatası: ${data.error}`);
+    }
+    if (data.folderUrl) {
+      setSavedDriveFolderUrl(data.folderUrl);
+    }
+    return (data.files || []).map((f: any) => ({
+      ...f,
+      isAuditData: f.name.toLowerCase().endsWith('.json'),
+    }));
+  }
+
   const token = await requestDriveAccessToken();
   const folderQuery = targetFolderId ? `'${targetFolderId}' in parents and trashed = false` : 'trashed = false';
   const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(
@@ -298,23 +487,72 @@ export async function uploadAuditJsonToDrive(
     throw new Error('Cihaz şu an çevrimdışı (internetsiz). Bağlantı geldiğinde otomatik buluta yüklenecek.');
   }
 
+  // Türkçe karakterleri koruyarak sadece dosya sistemi/URL için geçersiz karakterleri temizle
+  const cleanSerial = (auditData.serialNumber || 'SN-YOK').trim().replace(/[/\\:*?"<>|]/g, '-').replace(/\s+/g, ' ');
+  const cleanProject = (auditData.clientProjectName || 'Referans-Yok').trim().replace(/[/\\:*?"<>|]/g, '-').replace(/\s+/g, ' ');
+  const fileName = `${cleanSerial}_${cleanProject}.json`;
+
+  const jsonPayload = JSON.stringify(
+    {
+      version: '2.0',
+      exportedAt: new Date().toISOString(),
+      auditData,
+    },
+    null,
+    2
+  );
+
+  const scriptUrl = getSavedDriveScriptUrl();
+  if (scriptUrl) {
+    try {
+      const res = await fetch(scriptUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify({
+          action: 'uploadJson',
+          fileName,
+          content: jsonPayload,
+          folderId: targetFolderId,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Bulut yüklemesi başarısız oldu (${res.status})`);
+      }
+
+      const resJson = await res.json();
+      if (!resJson.success && resJson.error) {
+        throw new Error(`Bulut Hatası: ${resJson.error}`);
+      }
+
+      clearQueuedAuditForCloudSync();
+      return {
+        fileId: resJson.fileId || 'webhook-file',
+        fileName,
+        webViewLink: resJson.webViewLink,
+        isUpdated: !!resJson.isUpdated,
+      };
+    } catch (err: any) {
+      if (options.silent) {
+        queueAuditForCloudSync(auditData);
+      }
+      throw err;
+    }
+  }
+
   let token: string | null = null;
   if (options.silent) {
     token = getCachedDriveToken();
     if (!token) {
       // If no valid cached token and silent mode, queue it for next opportunity
       queueAuditForCloudSync(auditData);
-      throw new Error('Google Drive oturumu açık değil.');
+      throw new Error('Google Drive oturumu açık değil veya Bulut Köprüsü tanımlanmamış.');
     }
   } else {
     token = await requestDriveAccessToken();
   }
-
-  // Türkçe karakterleri koruyarak sadece dosya sistemi/URL için geçersiz karakterleri temizle
-  const cleanSerial = (auditData.serialNumber || 'SN-YOK').trim().replace(/[/\\:*?"<>|]/g, '-').replace(/\s+/g, ' ');
-  const cleanProject = (auditData.clientProjectName || 'Referans-Yok').trim().replace(/[/\\:*?"<>|]/g, '-').replace(/\s+/g, ' ');
-  // Sadece seri numarası ve referans adı ile .json uzantısı
-  const fileName = `${cleanSerial}_${cleanProject}.json`;
 
   // Search if a file with the same reference/serial already exists in this folder
   let existingFileId: string | null = null;
@@ -340,16 +578,6 @@ export async function uploadAuditJsonToDrive(
   } catch (err) {
     console.warn('Existing Drive file search failed, will attempt upload:', err);
   }
-
-  const jsonPayload = JSON.stringify(
-    {
-      version: '2.0',
-      exportedAt: new Date().toISOString(),
-      auditData,
-    },
-    null,
-    2
-  );
 
   // If existing file found, UPDATE / OVERWRITE content (PATCH/UPLOAD)
   if (existingFileId) {
@@ -453,10 +681,54 @@ export async function uploadPdfBlobToDrive(
   fileName: string,
   targetFolderId = getSavedDriveFolderId()
 ): Promise<{ fileId: string; fileName: string; webViewLink?: string }> {
+  const cleanName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+  const scriptUrl = getSavedDriveScriptUrl();
+
+  if (scriptUrl) {
+    const base64Data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        const b64 = result.includes(',') ? result.split(',')[1] : result;
+        resolve(b64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(pdfBlob);
+    });
+
+    const res = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify({
+        action: 'uploadPdf',
+        fileName: cleanName,
+        base64: base64Data,
+        folderId: targetFolderId,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`PDF yüklenemedi (${res.status})`);
+    }
+
+    const resJson = await res.json();
+    if (!resJson.success && resJson.error) {
+      throw new Error(`Bulut Hatası: ${resJson.error}`);
+    }
+
+    return {
+      fileId: resJson.fileId || 'webhook-pdf',
+      fileName: cleanName,
+      webViewLink: resJson.webViewLink,
+    };
+  }
+
   const token = await requestDriveAccessToken();
 
   const metadata: any = {
-    name: fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`,
+    name: cleanName,
     mimeType: 'application/pdf',
     description: 'Beta Asansör Resmi Kalite Kontrol Raporu (PDF)',
   };
@@ -503,6 +775,20 @@ export async function uploadPdfBlobToDrive(
  * Downloads and parses an Audit JSON file from Google Drive
  */
 export async function downloadAuditJsonFromDrive(fileId: string): Promise<AuditFormData> {
+  const scriptUrl = getSavedDriveScriptUrl();
+  if (scriptUrl) {
+    const separator = scriptUrl.includes('?') ? '&' : '?';
+    const response = await fetch(`${scriptUrl}${separator}action=download&fileId=${encodeURIComponent(fileId)}`);
+    if (!response.ok) {
+      throw new Error(`Dosya indirilemedi (${response.status})`);
+    }
+    const rawJson = await response.json();
+    if (rawJson.auditData) {
+      return rawJson.auditData as AuditFormData;
+    }
+    return rawJson as AuditFormData;
+  }
+
   const token = await requestDriveAccessToken();
   const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
 

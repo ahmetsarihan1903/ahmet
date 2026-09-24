@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { CustomerElevatorType, CustomerInspectionMetadata } from './customerChecklistData';
 import { CustomerThemeMode } from './customerThemes';
 import { BetaLogo } from '../../components/BetaLogo';
-import { Shield, ArrowRight, Building, Hash, User, Calendar, CheckSquare, Sparkles } from 'lucide-react';
+import { Shield, ArrowRight, Building, Hash, User, Calendar, CheckSquare, Sparkles, Lock } from 'lucide-react';
+import { useUser } from '../../context/UserContext';
 
 interface CustomerInspectionFormProps {
   initialData?: CustomerInspectionMetadata;
@@ -17,14 +18,16 @@ export const CustomerInspectionForm: React.FC<CustomerInspectionFormProps> = ({
   onCancel,
   themeMode = 'dark',
 }) => {
+  const { userName, isNameRegistered } = useUser();
   const [projectName, setProjectName] = useState(initialData?.projectName || '');
   const [serialNumber, setSerialNumber] = useState(initialData?.serialNumber || '');
   const [elevatorType, setElevatorType] = useState<CustomerElevatorType>(
     initialData?.elevatorType || 'MRL'
   );
-  const [auditorName, setAuditorName] = useState(
-    initialData?.auditorName || 'Beta Asansör Denetim Ekibi'
-  );
+  const [auditorName, setAuditorName] = useState(() => {
+    if (userName && isNameRegistered) return userName;
+    return initialData?.auditorName || 'Beta Asansör Denetim Ekibi';
+  });
   const [inspectionDate, setInspectionDate] = useState(
     initialData?.inspectionDate || new Date().toISOString().split('T')[0]
   );
@@ -34,10 +37,14 @@ export const CustomerInspectionForm: React.FC<CustomerInspectionFormProps> = ({
     setProjectName(initialData?.projectName || '');
     setSerialNumber(initialData?.serialNumber || '');
     setElevatorType(initialData?.elevatorType || 'MRL');
-    setAuditorName(initialData?.auditorName || 'Beta Asansör Denetim Ekibi');
+    if (userName && isNameRegistered) {
+      setAuditorName(userName);
+    } else {
+      setAuditorName(initialData?.auditorName || 'Beta Asansör Denetim Ekibi');
+    }
     setInspectionDate(initialData?.inspectionDate || new Date().toISOString().split('T')[0]);
     setFormError(null);
-  }, [initialData]);
+  }, [initialData, userName, isNameRegistered]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,26 +267,48 @@ export const CustomerInspectionForm: React.FC<CustomerInspectionFormProps> = ({
           {/* Auditor & Date */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label
-                className={`block text-xs font-bold mb-1 flex items-center gap-1.5 ${
-                  isDark ? 'text-slate-300' : 'text-slate-700'
-                }`}
-              >
-                <User className="w-3.5 h-3.5 text-slate-400" />
-                Denetimi Yapan Denetçi / Mühendis <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={auditorName}
-                onChange={(e) => setAuditorName(e.target.value)}
-                placeholder="Ad Soyad"
-                className={`w-full px-3.5 py-2.5 text-sm rounded-xl border outline-none font-medium transition-all ${
-                  isDark
-                    ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
-                    : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-100'
-                }`}
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label
+                  className={`text-xs font-bold flex items-center gap-1.5 ${
+                    isDark ? 'text-slate-300' : 'text-slate-700'
+                  }`}
+                >
+                  <User className="w-3.5 h-3.5 text-slate-400" />
+                  Denetimi Yapan Denetçi / Mühendis <span className="text-rose-500">*</span>
+                </label>
+                {isNameRegistered && userName && (
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
+                    Kilitli Profil
+                  </span>
+                )}
+              </div>
+
+              {isNameRegistered && userName ? (
+                <div
+                  className={`w-full px-3.5 py-2.5 text-sm rounded-xl border font-black flex items-center justify-between shadow-xs ${
+                    isDark
+                      ? 'bg-slate-950 border-slate-700 text-white'
+                      : 'bg-slate-50 border-slate-300 text-slate-900'
+                  }`}
+                >
+                  <span>{userName}</span>
+                  <Lock className="w-4 h-4 text-emerald-400 shrink-0" />
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  required
+                  value={auditorName}
+                  onChange={(e) => setAuditorName(e.target.value)}
+                  placeholder="Ad Soyad"
+                  className={`w-full px-3.5 py-2.5 text-sm rounded-xl border outline-none font-medium transition-all ${
+                    isDark
+                      ? 'bg-slate-950 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20'
+                      : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-100'
+                  }`}
+                />
+              )}
             </div>
 
             <div>

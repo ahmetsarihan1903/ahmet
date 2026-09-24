@@ -1,7 +1,8 @@
-import React from 'react';
-import { Calendar, User, Building2, ArrowRight } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Calendar, User, Building2, ArrowRight, Lock } from 'lucide-react';
 import { SmartTextInput } from './SmartTextInput';
 import { BetaLogo } from './BetaLogo';
+import { useUser } from '../context/UserContext';
 
 interface Step1WelcomeProps {
   dateDisplay: string;
@@ -20,7 +21,17 @@ export const Step1Welcome: React.FC<Step1WelcomeProps> = ({
   onClientProjectChange,
   onProceed,
 }) => {
-  const isFormValid = inspectorName.trim().length > 0 && clientProjectName.trim().length > 0;
+  const { userName, isNameRegistered } = useUser();
+
+  // If user profile is set, auto-fill inspectorName
+  useEffect(() => {
+    if (userName && (!inspectorName || inspectorName !== userName)) {
+      onInspectorChange(userName);
+    }
+  }, [userName, inspectorName, onInspectorChange]);
+
+  const effectiveInspector = isNameRegistered && userName ? userName : inspectorName;
+  const isFormValid = effectiveInspector.trim().length > 0 && clientProjectName.trim().length > 0;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,21 +70,44 @@ export const Step1Welcome: React.FC<Step1WelcomeProps> = ({
             <p className="text-sm font-bold text-slate-200 font-mono">{dateDisplay}</p>
           </div>
 
-          {/* Inspector Name Input */}
+          {/* Inspector Name Input (Sabit Kullanıcı Profili) */}
           <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 uppercase tracking-wider">
-              <User className="w-3.5 h-3.5 text-blue-400" />
-              <span>Kontrolü Yapan Personel / Usta</span>
-              <span className="text-orange-400">*</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+                <User className="w-3.5 h-3.5 text-blue-400" />
+                <span>Kontrolü Yapan Personel / Usta</span>
+                <span className="text-orange-400">*</span>
+              </div>
+              {isNameRegistered && userName && (
+                <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                  <Lock className="w-3 h-3" />
+                  Kullanıcı Profilinden Sabitlendi
+                </span>
+              )}
             </div>
-            <SmartTextInput
-              id="input-inspector-name"
-              value={inspectorName}
-              onChange={onInspectorChange}
-              placeholder="Adınızı ve soyadınızı yazın veya söyleyin..."
-              required
-              helperText="Metin veya mikrofon [🎙️] ikonuna basarak sesli giriş yapabilirsiniz."
-            />
+
+            {isNameRegistered && userName ? (
+              <div className="bg-slate-950 border border-slate-700/80 rounded-lg px-3.5 py-3 flex items-center justify-between shadow-xs">
+                <span className="font-black text-sm text-white tracking-wide">
+                  {userName}
+                </span>
+                <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+              </div>
+            ) : (
+              <SmartTextInput
+                id="input-inspector-name"
+                value={inspectorName}
+                onChange={onInspectorChange}
+                placeholder="Adınızı ve soyadınızı yazın veya söyleyin..."
+                required
+                helperText="Metin veya mikrofon [🎙️] ikonuna basarak sesli giriş yapabilirsiniz."
+              />
+            )}
+            {isNameRegistered && userName && (
+              <p className="text-[10px] text-slate-400 italic">
+                Bu isim cihaz profilinize sabitlenmiştir. Değiştirmek için ana sayfadaki Ayarlar &gt; Yönetici Girişi bölümünü kullanınız.
+              </p>
+            )}
           </div>
 
           {/* Client / Project Name Input */}

@@ -1,4 +1,5 @@
 import { ElevatorType } from '../../types';
+import { loadCustomerSyncedItemsFromStorage } from '../../services/customerDataSyncService';
 
 export type CustomerElevatorType = ElevatorType;
 
@@ -49,11 +50,6 @@ export const MASTER_CUSTOMER_CHECKLIST: BaseChecklistItem[] = [
   },
   {
     itemNumber: 3,
-    category: 'COMMON',
-    description: 'DENEME MADDESİ',
-  },
-  {
-    itemNumber: 4,
     category: 'COMMON',
     description: 'Asansör kat kapısı önü sahanlık aydınlatmaları yapılmalıdır (Min. 50 lüks sağlamalıdır).',
   },
@@ -173,14 +169,46 @@ export const MASTER_CUSTOMER_CHECKLIST: BaseChecklistItem[] = [
   },
 ];
 
-import { loadCustomerSyncedItemsFromStorage } from '../../services/customerDataSyncService';
-
 export function generateInitialCustomerItems(elevatorType: CustomerElevatorType): CustomerInspectionItem[] {
+  try {
+    const customSynced = loadCustomerSyncedItemsFromStorage();
+    if (
+      customSynced &&
+      ((customSynced.common && customSynced.common.length > 0) ||
+        (customSynced.mr && customSynced.mr.length > 0) ||
+        (customSynced.mrl && customSynced.mrl.length > 0))
+    ) {
+      const commonList = (customSynced.common || []).map((ci: any) => ({
+        category: 'COMMON' as const,
+        description: ci.description,
+      }));
+      const specificList = (
+        elevatorType === 'MRL' ? customSynced.mrl || [] : customSynced.mr || []
+      ).map((si: any) => ({
+        category: elevatorType as 'MR' | 'MRL',
+        description: si.description,
+      }));
+
+      const combined = [...commonList, ...specificList];
+      return combined.map((item, idx) => ({
+        id: `synced-${item.category}-${idx + 1}`,
+        itemNumber: idx + 1,
+        category: item.category,
+        description: item.description,
+        isDefective: false,
+        notes: '',
+        isCustom: false,
+      }));
+    }
+  } catch (e) {
+    console.error('Error generating items from custom synced data', e);
+  }
+
   const baseFiltered = MASTER_CUSTOMER_CHECKLIST.filter(
     (item) => item.category === 'COMMON' || item.category === elevatorType
   );
 
-  const baseItems: CustomerInspectionItem[] = baseFiltered.map((item, index) => ({
+  return baseFiltered.map((item, index) => ({
     id: `item-${item.category}-${item.itemNumber}-${index}`,
     itemNumber: index + 1,
     category: item.category,
@@ -189,32 +217,4 @@ export function generateInitialCustomerItems(elevatorType: CustomerElevatorType)
     notes: '',
     isCustom: false,
   }));
-
-  try {
-    const customSynced = loadCustomerSyncedItemsFromStorage();
-    if (customSynced) {
-      const commonExtra = (customSynced.common || []).filter(
-        (ci: any) => !baseFiltered.some((bf) => bf.category === 'COMMON' && bf.description.trim().toLowerCase() === ci.description.trim().toLowerCase())
-      );
-      const specificExtra = (elevatorType === 'MRL' ? (customSynced.mrl || []) : (customSynced.mr || [])).filter(
-        (ci: any) => !baseFiltered.some((bf) => bf.category === elevatorType && bf.description.trim().toLowerCase() === ci.description.trim().toLowerCase())
-      );
-
-      const extraItems = [...commonExtra, ...specificExtra].map((item: any, idx: number) => ({
-        id: `extra-item-${idx + 1}-${Date.now()}`,
-        itemNumber: baseItems.length + idx + 1,
-        category: (idx < commonExtra.length ? 'COMMON' : elevatorType) as 'COMMON' | 'MR' | 'MRL',
-        description: item.description,
-        isDefective: false,
-        notes: '',
-        isCustom: true,
-      }));
-
-      return [...baseItems, ...extraItems];
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  return baseItems;
 }

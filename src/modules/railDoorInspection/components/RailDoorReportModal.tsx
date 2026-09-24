@@ -22,7 +22,10 @@ import {
   Loader2,
   FileText,
   Printer,
+  Smartphone,
+  ShieldCheck,
 } from 'lucide-react';
+import { useUser } from '../../../context/UserContext';
 import {
   downloadRailDoorPdf,
   shareRailDoorPdf,
@@ -38,6 +41,7 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
   data,
   onClose,
 }) => {
+  const { deviceProfile } = useUser();
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -312,6 +316,24 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
           <div className="sm:col-span-2">
             <span className="text-[11px] font-bold text-slate-600 block uppercase">Kontrolü Yapan</span>
             <span className="text-xs sm:text-sm font-black text-slate-900">{data.identity.inspector || '-'}</span>
+          </div>
+
+          {/* Cihaz Donanım & Kurulum Güvenlik Kimliği */}
+          <div className="col-span-2 sm:col-span-4 pt-2 mt-0.5 border-t border-slate-300 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+            <div className="flex items-center gap-1.5">
+              <Smartphone className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span className="font-bold text-slate-600 uppercase tracking-wider">Cihaz Donanım No:</span>
+              <span className="font-black text-slate-950 font-mono bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300">
+                {deviceProfile.hardwareId}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="font-bold text-slate-600 uppercase tracking-wider">Kurulum Güvenlik ID:</span>
+              <span className="font-black text-emerald-900 font-mono bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">
+                #{deviceProfile.installationId}
+              </span>
+            </div>
           </div>
         </div>
 

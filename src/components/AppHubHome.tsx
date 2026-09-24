@@ -16,6 +16,7 @@ import {
   FileCheck2,
 } from 'lucide-react';
 import { FontSizeControl } from './FontSizeControl';
+import { HubSettingsModal } from './HubSettingsModal';
 import { useTheme } from '../context/ThemeContext';
 import { loadActiveDraft } from '../utils/storage';
 
@@ -108,16 +109,17 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
             </div>
           </div>
 
-          {/* Sağ Kısım: Genel Ayarlar */}
+          {/* Sağ Kısım: Genel Ayarlar İkonu */}
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setShowSettings(true)}
-              title="Genel Ayarlar, Yazı Boyutu & Tema"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-lg text-xs font-bold transition-all border border-white/25 cursor-pointer shadow-xs"
+              title="Ayarlar (Tema, Punto & Yönetici Paneli)"
+              className="p-2 sm:px-3 sm:py-2 bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-xl text-xs font-bold transition-all border border-white/25 cursor-pointer shadow-xs flex items-center gap-2"
+              aria-label="Ayarlar"
             >
-              <Settings className="w-3.5 h-3.5 text-amber-300" />
-              <span className="hidden sm:inline font-bold">Görünüm & Punto</span>
+              <Settings className="w-4 h-4 text-amber-300" />
+              <span className="hidden sm:inline font-bold text-amber-200">Ayarlar</span>
             </button>
           </div>
         </div>
@@ -329,108 +331,8 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
         <p>© Beta Asansör Mühendislik & Kalite Güvence Sistemi</p>
       </footer>
 
-      {/* HUB PORTALI AYARLAR & PUNTO MODALI */}
-      {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-fadeIn overflow-y-auto">
-          <div className={`rounded-xl max-w-md w-full p-3.5 sm:p-4 shadow-2xl border max-h-[85vh] flex flex-col ${
-            isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-300 text-slate-900'
-          }`}>
-            {/* Header */}
-            <div className={`flex items-center justify-between pb-3 border-b mb-3 ${
-              isDark ? 'border-slate-800' : 'border-slate-200'
-            }`}>
-              <div className="flex items-center gap-2.5">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold ${
-                  isDark ? 'bg-orange-600/20 text-orange-400' : 'bg-orange-100 text-orange-600'
-                }`}>
-                  <Settings className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className={`font-black text-sm ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
-                    SAHA PORTALI AYARLARI
-                  </h3>
-                  <p className={`text-[11px] font-medium ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                    Yazı Puntosu & Ekran Görünüm Seçenekleri
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowSettings(false)}
-                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                  isDark
-                    ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3.5 overflow-y-auto pr-0.5">
-              {/* Tema Seçimi */}
-              <div className={`p-3.5 rounded-lg border ${
-                isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-              }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${
-                    isDark ? 'text-slate-300' : 'text-slate-800'
-                  }`}>
-                    {isDark ? <Moon className="w-3.5 h-3.5 text-blue-400" /> : <Sun className="w-3.5 h-3.5 text-amber-500" />}
-                    Ekran Teması
-                  </span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                    isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-800'
-                  }`}>
-                    {isDark ? 'Karanlık Mod' : 'Gündüz Modu'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setTheme('dark')}
-                    className={`py-2 px-3 rounded-lg border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                      isDark
-                        ? 'bg-blue-600 text-white border-blue-400 shadow-md font-black'
-                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'
-                    }`}
-                  >
-                    <Moon className="w-4 h-4" />
-                    <span>Karanlık Mod</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setTheme('light')}
-                    className={`py-2 px-3 rounded-lg border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                      !isDark
-                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md font-black'
-                        : 'bg-slate-900 text-slate-400 border-slate-700 hover:border-slate-500'
-                    }`}
-                  >
-                    <Sun className="w-4 h-4" />
-                    <span>Gündüz Modu</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Yazı Boyutu & Punto Kontrolü */}
-              <FontSizeControl />
-            </div>
-
-            <div className={`mt-3 pt-2.5 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-              <button
-                type="button"
-                onClick={() => setShowSettings(false)}
-                className="w-full py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-black transition cursor-pointer"
-              >
-                Tamam / Kapat
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* HUB PORTALI AYARLAR & PUNTO & YÖNETİCİ MODALI */}
+      <HubSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 };

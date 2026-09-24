@@ -23,12 +23,14 @@ import {
   saveManualAuditSnapshot,
 } from '../../utils/storage';
 import { useTheme } from '../../context/ThemeContext';
+import { useUser } from '../../context/UserContext';
 import {
   uploadAuditJsonToDrive,
   queueAuditForCloudSync,
   getQueuedAuditForCloudSync,
   clearQueuedAuditForCloudSync,
   getCachedDriveToken,
+  isCloudConfigured,
 } from '../../services/googleDriveService';
 
 // Helper to sync draft measures with default fixed measures
@@ -140,11 +142,13 @@ interface QualityControlModuleProps {
 
 export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleProps) {
   const { isDark } = useTheme();
+  const { userName, isNameRegistered } = useUser();
   const [formData, setFormData] = useState<AuditFormData>(() => {
     // 1. Önce aktif taslağı yükle (hangi adımda kalmışsa: welcome, specs, audit veya report)
     const draft = loadActiveDraft();
     if (draft) {
-      return syncDraftWithMaster(draft);
+      const synced = syncDraftWithMaster(draft);
+      return synced;
     }
 
     const defaultStopCount = 10;
@@ -153,11 +157,13 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
     // Check if custom synced items exist in local storage
     const customSynced = loadSyncedItemsFromStorage();
 
+    const storedUser = localStorage.getItem('beta_asansor_user_name') || '';
+
     return {
       auditId: `audit_${Date.now()}`,
       date: new Date().toISOString(),
       dateDisplay: getCurrentDateFormatted(),
-      inspectorName: '',
+      inspectorName: storedUser,
       clientProjectName: '',
       elevatorType: 'MR',
       serialNumber: '',
@@ -270,8 +276,8 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
   useEffect(() => {
     const handleOnline = async () => {
       const queuedData = getQueuedAuditForCloudSync();
-      const token = getCachedDriveToken();
-      if (queuedData && token) {
+      const hasCloud = isCloudConfigured();
+      if (queuedData && hasCloud) {
         try {
           await uploadAuditJsonToDrive(queuedData, undefined, { silent: true });
           setSaveToastMessage('İnternet bağlantısı sağlandı: Bekleyen veriler Drive\'a senkronize edildi ✓');
@@ -293,10 +299,10 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
     setIsSaveSuccess(true);
 
     const isOnline = typeof navigator === 'undefined' || navigator.onLine;
-    const token = getCachedDriveToken();
+    const hasCloud = isCloudConfigured();
 
-    // 2. If online and drive token available, sync immediately with overwrite
-    if (isOnline && token) {
+    // 2. If online and drive cloud configured, sync immediately with overwrite
+    if (isOnline && hasCloud) {
       setSaveToastMessage('Yerel kaydedildi. Drive bulutuna senkronize ediliyor...');
       try {
         const res = await uploadAuditJsonToDrive(formData, undefined, { silent: true });
@@ -314,7 +320,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
       queueAuditForCloudSync(formData);
       setSaveToastMessage('Cihaz çevrimdışı: Yerel kaydedildi (İnternet gelince Drive\'a yüklenecek) ✓');
     } else {
-      // Online but no drive token yet
+      // Online but no drive cloud configured yet
       queueAuditForCloudSync(formData);
       setSaveToastMessage('Denetim taslağı başarıyla yerel olarak kaydedildi ✓');
     }
@@ -613,7 +619,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
       auditId: `audit_${Date.now()}`,
       date: new Date().toISOString(),
       dateDisplay: getCurrentDateFormatted(),
-      inspectorName: '',
+      inspectorName: userName || '',
       clientProjectName: '',
       elevatorType: 'MR',
       serialNumber: '',

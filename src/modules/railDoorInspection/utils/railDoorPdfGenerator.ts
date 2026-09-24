@@ -13,6 +13,7 @@ import {
   getColumnInferredNominals,
 } from '../constants';
 import { getBetaLogoDataUrl } from '../../../utils/logoUtils';
+import { getDeviceSecurityProfile } from '../../../utils/deviceSecurity';
 
 // Clean Turkish special characters for standard jsPDF Latin fonts to prevent garbled text
 export const cleanTr = (val: string | number | undefined | null): string => {
@@ -109,6 +110,7 @@ export function buildRailDoorJsPdfDocument(data: RailDoorInspectionFullData): js
 
   // 2. PROJECT METADATA TABLE (4 Columns Grid)
   let lastY = margin + bannerHeight + 3;
+  const devSec = getDeviceSecurityProfile();
 
   const metaRows = [
     [
@@ -130,6 +132,16 @@ export function buildRailDoorJsPdfDocument(data: RailDoorInspectionFullData): js
       cleanTr(data.identity.inspector) || '-',
       { content: 'TIP & YERLESIM:', styles: { fontStyle: 'bold' as const, fillColor: [241, 245, 249] as [number, number, number] } },
       `${cleanTr(typeConfig?.label || '')} (${cleanTr(layoutObj?.label || '')})`,
+    ],
+    [
+      { content: 'CIHAZ DONANIM NO:', styles: { fontStyle: 'bold' as const, fillColor: [241, 245, 249] as [number, number, number] } },
+      cleanTr(devSec.hardwareId),
+      { content: 'KURULUM ID:', styles: { fontStyle: 'bold' as const, fillColor: [241, 245, 249] as [number, number, number] } },
+      cleanTr(`#${devSec.installationId}`),
+      { content: 'DENETIM TARIHI:', styles: { fontStyle: 'bold' as const, fillColor: [241, 245, 249] as [number, number, number] } },
+      cleanTr(data.inspectionDateDisplay || '-'),
+      { content: 'GUVENLIK DOGRULAMA:', styles: { fontStyle: 'bold' as const, fillColor: [241, 245, 249] as [number, number, number] } },
+      'KILITLI RESMI KAYIT',
     ],
   ];
 
@@ -527,7 +539,7 @@ export function buildRailDoorJsPdfDocument(data: RailDoorInspectionFullData): js
     doc.setTextColor(148, 163, 184); // Slate 400
     doc.setFont('helvetica', 'normal');
     doc.text(
-      'Beta Asansor Kalite Guvence & Olcu Sistemi tarafindan derlenmistir. Bu belge resmi montaj kontrol kaydidir.',
+      `Beta Asansor Ray & Kapi - Cihaz Donanim: ${cleanTr(devSec.hardwareId)} (#${cleanTr(devSec.installationId)}) - Resmi Montaj Kontrol Kaydi`,
       margin,
       pageHeight - 5
     );
