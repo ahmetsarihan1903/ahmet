@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { RailDoorInspectionFullData } from '../types';
 import {
   ELEVATOR_TYPE_CONFIGS,
-  getMeasurementDefsForLayout,
-  MEASUREMENTS_MACHINE_CHASSIS,
   getDefaultFloorAlias,
   formatCmToMm,
   calculateMmDeviation,
   getColumnInferredNominals,
-  LAYOUT_TITLES,
+  calculateColumnMinMm,
+  evaluateColumns1And2Diff,
 } from '../constants';
 import { BetaLogo } from '../../../components/BetaLogo';
 import {
@@ -20,10 +19,14 @@ import {
   Download,
   CheckCircle2,
   Loader2,
-  FileText,
   Printer,
   Smartphone,
   ShieldCheck,
+  Image as ImageIcon,
+  Upload,
+  Trash2,
+  RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import { useUser } from '../../../context/UserContext';
 import {
@@ -31,23 +34,44 @@ import {
   shareRailDoorPdf,
   getRailDoorStandardizedFileName,
 } from '../utils/railDoorPdfGenerator';
+import {
+  loadPersistentReportImages,
+  savePersistentReportImage,
+  compressImageFile,
+  ReportImageData,
+} from '../utils/imageHelper';
 
 interface RailDoorReportModalProps {
   data: RailDoorInspectionFullData;
   onClose: () => void;
+  onUpdateData?: (updatedData: RailDoorInspectionFullData) => void;
 }
 
 export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
   data,
   onClose,
+  onUpdateData,
 }) => {
   const { deviceProfile } = useUser();
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  const railDefs = getMeasurementDefsForLayout(data.layoutPosition);
-  const chassisDefs = MEASUREMENTS_MACHINE_CHASSIS;
+  // 1. Resim (Tip Yerleşimi ile 1. Bölüm Matrisi Arası Çizim) & 2. Resim (Kuyudibi ile Şase Tablosu Arası Çizim)
+  const persistentImages = loadPersistentReportImages();
+  const [reportLayoutImg, setReportLayoutImg] = useState<ReportImageData | null>(
+    data.reportLayoutImage || persistentImages.layoutImage || null
+  );
+  const [reportChassisImg, setReportChassisImg] = useState<ReportImageData | null>(
+    data.reportChassisImage || persistentImages.chassisImage || null
+  );
+
+  const [isUploadingLayout, setIsUploadingLayout] = useState(false);
+  const [isUploadingChassis, setIsUploadingChassis] = useState(false);
+
+  const layoutInputRef = useRef<HTMLInputElement>(null);
+  const chassisInputRef = useRef<HTMLInputElement>(null);
+
   const typeConfig = ELEVATOR_TYPE_CONFIGS.find((c) => c.type === data.mainType);
   const layoutObj = typeConfig?.allowedLayouts.find((l) => l.layout === data.layoutPosition);
 
@@ -63,82 +87,110 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
     columnCodes
   );
 
-  // Sapmaları topla (Tümü MM cinsinden hesaplanır)
-  const matrixDeviations: {
-    stopLabel: string;
-    colCode: string;
-    projectMm: number | null;
-    actualMm: number;
-    diffMm: number;
-    badgeText: string;
-    isCritical: boolean;
-    isInferred?: boolean;
-  }[] = [];
+  // Görsel yükleme işlemi (1. Resim - Tip Yerleşimi Çizimi)
+  const handleLayoutImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  stopIndices.forEach((sIdx) => {
-    const floorNum = startFloor + (sIdx - 1);
-    const alias = data.floorAliases?.[sIdx] ?? getDefaultFloorAlias(floorNum);
-    const stopLabel = `${sIdx}.DR (${alias})`;
-    const row = data.floorMatrixMeasurements?.[String(sIdx)] || {};
+    try {
+      setIsUploadingLayout(true);
+      const compressedUrl = await compressImageFile(file, 1200, 900, 0.85);
+      const imgData: ReportImageData = {
+        imageName: file.name,
+        imageUrl: compressedUrl,
+      };
 
-    columnCodes.forEach((cCode) => {
-      const act = row[cCode];
-      const nom = data.projectNominalValues?.[cCode];
-      const dev = calculateMmDeviation(
-        act,
-        nom,
-        cCode,
-        inferredNominals[cCode],
-        data.layoutPosition
-      );
-      if (dev && !dev.isMatch) {
-        matrixDeviations.push({
-          stopLabel,
-          colCode: cCode,
-          projectMm: dev.nomMm,
-          actualMm: dev.cellMm,
-          diffMm: dev.diffMm,
-          badgeText: dev.badgeText,
-          isCritical: dev.isCritical,
-          isInferred: dev.isInferred,
-        });
+      setReportLayoutImg(imgData);
+      savePersistentReportImage('layout', imgData);
+
+      if (onUpdateData) {
+        onUpdateData({ ...data, reportLayoutImage: imgData });
       }
-    });
-  });
 
-  const chassisDeviations: {
-    code: string;
-    title: string;
-    project: string;
-    actual: string;
-    diff: number;
-  }[] = [];
-
-  chassisDefs.forEach((mDef) => {
-    const val = data.machineChassisMeasurements?.[mDef.code];
-    if (val && val.projectValueMm && val.actualValueMm) {
-      const p = parseFloat(val.projectValueMm.replace(',', '.'));
-      const a = parseFloat(val.actualValueMm.replace(',', '.'));
-      if (!isNaN(p) && !isNaN(a) && a - p !== 0) {
-        chassisDeviations.push({
-          code: mDef.code,
-          title: mDef.title,
-          project: val.projectValueMm,
-          actual: val.actualValueMm,
-          diff: a - p,
-        });
-      }
+      setStatusMessage({
+        text: '1. Çizim (Tip Yerleşimi) başarıyla eklendi ve tüm projeleriniz için sabitlendi.',
+        type: 'success',
+      });
+      setTimeout(() => setStatusMessage(null), 4000);
+    } catch (err: any) {
+      setStatusMessage({ text: 'Görsel yüklenirken hata: ' + (err?.message || ''), type: 'error' });
+    } finally {
+      setIsUploadingLayout(false);
+      e.target.value = '';
     }
-  });
+  };
 
-  const totalDeviationsCount = matrixDeviations.length + chassisDeviations.length;
+  // 1. Resmi Kaldırma
+  const handleRemoveLayoutImage = () => {
+    setReportLayoutImg(null);
+    savePersistentReportImage('layout', null);
+    if (onUpdateData) {
+      onUpdateData({ ...data, reportLayoutImage: undefined });
+    }
+    setStatusMessage({ text: '1. Çizim (Tip Yerleşimi) rapordan kaldırıldı.', type: 'success' });
+    setTimeout(() => setStatusMessage(null), 3000);
+  };
+
+  // Görsel yükleme işlemi (2. Resim - Şase & Kuyu Çizimi)
+  const handleChassisImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingChassis(true);
+      const compressedUrl = await compressImageFile(file, 1200, 900, 0.85);
+      const imgData: ReportImageData = {
+        imageName: file.name,
+        imageUrl: compressedUrl,
+      };
+
+      setReportChassisImg(imgData);
+      savePersistentReportImage('chassis', imgData);
+
+      if (onUpdateData) {
+        onUpdateData({ ...data, reportChassisImage: imgData });
+      }
+
+      setStatusMessage({
+        text: '2. Çizim (Şase & Kuyudibi) başarıyla eklendi ve tüm projeleriniz için sabitlendi.',
+        type: 'success',
+      });
+      setTimeout(() => setStatusMessage(null), 4000);
+    } catch (err: any) {
+      setStatusMessage({ text: 'Görsel yüklenirken hata: ' + (err?.message || ''), type: 'error' });
+    } finally {
+      setIsUploadingChassis(false);
+      e.target.value = '';
+    }
+  };
+
+  // 2. Resmi Kaldırma
+  const handleRemoveChassisImage = () => {
+    setReportChassisImg(null);
+    savePersistentReportImage('chassis', null);
+    if (onUpdateData) {
+      onUpdateData({ ...data, reportChassisImage: undefined });
+    }
+    setStatusMessage({ text: '2. Çizim (Şase & Kuyudibi) rapordan kaldırıldı.', type: 'success' });
+    setTimeout(() => setStatusMessage(null), 3000);
+  };
+
+  // Aktif görsellerle donatılmış tam rapor verisi
+  const getFullDataWithImages = (): RailDoorInspectionFullData => {
+    return {
+      ...data,
+      reportLayoutImage: reportLayoutImg || undefined,
+      reportChassisImage: reportChassisImg || undefined,
+    };
+  };
 
   const handleDownloadPDF = async () => {
     if (isDownloading) return;
     setIsDownloading(true);
     setStatusMessage(null);
     try {
-      const res = await downloadRailDoorPdf(data);
+      const activeData = getFullDataWithImages();
+      const res = await downloadRailDoorPdf(activeData);
       if (res.success) {
         setStatusMessage({ text: res.message, type: 'success' });
       } else {
@@ -157,7 +209,8 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
     setIsSharing(true);
     setStatusMessage(null);
     try {
-      const res = await shareRailDoorPdf(data);
+      const activeData = getFullDataWithImages();
+      const res = await shareRailDoorPdf(activeData);
       if (res.success) {
         setStatusMessage({ text: res.message, type: 'success' });
       } else {
@@ -173,6 +226,22 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex flex-col justify-start items-center pt-[max(0.5rem,calc(env(safe-area-inset-top,0px)+0.25rem))] pb-[max(0.75rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))] px-2 sm:px-4 overflow-y-auto">
+      {/* Gizli File Inputlar */}
+      <input
+        ref={layoutInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleLayoutImageUpload}
+        className="hidden"
+      />
+      <input
+        ref={chassisInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleChassisImageUpload}
+        className="hidden"
+      />
+
       {/* Üst İşlem Çubuğu (Modal Bar) */}
       <div className="w-full max-w-5xl bg-slate-900 border border-slate-700 rounded-2xl p-3 sm:p-4 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xl shrink-0 print:hidden sticky top-[max(0.5rem,calc(env(safe-area-inset-top,0px)+0.25rem))] z-10">
         <div className="flex items-center gap-2">
@@ -260,7 +329,7 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
         </div>
       )}
 
-      {/* RESMİ A4 PDF ÇIKTI ALANI (Minimum 11 punto / text-xs ve üzeri) */}
+      {/* RESMİ A4 PDF ÇIKTI ALANI */}
       <div
         id="official-pdf-report"
         className="w-full max-w-5xl bg-white text-slate-900 rounded-xl shadow-2xl p-6 sm:p-8 space-y-6 print:p-0 print:shadow-none print:w-full print:max-w-none text-xs sm:text-sm leading-relaxed"
@@ -352,6 +421,90 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
           </div>
         </div>
 
+        {/* ========================================================================= */}
+        {/* 1. GÖRSEL ALANI: TIP YERLEŞİMİ İLE 1. BÖLÜM RAY KAPI MATRİSİ ARASI ÇİZİM */}
+        {/* ========================================================================= */}
+        <div className="rounded-xl border border-slate-300 overflow-hidden bg-slate-50/80 p-3 space-y-2.5">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded bg-amber-600/10 text-amber-700 flex items-center justify-center font-bold">
+                <ImageIcon className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <h4 className="font-black text-xs text-slate-900">
+                  1. Çizim: Tip Yerleşimi ve Kuyu Kesit Görseli
+                </h4>
+                <p className="text-[10px] text-slate-500">
+                  Rapor çıktısına ve PDF'e sabitlenir (Yeni projelerde otomatik korunur)
+                </p>
+              </div>
+            </div>
+
+            {/* Aksiyon Butonları (Yükle / Değiştir / Sil) */}
+            <div className="flex items-center gap-1.5 print:hidden">
+              {reportLayoutImg?.imageUrl ? (
+                <>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Sabitlendi
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => layoutInputRef.current?.click()}
+                    disabled={isUploadingLayout}
+                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isUploadingLayout ? 'animate-spin' : ''}`} />
+                    <span>Değiştir</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveLayoutImage}
+                    className="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded text-[11px] font-bold flex items-center gap-1 border border-rose-300 cursor-pointer"
+                    title="Görseli Kaldır"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Kaldır</span>
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => layoutInputRef.current?.click()}
+                  disabled={isUploadingLayout}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <Upload className={`w-3.5 h-3.5 ${isUploadingLayout ? 'animate-spin' : ''}`} />
+                  <span>{isUploadingLayout ? 'İşleniyor...' : 'Fotoğraf / Çizim Ekle'}</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Resim Önizleme Gövdesi */}
+          {reportLayoutImg?.imageUrl ? (
+            <div className="flex justify-center items-center bg-white rounded-lg border border-slate-200 p-2 max-h-64 overflow-hidden">
+              <img
+                src={reportLayoutImg.imageUrl}
+                alt="Tip Yerleşimi Çizimi"
+                className="max-h-60 max-w-full object-contain rounded"
+              />
+            </div>
+          ) : (
+            <div
+              onClick={() => layoutInputRef.current?.click()}
+              className="border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-lg p-3 text-center cursor-pointer transition-colors bg-white print:hidden"
+            >
+              <ImageIcon className="w-6 h-6 text-slate-400 mx-auto mb-1" />
+              <div className="text-xs font-bold text-slate-700">
+                Tip Yerleşimi Çizimi Eklemek İçin Tıklayın
+              </div>
+              <div className="text-[10px] text-slate-400 mt-0.5">
+                (Telefonunuzun galerisinden şantiye çizimini veya kuyu fotoğrafını seçebilirsiniz)
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* 1. BÖLÜM: 15 SÜTUN RAY & KAPI MATRİS TABLOSU */}
         <div className="space-y-2">
           <h3 className="text-xs sm:text-sm font-black uppercase text-slate-900 border-b-2 border-slate-900 pb-1 flex items-center justify-between">
@@ -398,6 +551,7 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
                   const floorNum = startFloor + (sIdx - 1);
                   const alias = data.floorAliases?.[sIdx] ?? getDefaultFloorAlias(floorNum);
                   const row = data.floorMatrixMeasurements?.[String(sIdx)] || {};
+                  const row1And2Diff = evaluateColumns1And2Diff(row['1'], row['2'], 3);
 
                   return (
                     <tr key={`rep-stop-${sIdx}`} className={rowIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
@@ -408,8 +562,13 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
                         {alias}
                       </td>
                       {columnCodes.map((cCode) => {
+                        const cellKey = `${sIdx}_${cCode}`;
                         const cellVal = row[cCode] || '';
                         const nomVal = data.projectNominalValues?.[cCode] || '';
+                        const isFlagged = !!data.flaggedAbnormalCells?.[cellKey];
+                        const isCol1Or2 = cCode === '1' || cCode === '2';
+                        const isCol12DiffExceeded = isCol1Or2 && row1And2Diff.hasBoth && row1And2Diff.exceeded;
+
                         const dev = calculateMmDeviation(
                           cellVal,
                           nomVal,
@@ -418,20 +577,62 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
                           data.layoutPosition
                         );
 
-                        let textClass = 'text-slate-900';
+                        let cellStyle = 'text-slate-900';
                         if (dev && !dev.isMatch) {
-                          textClass = dev.isCritical ? 'text-red-700 font-black bg-red-50' : 'text-amber-800 font-bold bg-amber-50';
+                          cellStyle = dev.isCritical ? 'text-red-700 font-black bg-red-50' : 'text-amber-800 font-bold bg-amber-50';
+                        }
+
+                        if (isCol12DiffExceeded && !isFlagged) {
+                          cellStyle = 'text-amber-900 font-black bg-amber-100 border border-amber-400';
+                        }
+
+                        if (isFlagged) {
+                          cellStyle = '!bg-black !text-white font-black border border-black';
                         }
 
                         return (
-                          <td key={`rep-cell-${sIdx}-${cCode}`} className={`border border-slate-400 p-1 font-mono ${textClass}`}>
-                            {formatCmToMm(cellVal, '---')}
+                          <td
+                            key={`rep-cell-${sIdx}-${cCode}`}
+                            style={isFlagged ? { backgroundColor: '#000000', color: '#ffffff' } : undefined}
+                            className={`border border-slate-400 p-1 font-mono ${cellStyle}`}
+                          >
+                            <span
+                              style={isFlagged ? { color: '#ffffff' } : undefined}
+                              className={isFlagged ? '!text-white font-black' : undefined}
+                            >
+                              {formatCmToMm(cellVal, '---')}
+                            </span>
                           </td>
                         );
                       })}
                     </tr>
                   );
                 })}
+
+                {/* SONUÇ (MIN) EN KÜÇÜK ÖLÇÜ SATIRI (BOYAMASIZ / SADE) */}
+                {(() => {
+                  const columnMins = calculateColumnMinMm(data.floorMatrixMeasurements || {}, columnCodes, stopCount);
+
+                  return (
+                    <tr className="bg-slate-100 border-t-2 border-slate-900 font-bold">
+                      <td className="border border-slate-400 p-1.5 font-bold bg-slate-200 text-slate-900 text-center">
+                        SONUÇ
+                      </td>
+                      <td className="border border-slate-400 p-1.5 font-bold bg-slate-200 text-slate-900 text-center">
+                        MIN
+                      </td>
+                      {columnCodes.map((cCode) => {
+                        const minMm = columnMins[cCode];
+
+                        return (
+                          <td key={`rep-min-${cCode}`} className="border border-slate-400 p-1 font-mono text-center font-bold text-slate-900 bg-slate-100">
+                            {minMm !== null ? `${minMm}` : '---'}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })()}
               </tbody>
             </table>
           </div>
@@ -468,6 +669,90 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
                 })()}
               </span>
             </div>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* 2. GÖRSEL ALANI: KUYUDİBİ/SONKAT İLE ŞASE ÖLÇÜLERİ TABLOSU ARASI ÇİZİM     */}
+          {/* ========================================================================= */}
+          <div className="rounded-xl border border-slate-300 overflow-hidden bg-slate-50/80 p-3 space-y-2.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded bg-blue-600/10 text-blue-700 flex items-center justify-center font-bold">
+                  <ImageIcon className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <h4 className="font-black text-xs text-slate-900">
+                    2. Çizim: Şase ve Kuyudibi Detay Görseli
+                  </h4>
+                  <p className="text-[10px] text-slate-500">
+                    Rapor çıktısına ve PDF'e sabitlenir (Yeni projelerde otomatik korunur)
+                  </p>
+                </div>
+              </div>
+
+              {/* Aksiyon Butonları (Yükle / Değiştir / Sil) */}
+              <div className="flex items-center gap-1.5 print:hidden">
+                {reportChassisImg?.imageUrl ? (
+                  <>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" /> Sabitlendi
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => chassisInputRef.current?.click()}
+                      disabled={isUploadingChassis}
+                      className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isUploadingChassis ? 'animate-spin' : ''}`} />
+                      <span>Değiştir</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveChassisImage}
+                      className="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded text-[11px] font-bold flex items-center gap-1 border border-rose-300 cursor-pointer"
+                      title="Görseli Kaldır"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Kaldır</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => chassisInputRef.current?.click()}
+                    disabled={isUploadingChassis}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <Upload className={`w-3.5 h-3.5 ${isUploadingChassis ? 'animate-spin' : ''}`} />
+                    <span>{isUploadingChassis ? 'İşleniyor...' : 'Fotoğraf / Çizim Ekle'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Resim Önizleme Gövdesi */}
+            {reportChassisImg?.imageUrl ? (
+              <div className="flex justify-center items-center bg-white rounded-lg border border-slate-200 p-2 max-h-64 overflow-hidden">
+                <img
+                  src={reportChassisImg.imageUrl}
+                  alt="Şase ve Kuyudibi Çizimi"
+                  className="max-h-60 max-w-full object-contain rounded"
+                />
+              </div>
+            ) : (
+              <div
+                onClick={() => chassisInputRef.current?.click()}
+                className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-lg p-3 text-center cursor-pointer transition-colors bg-white print:hidden"
+              >
+                <ImageIcon className="w-6 h-6 text-slate-400 mx-auto mb-1" />
+                <div className="text-xs font-bold text-slate-700">
+                  Şase & Kuyudibi Çizimi Eklemek İçin Tıklayın
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  (Telefonunuzun galerisinden şase montaj şemasını veya çizimini seçebilirsiniz)
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Tablo 1: Şase Ölçüleri Kontrolü */}
@@ -507,7 +792,7 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
             </table>
           </div>
 
-          {/* Tablo 2: Konsol Mesafeleri (K, L, M, N sütunları x 2 satır: U Bölme Tarafı, Tek Ray Tarafı - cm girilir, mm gösterilir, boşsa ---) */}
+          {/* Tablo 2: Konsol Mesafeleri (K, L, M, N sütunları x 2 satır: U Bölme Tarafı, Tek Ray Tarafı) */}
           <div className="space-y-1.5 pt-1">
             <div className="text-xs font-bold text-slate-800">2. Konsol Mesafeleri (mm)</div>
             <table className="w-full text-center border-collapse border border-slate-400 text-xs">
@@ -533,7 +818,6 @@ export const RailDoorReportModal: React.FC<RailDoorReportModalProps> = ({
                     if (valCm.trim() !== '') {
                       const num = parseFloat(valCm.replace(',', '.'));
                       if (!isNaN(num)) {
-                        // cm cinsinden girilen değeri mm'ye çevir (1 cm = 10 mm)
                         displayMm = Math.round(num * 10).toString();
                       } else {
                         displayMm = valCm;

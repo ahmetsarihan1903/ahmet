@@ -11,6 +11,8 @@ import {
   formatCmToMm,
   calculateMmDeviation,
   getColumnInferredNominals,
+  calculateColumnMinMm,
+  evaluateColumns1And2Diff,
 } from '../constants';
 import { getBetaLogoDataUrl } from '../../../utils/logoUtils';
 import { getDeviceSecurityProfile } from '../../../utils/deviceSecurity';
@@ -202,6 +204,7 @@ export function buildRailDoorJsPdfDocument(data: RailDoorInspectionFullData): js
     const floorNum = startFloor + (sIdx - 1);
     const alias = cleanTr(data.floorAliases?.[sIdx] ?? getDefaultFloorAlias(floorNum));
     const row = data.floorMatrixMeasurements?.[String(sIdx)] || {};
+    const row1And2Diff = evaluateColumns1And2Diff(row['1'], row['2'], 3);
 
     const rowCells: any[] = [
       { content: `${sIdx}.DR`, styles: { fontStyle: 'bold' as const, halign: 'center' as const, fillColor: [241, 245, 249] as [number, number, number] } },
@@ -209,8 +212,13 @@ export function buildRailDoorJsPdfDocument(data: RailDoorInspectionFullData): js
     ];
 
     columnCodes.forEach((cCode) => {
+      const cellKey = `${sIdx}_${cCode}`;
       const cellVal = row[cCode] || '';
       const nomVal = data.projectNominalValues?.[cCode] || '';
+      const isFlagged = !!data.flaggedAbnormalCells?.[cellKey];
+      const isCol1Or2 = cCode === '1' || cCode === '2';
+      const isCol12DiffExceeded = isCol1Or2 && row1And2Diff.hasBoth && row1And2Diff.exceeded;
+
       const dev = calculateMmDeviation(
         cellVal,
         nomVal,
@@ -240,11 +248,89 @@ export function buildRailDoorJsPdfDocument(data: RailDoorInspectionFullData): js
         }
       }
 
+      if (isCol12DiffExceeded && !isFlagged) {
+        cellStyles = {
+          halign: 'center' as const,
+          fillColor: [254, 243, 199], // Amber warning
+          textColor: [185, 28, 28], // Dark Red
+          fontStyle: 'bold' as const,
+        };
+      }
+
+      if (isFlagged) {
+        cellStyles = {
+          halign: 'center' as const,
+          fillColor: [0, 0, 0], // Pure Black (Special Flag)
+          textColor: [255, 255, 255], // White Text
+          fontStyle: 'bold' as const,
+        };
+      }
+
       rowCells.push({ content: cellText, styles: cellStyles });
     });
 
     matrixBodyRows.push(rowCells);
   });
+
+  // SONUÇ (MIN) EN KÜÇÜK ÖLÇÜ SATIRI (BOYAMASIZ / SADE)
+  const columnMins = calculateColumnMinMm(data.floorMatrixMeasurements || {}, columnCodes, stopCount);
+
+  const summaryMinCells: any[] = [
+    { content: 'SONUC', styles: { fontStyle: 'bold' as const, halign: 'center' as const, fillColor: [226, 232, 240] as [number, number, number], textColor: [15, 23, 42] as [number, number, number] } },
+    { content: 'MIN', styles: { fontStyle: 'bold' as const, halign: 'center' as const, fillColor: [226, 232, 240] as [number, number, number], textColor: [15, 23, 42] as [number, number, number] } },
+  ];
+
+  columnCodes.forEach((cCode) => {
+    const minMm = columnMins[cCode];
+
+    const cellStyles: any = {
+      halign: 'center' as const,
+      fontStyle: 'bold' as const,
+      fillColor: [248, 250, 252],
+      textColor: [15, 23, 42],
+    };
+
+    const text = minMm !== null ? String(minMm) : '---';
+    summaryMinCells.push({ content: text, styles: cellStyles });
+  });
+
+  matrixBodyRows.push(summaryMinCells);
+
+  // 3. IMAGE 1: LAYOUT / SHAFT DRAWING (Tip Yerleşimi ile 1. Bölüm Matrisi Arası Çizim)
+  const layoutImg = data.reportLayoutImage?.imageUrl;
+  if (layoutImg) {
+    const imgHeight = 44; // mm
+    const imgWidth = 130; // mm
+    const imgX = (pageWidth - imgWidth) / 2;
+
+    if (lastY + imgHeight + 10 > pageHeight - 35) {
+      doc.addPage();
+      lastY = margin + 5;
+    }
+
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(imgX, lastY, imgWidth, imgHeight + 5, 2, 2, 'F');
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(imgX, lastY, imgWidth, imgHeight + 5, 2, 2, 'D');
+
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text('TIP YERLESIMI VE KUYU DETAY CIZIMI', imgX + 3, lastY + 3.8);
+
+    try {
+      doc.addImage(layoutImg, 'JPEG', imgX + 2, lastY + 5, imgWidth - 4, imgHeight - 1);
+    } catch {
+      try {
+        doc.addImage(layoutImg, 'PNG', imgX + 2, lastY + 5, imgWidth - 4, imgHeight - 1);
+      } catch (err) {
+        console.warn('Could not render layout image in PDF', err);
+      }
+    }
+
+    lastY += imgHeight + 8;
+  }
 
   autoTable(doc, {
     startY: lastY,
@@ -376,6 +462,42 @@ export function buildRailDoorJsPdfDocument(data: RailDoorInspectionFullData): js
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   lastY = (doc as any).lastAutoTable.finalY + 2;
+
+  // IMAGE 2: CHASSIS & SHAFT DRAWING (Kuyudibi/Son Kat ile 1. Şase Tablosu Arası Çizim)
+  const chassisImg = data.reportChassisImage?.imageUrl;
+  if (chassisImg) {
+    const imgHeight = 44; // mm
+    const imgWidth = 130; // mm
+    const imgX = (pageWidth - imgWidth) / 2;
+
+    if (lastY + imgHeight + 10 > pageHeight - 35) {
+      doc.addPage();
+      lastY = margin + 5;
+    }
+
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(imgX, lastY, imgWidth, imgHeight + 5, 2, 2, 'F');
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(imgX, lastY, imgWidth, imgHeight + 5, 2, 2, 'D');
+
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text('SASE VE KUYUDIBI DETAY CIZIMI', imgX + 3, lastY + 3.8);
+
+    try {
+      doc.addImage(chassisImg, 'JPEG', imgX + 2, lastY + 5, imgWidth - 4, imgHeight - 1);
+    } catch {
+      try {
+        doc.addImage(chassisImg, 'PNG', imgX + 2, lastY + 5, imgWidth - 4, imgHeight - 1);
+      } catch (err) {
+        console.warn('Could not render chassis image in PDF', err);
+      }
+    }
+
+    lastY += imgHeight + 8;
+  }
 
   // Chase Table 1 AutoTable
   autoTable(doc, {

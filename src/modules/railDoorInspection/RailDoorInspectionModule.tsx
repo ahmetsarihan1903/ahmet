@@ -355,6 +355,7 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
         <RailDoorReportModal
           data={formData}
           onClose={() => setShowReportModal(false)}
+          onUpdateData={setFormData}
         />
       )}
 

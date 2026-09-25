@@ -154,6 +154,22 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
     });
   };
 
+  // Anormal Hücre İşaretleme (2 saniye basılı tutma ile tetiklenir)
+  const handleToggleFlaggedCell = (cellKey: string) => {
+    onChange((prev) => {
+      const current = { ...(prev.flaggedAbnormalCells || {}) };
+      if (current[cellKey]) {
+        delete current[cellKey];
+      } else {
+        current[cellKey] = true;
+      }
+      return {
+        ...prev,
+        flaggedAbnormalCells: current,
+      };
+    });
+  };
+
   // Özel Sütun Ekle (15'ten sonra kullanıcının kendi belirlediği rakam veya kod)
   const handleAddColumn = (code: string) => {
     const trimmed = code.trim();
@@ -403,6 +419,8 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
             onColumn9DirectionChange={handleColumn9DirectionChange}
             layoutPosition={data.layoutPosition}
             activeCode={selectedMeasureCode}
+            flaggedAbnormalCells={data.flaggedAbnormalCells || {}}
+            onToggleFlaggedCell={handleToggleFlaggedCell}
             onSelectCode={(code) => setSelectedMeasureCode(code)}
             onCellChange={handleMatrixCellChange}
             onAliasChange={handleAliasChange}

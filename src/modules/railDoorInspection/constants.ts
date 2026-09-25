@@ -517,4 +517,73 @@ export const FIXED_CHASSIS_DRAWINGS: Record<'SASE_SAG' | 'SASE_SOL', { url: stri
   },
 };
 
+// ============================================================================
+// MATRİS SONUÇ (MIN) VE 1-2 SÜTUN FARKI HESAPLAMA MOTORU
+// ============================================================================
+/**
+ * Her sütundaki tüm kat ölçümleri arasından en küçük (MİNİMUM) değeri mm cinsinden hesaplar.
+ */
+export function calculateColumnMinMm(
+  floorMatrixMeasurements: Record<string, Record<string, string>>,
+  columnCodes: string[],
+  stopCount: number
+): Record<string, number | null> {
+  const minResults: Record<string, number | null> = {};
+
+  columnCodes.forEach((cCode) => {
+    let minVal: number | null = null;
+
+    for (let sIdx = 1; sIdx <= stopCount; sIdx++) {
+      const row = floorMatrixMeasurements[String(sIdx)];
+      if (!row) continue;
+      const rawVal = row[cCode];
+      const mm = parseCmToMm(rawVal);
+      if (mm !== null) {
+        if (minVal === null || mm < minVal) {
+          minVal = mm;
+        }
+      }
+    }
+
+    minResults[cCode] = minVal;
+  });
+
+  return minResults;
+}
+
+/**
+ * 1. ve 2. Sütun arasındaki farkı analiz eder.
+ * Eğer iki ölçü arasındaki fark belirlenen eşikten (varsayılan 3 mm) fazla ise uyarı verir.
+ */
+export function evaluateColumns1And2Diff(
+  col1Val: string | number | undefined | null,
+  col2Val: string | number | undefined | null,
+  thresholdMm = 3
+): {
+  hasBoth: boolean;
+  exceeded: boolean;
+  diffMm: number;
+  mm1: number | null;
+  mm2: number | null;
+} {
+  const mm1 = typeof col1Val === 'number' ? col1Val : parseCmToMm(col1Val);
+  const mm2 = typeof col2Val === 'number' ? col2Val : parseCmToMm(col2Val);
+
+  if (mm1 === null || mm2 === null) {
+    return { hasBoth: false, exceeded: false, diffMm: 0, mm1, mm2 };
+  }
+
+  const diffMm = Math.round(Math.abs(mm1 - mm2) * 10) / 10;
+  const exceeded = diffMm > thresholdMm;
+
+  return {
+    hasBoth: true,
+    exceeded,
+    diffMm,
+    mm1,
+    mm2,
+  };
+}
+
+
 

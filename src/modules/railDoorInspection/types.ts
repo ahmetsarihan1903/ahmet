@@ -100,6 +100,9 @@ export interface RailDoorInspectionFullData {
   // [stopIndex (1..N)]: { [colCode (1..15)]: '1205' }
   floorMatrixMeasurements: Record<string, Record<string, string>>;
 
+  // Kullanıcının 2 saniye basılı tutarak anormal/kritik olarak işaretlediği hücreler ("stopIndex_colCode": true)
+  flaggedAbnormalCells?: Record<string, boolean>;
+
   // 6. Makine Şase Ölçümleri (Eski uyumluluk)
   machineChassisMeasurements: Record<string, SingleMeasurementValue>;
 
@@ -139,4 +142,16 @@ export interface RailDoorInspectionFullData {
   // Eklenen Teknik Resim (Aktif seçimin görseli)
   attachedImageName?: string;
   attachedImageUrl?: string;
+
+  // Rapor 1. Resim: Tip Yerleşimi ile 1. Bölüm Ray Kapı Ölçü Matrisi Arası Çizim/Görsel
+  reportLayoutImage?: {
+    imageName?: string;
+    imageUrl?: string;
+  };
+
+  // Rapor 2. Resim: Kuyudibi / Son Kat ile Şase Ölçüleri Tablosu Arası Çizim/Görsel
+  reportChassisImage?: {
+    imageName?: string;
+    imageUrl?: string;
+  };
 }
