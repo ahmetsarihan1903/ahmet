@@ -7,16 +7,16 @@ export interface AppVersionInfo {
 }
 
 export const CURRENT_APP_VERSION: AppVersionInfo = {
-  version: '1.2.0',
-  updateCount: 2,
-  releaseDate: '25.09.2026',
-  buildChannel: 'Saha Canlı Üretim (APK / Release v2)',
+  version: '1.4.0',
+  updateCount: 5,
+  releaseDate: '28.09.2026',
+  buildChannel: 'Saha Canlı Üretim (APK / Release v5)',
   notes: [
-    'Ray & Kapı Raporuna 2 adet teknik çizim/şema ekleme ve PDF çıktısına sabitleme özelliği',
-    'Rapor çizimlerinin kalıcı hafızada saklanması (Yeni projelerde çizimlerin otomatik hazır gelmesi)',
-    'Ray & Kapı Kat Ölçü Matrisi altına tüm sütunların en küçük ölçüsünü hesaplayan "SONUÇ / MIN" satırı',
-    'Hücreye 2 saniye basılı tutarak Siyah Zemin / Beyaz Yazı ile anormallik/özel durum işaretleme',
-    '1. ve 2. Sütun arasında 3 mm üzeri farklar için otomatik uyarı sistemi',
-    'Mevcut saha verilerini sıfır kayıpla koruyan APK yükseltme güvencesi',
+    'Birleşik Tek Rapor Mimarisi: 1. Sayfa Yönetici Özeti, 2.+ Sayfalar Detaylı Denetim ve Eksik Kapatma Dökümü',
+    'Sekmeli yapı kaldırılarak tek tıkla hem özet hem detayları içeren resmi tek PDF çıktısı',
+    '1. Sayfada 8 ana bölüm için saf sayısal ve 2. kontrolde düzeltilme durumu özeti',
+    '2. Kontrol (Eksik Kapatma & Yeniden Muayene) başlatma ve düzenleme butonu',
+    'Seyir Konforu & Saha Ölçüleri kartları ile kurumsal kalite güvence standardı',
+    'Ray & Kapı modülünde kalıcı teknik çizim/şema ekleme ve PDF sabitlemesi',
   ],
 };
