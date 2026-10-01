@@ -170,6 +170,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
       capacityKg: '800',
       stopCount: defaultStopCount,
       floorStart: defaultFloorStart,
+      maintenanceDate: '',
       isDateTimeConfirmed: false,
       isHardwareMatched: false,
       startTime: null,
@@ -626,6 +627,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
       capacityKg: '800',
       stopCount: defaultStopCount,
       floorStart: defaultFloorStart,
+      maintenanceDate: '',
       isDateTimeConfirmed: false,
       isHardwareMatched: false,
       startTime: null,
@@ -729,6 +731,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
             capacityKg={formData.capacityKg}
             stopCount={formData.stopCount}
             floorStart={formData.floorStart}
+            maintenanceDate={formData.maintenanceDate || ''}
             isDateTimeConfirmed={formData.isDateTimeConfirmed}
             isHardwareMatched={formData.isHardwareMatched}
             onTypeChange={handleTypeChange}
@@ -736,6 +739,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
             onCapacityChange={(val) => setFormData((p) => ({ ...p, capacityKg: val }))}
             onStopCountChange={handleStopCountChange}
             onFloorStartChange={handleFloorStartChange}
+            onMaintenanceDateChange={(val) => setFormData((p) => ({ ...p, maintenanceDate: val }))}
             onDateTimeConfirmToggle={() =>
               setFormData((p) => ({ ...p, isDateTimeConfirmed: !p.isDateTimeConfirmed }))
             }

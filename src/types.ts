@@ -49,6 +49,7 @@ export interface AuditFormData {
   capacityKg: string;
   stopCount: number; // 1 - 32
   floorStart: number; // -6 ..
+  maintenanceDate?: string; // Zorunlu Başlangıç Onayı: Bakım Günü Tarihi
   isDateTimeConfirmed: boolean; // Checkbox 6
   isHardwareMatched: boolean; // Checkbox 7
 

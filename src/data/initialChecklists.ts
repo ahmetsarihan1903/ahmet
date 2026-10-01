@@ -166,13 +166,6 @@ export const CABIN_AND_BUTTONS_ITEMS: InspectionItem[] = [
 
 export const DEFAULT_FIXED_MEASURES: MeasureItem[] = [
   {
-    id: 'fixed_bakim_gunu',
-    name: 'BAKIM GÜNÜ TARİHİ',
-    value: '',
-    notes: '',
-    isFixed: true,
-  },
-  {
     id: 'fixed_ust_limit',
     name: 'ÜST LİMİT KESİCİ MESAFESİ',
     value: '',

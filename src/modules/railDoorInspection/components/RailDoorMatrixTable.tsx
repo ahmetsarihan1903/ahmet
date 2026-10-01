@@ -32,6 +32,8 @@ interface RailDoorMatrixTableProps {
   layoutPosition?: RailLayoutPosition;
   activeCode?: string;
   flaggedAbnormalCells?: Record<string, boolean>;
+  focusedCellKey?: string | null;
+  onFocusCell?: (cellKey: string) => void;
   onToggleFlaggedCell?: (cellKey: string) => void;
   onSelectCode?: (code: string) => void;
   onCellChange: (stopIndex: number, colCode: string, value: string) => void;
@@ -57,6 +59,8 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
   layoutPosition,
   activeCode,
   flaggedAbnormalCells = {},
+  focusedCellKey,
+  onFocusCell,
   onToggleFlaggedCell,
   onSelectCode,
   onCellChange,
@@ -78,11 +82,6 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
 
   // 9 Nolu Sütun İbaresi Seçim Modalı State'i (SAĞ, SOL, MRK)
   const [showCol9Modal, setShowCol9Modal] = useState(false);
-
-  // Uzun Basma (Long-Press) Timer'ı (2 saniye basılı tutunca Anormal Durum olarak işaretler)
-  const pressTimer = useRef<NodeJS.Timeout | null>(null);
-  const [pressingCellKey, setPressingCellKey] = useState<string | null>(null);
-  const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
 
   // Sayfa başına durak sayısı: 6 Durak
   const FLOORS_PER_PAGE = 6;
@@ -139,39 +138,6 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
       }, 50);
     }
   }, [showAddColumnModal]);
-
-  // Uzun basma (Long-Press) Başlatma
-  const handleStartPress = (cellKey: string, stopIdx: number, colCode: string) => {
-    setPressingCellKey(cellKey);
-    if (pressTimer.current) clearTimeout(pressTimer.current);
-
-    pressTimer.current = setTimeout(() => {
-      if (onToggleFlaggedCell) {
-        onToggleFlaggedCell(cellKey);
-        const willBeFlagged = !flaggedAbnormalCells[cellKey];
-        const msg = willBeFlagged
-          ? `⬛ ${stopIdx}.DR / Sütun ${colCode} hücresi SİYAH (BEYAZ YAZI) olarak işaretlendi!`
-          : `✓ ${stopIdx}.DR / Sütun ${colCode} hücresi normale döndürüldü.`;
-        setFeedbackToast(msg);
-        setTimeout(() => setFeedbackToast(null), 3500);
-
-        if ('vibrate' in navigator) {
-          try {
-            navigator.vibrate(100);
-          } catch {}
-        }
-      }
-      setPressingCellKey(null);
-    }, 1800); // 1.8 saniye
-  };
-
-  const handleCancelPress = () => {
-    if (pressTimer.current) {
-      clearTimeout(pressTimer.current);
-      pressTimer.current = null;
-    }
-    setPressingCellKey(null);
-  };
 
   const handleOpenAddModal = () => {
     setShowAddColumnModal(true);
@@ -231,7 +197,6 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
     currentStop: number,
     currentColIndex: number
   ) => {
-    handleCancelPress();
     let nextStop = currentStop;
     let nextColIndex = currentColIndex;
 
@@ -274,14 +239,6 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
 
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 sm:p-3 shadow-xl space-y-2 relative">
-      {/* Uzun Basma Feedback Bildirimi */}
-      {feedbackToast && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-50 bg-red-900/95 text-white border-2 border-amber-400 px-4 py-2 rounded-xl text-xs font-black shadow-2xl animate-bounce flex items-center gap-2 pointer-events-none">
-          <Flame className="w-4 h-4 text-amber-400 shrink-0" />
-          <span>{feedbackToast}</span>
-        </div>
-      )}
-
       {/* TEK SATIR NAVİGASYON ÇUBUĞU: SOL OK | AŞAĞI OK | YUKARI OK | SAĞ OK | SÜTUN EKLE (+) | ÖLÇÜLERİ GÖR */}
       <div className="bg-slate-950 border border-slate-800 hover:border-slate-750 rounded-xl p-1.5 sm:p-2 flex items-center justify-between gap-1.5 sm:gap-2 shadow-md">
         {/* Yön Butonları */}
@@ -602,10 +559,15 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
                       deviationBadge = `Δ:${row1And2Diff.diffMm}mm`;
                     }
 
-                    // 2 Saniye Basılı Tutularak ANORMAL / ÖZEL olarak İşaretlenmişse (SİYAH ZEMİN - BEYAZ YAZI)
+                    // Kullanıcı tarafından SİYAH ZEMİN - BEYAZ YAZI Olarak İşaretlenmişse
                     if (isFlagged) {
-                      deviationClass = '!bg-black border-2 border-zinc-600 !text-white font-black ring-1 ring-zinc-400 shadow-lg';
+                      deviationClass = '!bg-black border-2 border-zinc-500 !text-white font-black ring-1 ring-zinc-300 shadow-md';
                       deviationBadge = '⬛';
+                    }
+
+                    const isFocused = focusedCellKey === cellKey;
+                    if (isFocused) {
+                      deviationClass += ' ring-2 ring-amber-400';
                     }
 
                     return (
@@ -615,15 +577,7 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
                           isSelectedCol ? 'bg-amber-950/20' : ''
                         }`}
                       >
-                        <div
-                          className="relative flex items-center justify-center"
-                          onMouseDown={() => handleStartPress(cellKey, sIdx, cCode)}
-                          onMouseUp={handleCancelPress}
-                          onMouseLeave={handleCancelPress}
-                          onTouchStart={() => handleStartPress(cellKey, sIdx, cCode)}
-                          onTouchEnd={handleCancelPress}
-                          onTouchCancel={handleCancelPress}
-                        >
+                        <div className="relative flex items-center justify-center">
                           <input
                             id={`cell-${sIdx}-${cCode}`}
                             type="text"
@@ -637,20 +591,26 @@ export const RailDoorMatrixTable: React.FC<RailDoorMatrixTableProps> = ({
                             onChange={(e) =>
                               onCellChange(sIdx, cCode, e.target.value.replace(/[^0-9.,-]/g, ''))
                             }
-                            onFocus={() => onSelectCode && onSelectCode(cCode)}
+                            onFocus={() => {
+                              if (onFocusCell) onFocusCell(cellKey);
+                              if (onSelectCode) onSelectCode(cCode);
+                            }}
+                            onClick={() => {
+                              if (onFocusCell) onFocusCell(cellKey);
+                            }}
                             onKeyDown={(e) => handleKeyDown(e, sIdx, colIdx)}
                             placeholder="---"
                             className={`w-full border focus:border-amber-400 rounded px-1 py-1.5 text-center font-mono font-bold text-xs outline-none transition-all cursor-text ${deviationClass}`}
                             title={
                               isFlagged
-                                ? '⬛ SİYAH İŞARET: Bu hücre kullanıcı tarafından özel olarak işaretlendi (Normale döndürmek için 2sn basılı tutun).'
+                                ? '⬛ SİYAH İŞARET: Bu hücre siyah zemin / beyaz yazı olarak işaretlendi (Üst menüdeki butonla değiştirebilirsiniz).'
                                 : isCol12DiffExceeded
                                 ? `⚠️ DİKKAT: 1. ve 2. sütun arasında ${row1And2Diff.diffMm} mm fark var (>3mm eşiği aşıldı!)`
                                 : devResult?.isUnderLimit
                                 ? `DİKKAT: ${cCode} nolu sütun ölçüsü proje/asgari sınırın altında! (Kritik Uyarı)`
                                 : devResult?.isInferred && !devResult.isMatch
                                 ? `${cCode} nolu sütun iç analiz sapması: ${devResult.badgeText} (Referans: ${(devResult.nomMm! / 10).toFixed(1)} cm)`
-                                : 'Ölçü girin. 2 saniye basılı tutarak Siyah Zemin / Beyaz Yazı ile işaretleyebilirsiniz.'
+                                : 'Ölçü girin. Üstteki "Hücreyi İşaretle" butonuyla siyah/beyaz yapabilirsiniz.'
                             }
                           />
                           {deviationBadge && (

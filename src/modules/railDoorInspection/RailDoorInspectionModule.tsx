@@ -70,6 +70,7 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
   const [showReportModal, setShowReportModal] = useState<boolean>(false);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [isSaved, setIsSaved] = useState<boolean>(false);
+  const [focusedCellKey, setFocusedCellKey] = useState<string | null>(null);
 
   const createInitialForm = (prev?: RailDoorInspectionFullData): RailDoorInspectionFullData => {
     const defaultStops = prev?.stopCount || 8;
@@ -149,6 +150,30 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
     }
     return createInitialForm();
   });
+
+  const isCurrentCellFlagged = Boolean(
+    focusedCellKey && formData.flaggedAbnormalCells?.[focusedCellKey]
+  );
+
+  const handleToggleSelectedCellFlag = () => {
+    if (!focusedCellKey) {
+      alert('Lütfen önce tablodan siyah zemin / beyaz yazı yapmak istediğiniz bir hücreye dokunun.');
+      return;
+    }
+
+    setFormData((prev) => {
+      const current = { ...(prev.flaggedAbnormalCells || {}) };
+      if (current[focusedCellKey]) {
+        delete current[focusedCellKey];
+      } else {
+        current[focusedCellKey] = true;
+      }
+      return {
+        ...prev,
+        flaggedAbnormalCells: current,
+      };
+    });
+  };
 
   // Otomatik Yerel Kayıt
   useEffect(() => {
@@ -271,18 +296,22 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
             </div>
           </div>
 
-          {/* Sağ Kısım: Rapor Butonu | Proje Bilgileri Butonu | Kaydet Simgesi | Ayarlar Simgesi */}
+          {/* Sağ Kısım: Seçili Hücreyi İşaretle Butonu | Proje Bilgileri | Kaydet | Ayarlar */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Raporu Önizle ve Yazdır Butonu (Hızlı Erişim) */}
+            {/* Seçili Hücreyi Siyah (Beyaz Yazı) Yap / Kaldır Butonu */}
             <button
               type="button"
-              id="btn-header-view-report"
-              onClick={() => setShowReportModal(true)}
-              className="btn-amber-action px-2.5 sm:px-3 py-1.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black rounded-lg border-2 border-amber-600 text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-amber-500/20"
-              title="Resmi Kontrol Raporunu Önizle ve Yazdır"
+              id="btn-header-toggle-flag"
+              onClick={handleToggleSelectedCellFlag}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg border-2 text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-sm ${
+                isCurrentCellFlagged
+                  ? 'bg-black text-white border-zinc-400 shadow-md ring-1 ring-white/50'
+                  : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-600 hover:border-amber-400'
+              }`}
+              title="Seçili Hücreyi Siyah (Beyaz Yazı) Yap veya İşareti Kaldır"
             >
-              <FileCheck2 className="w-4 h-4 text-slate-950" />
-              <span>Rapor</span>
+              <span className={`w-3 h-3 rounded-xs shrink-0 border ${isCurrentCellFlagged ? 'bg-white border-white' : 'bg-black border-zinc-400'}`} />
+              <span className="whitespace-nowrap">{isCurrentCellFlagged ? 'İşareti Kaldır' : 'Hücreyi İşaretle'}</span>
             </button>
 
             {/* Proje Bilgileri Butonu */}
@@ -346,6 +375,8 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
             onViewReport={() => setShowReportModal(true)}
             onSaveDraft={handleManualSave}
             isSaved={isSaved}
+            focusedCellKey={focusedCellKey}
+            onFocusCell={setFocusedCellKey}
           />
         )}
       </main>

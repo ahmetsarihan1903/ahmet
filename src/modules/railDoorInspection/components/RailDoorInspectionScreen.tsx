@@ -34,6 +34,8 @@ interface RailDoorInspectionScreenProps {
   onViewReport: () => void;
   onSaveDraft: () => void;
   isSaved: boolean;
+  focusedCellKey?: string | null;
+  onFocusCell?: (key: string) => void;
 }
 
 export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> = ({
@@ -43,6 +45,8 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
   onViewReport,
   onSaveDraft,
   isSaved,
+  focusedCellKey,
+  onFocusCell,
 }) => {
   const [activeTab, setActiveTab] = useState<InspectionActiveTab>(() => {
     try {
@@ -420,6 +424,8 @@ export const RailDoorInspectionScreen: React.FC<RailDoorInspectionScreenProps> =
             layoutPosition={data.layoutPosition}
             activeCode={selectedMeasureCode}
             flaggedAbnormalCells={data.flaggedAbnormalCells || {}}
+            focusedCellKey={focusedCellKey}
+            onFocusCell={onFocusCell}
             onToggleFlaggedCell={handleToggleFlaggedCell}
             onSelectCode={(code) => setSelectedMeasureCode(code)}
             onCellChange={handleMatrixCellChange}

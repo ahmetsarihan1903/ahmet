@@ -280,10 +280,10 @@ export const ReportView: React.FC<ReportViewProps> = ({
         `${data.startTime || '-'} - ${data.endTime || '-'} (${cleanTr(data.totalDurationFormatted) || '-'})`,
       ],
       [
-        { content: 'CIHAZ DONANIM NO:', styles: { fontStyle: 'bold' as const, fillColor: [241, 245, 249] as [number, number, number] } },
-        cleanTr(deviceProfile.hardwareId),
-        { content: 'KURULUM GUVENLIK ID:', styles: { fontStyle: 'bold' as const, fillColor: [241, 245, 249] as [number, number, number] } },
-        cleanTr(`#${deviceProfile.installationId}`),
+        { content: 'BAKIM GUNU TARIHI:', styles: { fontStyle: 'bold' as const, fillColor: [241, 245, 249] as [number, number, number] } },
+        cleanTr(data.maintenanceDate) || '-',
+        { content: 'DONANIM & SAAT:', styles: { fontStyle: 'bold' as const, fillColor: [241, 245, 249] as [number, number, number] } },
+        'Donanim Esl.: YAPILDI | Sistem Saati: YAPILDI',
       ],
     ];
 
@@ -1068,12 +1068,14 @@ export const ReportView: React.FC<ReportViewProps> = ({
               <span className="text-xs font-black text-slate-950">{data.startTime || '-'} - {data.endTime || '-'} ({data.totalDurationFormatted || '-'})</span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Cihaz Donanım No:</span>
-              <span className="text-xs font-black text-slate-950 font-mono">{deviceProfile.hardwareId}</span>
+              <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Bakım Günü Tarihi:</span>
+              <span className="text-xs font-black text-blue-900 font-mono">{data.maintenanceDate || '-'}</span>
             </div>
             <div>
-              <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Güvenlik ID:</span>
-              <span className="text-xs font-black text-emerald-800 font-mono">#{deviceProfile.installationId}</span>
+              <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Başlangıç Onayları:</span>
+              <span className="text-xs font-black text-emerald-800">
+                Donanım: YAPILDI • Saat: YAPILDI
+              </span>
             </div>
           </div>
 

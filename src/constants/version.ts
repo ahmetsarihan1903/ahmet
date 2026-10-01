@@ -7,16 +7,15 @@ export interface AppVersionInfo {
 }
 
 export const CURRENT_APP_VERSION: AppVersionInfo = {
-  version: '1.4.0',
-  updateCount: 5,
-  releaseDate: '28.09.2026',
-  buildChannel: 'Saha Canlı Üretim (APK / Release v5)',
+  version: '1.6.0',
+  updateCount: 7,
+  releaseDate: '29.09.2026',
+  buildChannel: 'Saha Canlı Üretim (APK / Release v7)',
   notes: [
-    'Birleşik Tek Rapor Mimarisi: 1. Sayfa Yönetici Özeti, 2.+ Sayfalar Detaylı Denetim ve Eksik Kapatma Dökümü',
-    'Sekmeli yapı kaldırılarak tek tıkla hem özet hem detayları içeren resmi tek PDF çıktısı',
-    '1. Sayfada 8 ana bölüm için saf sayısal ve 2. kontrolde düzeltilme durumu özeti',
-    '2. Kontrol (Eksik Kapatma & Yeniden Muayene) başlatma ve düzenleme butonu',
-    'Seyir Konforu & Saha Ölçüleri kartları ile kurumsal kalite güvence standardı',
-    'Ray & Kapı modülünde kalıcı teknik çizim/şema ekleme ve PDF sabitlemesi',
+    'Ray & Kapı formunda basılı tutma (long-press) mekanizması kaldırılarak hücre seçimli mimariye geçildi',
+    'Üst menü çubuğundaki Rapor butonu kaldırılarak yerine "Hücreyi İşaretle" / "İşareti Kaldır" butonu eklendi',
+    'Kullanıcı istediği hücreye dokunduğunda tek tıkla Siyah Zemin / Beyaz Yazı yapabilir ve aynı butonla normale döndürebilir',
+    'Zorunlu Başlangıç Onaylarına (Kilit Şartı) "Bakım Günü Tarihi" eklendi',
+    'Rapor sayfasında Donanım Eşleştirme ve Sistem Saati Güncelleme onayları üst kimlik tablosuna sabitlendi',
   ],
 };

@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { Lock, Unlock, Play, ChevronDown, CheckSquare, Square, Layers, Hash, Weight, ArrowLeft, Info } from 'lucide-react';
+import { Lock, Unlock, Play, ChevronDown, CheckSquare, Square, Layers, Hash, Weight, ArrowLeft, Info, Calendar } from 'lucide-react';
 import { ElevatorType } from '../types';
 import { SmartTextInput } from './SmartTextInput';
 import { calculateFloorMatrix } from '../utils/floorMatrix';
+import { getCurrentDateFormatted } from '../utils/textUtils';
 
 interface Step2ElevatorSpecsProps {
   elevatorType: ElevatorType;
@@ -10,6 +11,7 @@ interface Step2ElevatorSpecsProps {
   capacityKg: string;
   stopCount: number;
   floorStart: number;
+  maintenanceDate?: string;
   isDateTimeConfirmed: boolean;
   isHardwareMatched: boolean;
   onTypeChange: (type: ElevatorType) => void;
@@ -17,6 +19,7 @@ interface Step2ElevatorSpecsProps {
   onCapacityChange: (val: string) => void;
   onStopCountChange: (count: number) => void;
   onFloorStartChange: (start: number) => void;
+  onMaintenanceDateChange: (val: string) => void;
   onDateTimeConfirmToggle: () => void;
   onHardwareMatchToggle: () => void;
   onBack: () => void;
@@ -30,6 +33,7 @@ export const Step2ElevatorSpecs: React.FC<Step2ElevatorSpecsProps> = ({
   capacityKg,
   stopCount,
   floorStart,
+  maintenanceDate = '',
   isDateTimeConfirmed,
   isHardwareMatched,
   onTypeChange,
@@ -37,6 +41,7 @@ export const Step2ElevatorSpecs: React.FC<Step2ElevatorSpecsProps> = ({
   onCapacityChange,
   onStopCountChange,
   onFloorStartChange,
+  onMaintenanceDateChange,
   onDateTimeConfirmToggle,
   onHardwareMatchToggle,
   onBack,
@@ -61,9 +66,10 @@ export const Step2ElevatorSpecs: React.FC<Step2ElevatorSpecsProps> = ({
   const isCapacityValid = capacityKg.trim().length > 0;
   const isTypeValid = elevatorType === 'MR' || elevatorType === 'MRL';
   const isStopCountValid = stopCount >= 1 && stopCount <= 32;
+  const isMaintenanceDateValid = maintenanceDate.trim().length > 0;
   const isCheckboxesValid = isDateTimeConfirmed && isHardwareMatched;
 
-  const isUnlocked = isSerialValid && isCapacityValid && isTypeValid && isStopCountValid && isCheckboxesValid;
+  const isUnlocked = isSerialValid && isCapacityValid && isTypeValid && isStopCountValid && isCheckboxesValid && isMaintenanceDateValid;
 
   return (
     <div className="max-w-2xl mx-auto py-5 px-3 sm:px-4">
@@ -272,11 +278,11 @@ export const Step2ElevatorSpecs: React.FC<Step2ElevatorSpecsProps> = ({
             </div>
           </div>
 
-          {/* Mandatory Checkboxes 6 & 7 */}
-          <div className="bg-slate-950 p-3.5 rounded border border-amber-500/30 space-y-2.5">
+          {/* Mandatory Checkboxes & Maintenance Date */}
+          <div className="bg-slate-950 p-3.5 rounded border border-amber-500/30 space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
               <Info className="w-3.5 h-3.5 text-amber-400" />
-              <span>Zorunlu Başlangıç Onayları (Kilit Şartları)</span>
+              <span>Zorunlu Başlangıç Onayları &amp; Tarihler (Kilit Şartları)</span>
             </h3>
 
             {/* 6. Sistem Tarih/Saat Güncellemesi */}
@@ -330,6 +336,34 @@ export const Step2ElevatorSpecs: React.FC<Step2ElevatorSpecsProps> = ({
                 </span>
               </div>
             </button>
+
+            {/* 8. Bakım Günü Tarihi (Zorunlu Giriş) */}
+            <div className="p-3 bg-slate-900 rounded border border-slate-800 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200 uppercase tracking-wider">
+                  <Calendar className="w-4 h-4 text-blue-400" />
+                  <span>8. Bakım Günü Tarihi</span>
+                  <span className="text-orange-400">*</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onMaintenanceDateChange(getCurrentDateFormatted())}
+                  className="text-[10px] font-bold text-blue-400 hover:text-blue-300 px-2 py-0.5 rounded bg-blue-950/50 border border-blue-800/60 cursor-pointer"
+                >
+                  Bugünün Tarihini Yaz
+                </button>
+              </div>
+              <SmartTextInput
+                id="input-maintenance-date"
+                value={maintenanceDate}
+                onChange={onMaintenanceDateChange}
+                placeholder="Örn: 29.09.2026 veya GG.AA.YYYY"
+                required
+              />
+              <span className="text-[11px] text-slate-400 block leading-tight">
+                * Asansörün ilk periyodik bakım veya teslim tarihini giriniz. Bu alan doldurulmadan denetime başlanamaz.
+              </span>
+            </div>
           </div>
 
           {/* DENETİMİ BAŞLAT Action Button */}
@@ -374,6 +408,9 @@ export const Step2ElevatorSpecs: React.FC<Step2ElevatorSpecsProps> = ({
                   </span>
                   <span className={isHardwareMatched ? 'text-emerald-400' : 'text-amber-400/80'}>
                     {isHardwareMatched ? '✓' : '•'} 7. Madde Onayı (Donanım)
+                  </span>
+                  <span className={isMaintenanceDateValid ? 'text-emerald-400' : 'text-amber-400/80'}>
+                    {isMaintenanceDateValid ? '✓' : '•'} 8. Bakım Günü Tarihi girilmeli
                   </span>
                 </div>
               </div>

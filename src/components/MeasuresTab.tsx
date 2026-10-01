@@ -89,7 +89,7 @@ export const MeasuresTab: React.FC<MeasuresTabProps> = ({
           <span className="uppercase tracking-wider">Saha Ölçü & Mesafe Kontrolleri</span>
         </div>
         <p className="text-xs text-slate-400 leading-relaxed">
-          Bakım günü, limit kesiciler, tampon mesafeleri ve sahada alınan diğer ölçümleri giriniz.
+          Limit kesiciler, tampon mesafeleri ve sahada alınan temel mekanik ölçümleri giriniz.
           Girilen tüm değerler ve açıklamalar kalite kontrol raporuna doğrudan aktarılır.
         </p>
       </div>
