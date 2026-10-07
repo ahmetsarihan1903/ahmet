@@ -477,112 +477,86 @@ export const ReportView: React.FC<ReportViewProps> = ({
       doc.text('TESPIT EDILEN UYGUNSUZLUKLAR VE EKSIK KAPATMA DETAY DOKUMU', margin + 4, page2Y + 7.5);
       page2Y += 14;
 
-      if (isAllResolved) {
-        const udTableRows = allUDItems.map((entry, index) => [
+      // DETAYLI UYGUNSUZLUK VE 2. KONTROL TABLOSU (Sıralama: Sıra No, Bölüm, Kontrol Maddesi, Açıklama, Durak, 2. Kontrol Durumu)
+      const udTableRows = allUDItems.map((entry, index) => {
+        const isResolved = !!entry.item.isResolved;
+        const resType = entry.item.resolutionType || (isResolved ? 'YAPILDI' : 'KALDI');
+        const descText = cleanTr(entry.item.description) || '-';
+        const resNote = cleanTr(entry.item.resolutionNote || '').trim();
+
+        let statusText = '';
+        if (resType === 'BETA') {
+          statusText = 'BETA';
+        } else if (isResolved) {
+          statusText = 'GIDERILDI';
+        } else {
+          statusText = 'KALDI (UD)';
+        }
+
+        const secondControlText = resNote ? `${statusText}\nNot: ${resNote}` : statusText;
+
+        return [
           (index + 1).toString(),
           cleanTr(entry.category),
           cleanTr(entry.item.title),
+          descText,
           cleanTr(entry.item.floorLabel) || '-',
-          `[GIDERILDI] ${cleanTr(entry.item.resolutionNote || 'Duzeltildi ve onaylandi')}`,
-        ]);
+          {
+            content: secondControlText,
+            styles: {
+              textColor:
+                resType === 'BETA'
+                  ? ([10, 38, 71] as [number, number, number])
+                  : isResolved
+                  ? ([5, 150, 105] as [number, number, number])
+                  : ([185, 28, 28] as [number, number, number]),
+              fontStyle: 'bold' as const,
+            },
+          },
+        ];
+      });
 
-        autoTable(doc, {
-          startY: page2Y,
-          margin: { left: margin, right: margin },
-          head: [
-            [
-              { content: '#', styles: { halign: 'center' as const, cellWidth: 8 } },
-              { content: 'BOLUM / KATEGORI', styles: { cellWidth: 36 } },
-              { content: 'KONTROL MADDESI', styles: { cellWidth: 44 } },
-              { content: 'DURAK', styles: { halign: 'center' as const, cellWidth: 16 } },
-              { content: 'KAPATMA & DUZELTILME ACIKLAMASI (2. KONTROL)', styles: { cellWidth: 86 } },
-            ],
+      autoTable(doc, {
+        startY: page2Y,
+        margin: { left: margin, right: margin },
+        head: [
+          [
+            { content: '#', styles: { halign: 'center' as const, cellWidth: 7 } },
+            { content: 'BOLUM / KATEGORI', styles: { cellWidth: 30 } },
+            { content: 'KONTROL MADDESI', styles: { cellWidth: 38 } },
+            { content: 'KONTROL MADDESI ACIKLAMASI (ILK TESPIT)', styles: { cellWidth: 50 } },
+            { content: 'DURAK', styles: { halign: 'center' as const, cellWidth: 13 } },
+            { content: '2. KONTROL DURUMU & NOTU', styles: { cellWidth: 60 } },
           ],
-          body: udTableRows,
-          theme: 'striped',
-          headStyles: {
-            fillColor: [16, 185, 129],
-            textColor: [255, 255, 255],
-            fontStyle: 'bold' as const,
-            fontSize: 9,
-            cellPadding: 2.5,
-          },
-          styles: {
-            fontSize: 8.5,
-            cellPadding: 2.5,
-            lineColor: [226, 232, 240],
-            lineWidth: 0.25,
-            textColor: [15, 23, 42],
-            valign: 'middle' as const,
-          },
-          alternateRowStyles: {
-            fillColor: [236, 253, 245],
-          },
-          columnStyles: {
-            0: { halign: 'center' as const, fontStyle: 'bold' as const, textColor: [5, 150, 105] },
-            1: { fontStyle: 'bold' as const },
-            3: { halign: 'center' as const },
-            4: { textColor: [4, 120, 87], fontStyle: 'bold' as const },
-          },
-        });
-      } else {
-        const udTableRows = allUDItems.map((entry, index) => {
-          const isResolved = !!entry.item.isResolved;
-          const statusText = isResolved ? '[GIDERILDI]' : '[KALDI / UD]';
-          const noteText = isResolved
-            ? cleanTr(entry.item.resolutionNote || 'Duzeltildi')
-            : cleanTr(entry.item.description || 'Giderilmedi');
-
-          return [
-            (index + 1).toString(),
-            cleanTr(entry.category),
-            cleanTr(entry.item.title),
-            cleanTr(entry.item.floorLabel) || '-',
-            statusText,
-            noteText,
-          ];
-        });
-
-        autoTable(doc, {
-          startY: page2Y,
-          margin: { left: margin, right: margin },
-          head: [
-            [
-              { content: '#', styles: { halign: 'center' as const, cellWidth: 8 } },
-              { content: 'BOLUM / KATEGORI', styles: { cellWidth: 34 } },
-              { content: 'KONTROL MADDESI', styles: { cellWidth: 42 } },
-              { content: 'DURAK', styles: { halign: 'center' as const, cellWidth: 14 } },
-              { content: 'DURUM', styles: { halign: 'center' as const, cellWidth: 26 } },
-              { content: 'ACIKLAMA / KAPATMA NOTU (2. KONTROL)', styles: { cellWidth: 66 } },
-            ],
-          ],
-          body: udTableRows,
-          theme: 'striped',
-          headStyles: {
-            fillColor: [217, 119, 6],
-            textColor: [255, 255, 255],
-            fontStyle: 'bold' as const,
-            fontSize: 9,
-            cellPadding: 2.5,
-          },
-          styles: {
-            fontSize: 8.5,
-            cellPadding: 2.5,
-            lineColor: [226, 232, 240],
-            lineWidth: 0.25,
-            textColor: [15, 23, 42],
-          },
-          alternateRowStyles: {
-            fillColor: [254, 242, 242],
-          },
-          columnStyles: {
-            0: { halign: 'center' as const, fontStyle: 'bold' as const, textColor: [185, 28, 28] },
-            1: { fontStyle: 'bold' as const },
-            3: { halign: 'center' as const },
-            4: { textColor: [153, 27, 27], fontStyle: 'bold' as const },
-          },
-        });
-      }
+        ],
+        body: udTableRows,
+        theme: 'striped',
+        headStyles: {
+          fillColor: isAllResolved ? [16, 185, 129] : hasReAuditDone ? [217, 119, 6] : [220, 38, 38],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold' as const,
+          fontSize: 8,
+          cellPadding: 2,
+        },
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 2,
+          lineColor: [226, 232, 240],
+          lineWidth: 0.2,
+          textColor: [15, 23, 42],
+          valign: 'middle' as const,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+        columnStyles: {
+          0: { halign: 'center' as const, fontStyle: 'bold' as const },
+          1: { fontStyle: 'bold' as const },
+          2: { fontStyle: 'bold' as const },
+          3: { textColor: [185, 28, 28], fontStyle: 'normal' as const },
+          4: { halign: 'center' as const, fontStyle: 'bold' as const },
+        },
+      });
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let p2LastY = (doc as any).lastAutoTable.finalY + 6;
@@ -1323,11 +1297,11 @@ export const ReportView: React.FC<ReportViewProps> = ({
                 <thead className="bg-slate-200 border-b-2 border-slate-300 text-slate-900 font-black uppercase text-[10px]">
                   <tr>
                     <th className="p-2 border-r border-slate-300 w-10 text-center">#</th>
-                    <th className="p-2 border-r border-slate-300 w-36">Bölüm / Kategori</th>
-                    <th className="p-2 border-r border-slate-300">Kontrol Maddesi</th>
+                    <th className="p-2 border-r border-slate-300 w-32">Bölüm / Kategori</th>
+                    <th className="p-2 border-r border-slate-300 w-48">Kontrol Maddesi</th>
+                    <th className="p-2 border-r border-slate-300">Kontrol Maddesi Açıklama</th>
                     <th className="p-2 border-r border-slate-300 w-16 text-center">Durak</th>
-                    <th className="p-2 border-r border-slate-300 w-24 text-center">Durum</th>
-                    <th className="p-2">Hata & Kapatma Notu (2. Kontrol)</th>
+                    <th className="p-2 w-52">2. Kontrol Durumu &amp; Notu</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-300">
@@ -1355,30 +1329,50 @@ export const ReportView: React.FC<ReportViewProps> = ({
                         <td className="p-2 border-r border-slate-300 font-bold text-slate-950">
                           {entry.item.title}
                         </td>
+                        <td className="p-2 border-r border-slate-300 text-xs font-semibold text-rose-900">
+                          {entry.item.description || (
+                            <span className="italic text-slate-400 font-normal">-</span>
+                          )}
+                        </td>
                         <td className="p-2 border-r border-slate-300 text-center font-black text-slate-800 text-[11px]">
                           {entry.item.floorLabel || '-'}
                         </td>
-                        <td className="p-2 border-r border-slate-300 text-center">
-                          {isResolved ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-200 border border-emerald-500 text-emerald-950 rounded font-black text-[10px] uppercase">
-                              <Check className="w-3 h-3 text-emerald-700" /> Giderildi
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-200 border border-red-500 text-red-950 rounded font-black text-[10px] uppercase">
-                              <ShieldAlert className="w-3 h-3 text-red-700" /> Kaldı / UD
-                            </span>
-                          )}
-                        </td>
                         <td className="p-2 text-xs">
-                          <div className="font-bold text-slate-900">
-                            {entry.item.description || (
-                              <span className="italic text-slate-500">İlk tespit girilmedi</span>
+                          <div>
+                            {isResolved ? (
+                              entry.item.resolutionType === 'BETA' ? (
+                                <span className="inline-flex items-center justify-center px-2.5 py-0.5 bg-[#0A2647] border border-amber-400 text-amber-300 rounded font-black text-xs uppercase shadow-xs">
+                                  BETA
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-200 border border-emerald-500 text-emerald-950 rounded font-black text-[10px] uppercase">
+                                  <Check className="w-3 h-3 text-emerald-700" /> Giderildi
+                                </span>
+                              )
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-200 border border-red-500 text-red-950 rounded font-black text-[10px] uppercase">
+                                <ShieldAlert className="w-3 h-3 text-red-700" /> Kaldı / UD
+                              </span>
                             )}
                           </div>
-                          {isResolved && entry.item.resolutionNote && (
-                            <div className="text-[11px] font-bold text-emerald-800 mt-1 flex items-center gap-1 bg-emerald-100/80 px-2 py-0.5 rounded border border-emerald-300 w-fit">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-700 shrink-0" />
-                              <span>2. Kontrol Notu: {entry.item.resolutionNote}</span>
+                          {isResolved && entry.item.resolutionNote && entry.item.resolutionNote.trim() !== '' && (
+                            <div
+                              className={`text-[11px] font-bold mt-1 flex items-center gap-1 px-2 py-0.5 rounded border w-fit ${
+                                entry.item.resolutionType === 'BETA'
+                                  ? 'bg-blue-100/90 text-blue-950 border-blue-300'
+                                  : 'bg-emerald-100/80 text-emerald-800 border-emerald-300'
+                              }`}
+                            >
+                              <CheckCircle2
+                                className={`w-3 h-3 shrink-0 ${
+                                  entry.item.resolutionType === 'BETA'
+                                    ? 'text-blue-700'
+                                    : 'text-emerald-700'
+                                }`}
+                              />
+                              <span>
+                                Kapatma Açıklaması: {entry.item.resolutionNote}
+                              </span>
                             </div>
                           )}
                         </td>

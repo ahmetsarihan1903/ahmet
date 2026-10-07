@@ -4,6 +4,8 @@ export type ActiveAppModule = 'hub' | 'shaftSurvey' | 'railDoorInspection' | 'qu
 
 export type ElevatorType = 'MR' | 'MRL';
 
+export type ResolutionType = 'YAPILDI' | 'BETA' | 'KALDI';
+
 export interface FloorMapping {
   stopIndex: number; // 1-based stop number (1..32)
   floorValue: number; // raw numeric floor e.g. -1, 0, 1, 2
@@ -21,6 +23,7 @@ export interface InspectionItem {
   category: string;
   floorLabel?: string; // For Page 8 door items
   isResolved?: boolean; // True when non-compliance has been fixed during re-audit
+  resolutionType?: ResolutionType; // 'YAPILDI' | 'BETA' | 'KALDI'
   resolvedAt?: string; // e.g. "17.09.2026 14:30"
   resolutionNote?: string; // Notes entered when resolving the punch-list item
 }
@@ -74,6 +77,7 @@ export interface AuditFormData {
   rideComfortNonCompliant: boolean;
   rideComfortNotes: string;
   rideComfortResolved?: boolean;
+  rideComfortResolutionType?: ResolutionType;
   rideComfortResolutionNote?: string;
 
   // Step 5: Re-Audit & Punch List Tracking (Optional)

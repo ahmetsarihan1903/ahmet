@@ -116,8 +116,13 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
     nonCompliantItems.filter((i) => i.item.isResolved).length +
     (workingData.rideComfortNonCompliant && workingData.rideComfortResolved ? 1 : 0);
 
-  // Toggle single item resolved status
-  const handleToggleItemResolved = (listKey: keyof AuditFormData, itemId: string, isResolved: boolean) => {
+  // Toggle single item resolved status with 3 modes: 'YAPILDI' | 'BETA' | 'KALDI'
+  const handleToggleItemResolved = (
+    listKey: keyof AuditFormData,
+    itemId: string,
+    type: 'YAPILDI' | 'BETA' | 'KALDI'
+  ) => {
+    const isResolved = type === 'YAPILDI' || type === 'BETA';
     setWorkingData((prev) => {
       const copy = { ...prev };
       const list = copy[listKey] as InspectionItem[];
@@ -127,8 +132,9 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
             return {
               ...it,
               isResolved,
+              resolutionType: type,
               resolvedAt: isResolved ? reAuditDate : undefined,
-              resolutionNote: isResolved ? (it.resolutionNote || 'Giderildi / Düzeltildi') : '',
+              resolutionNote: isResolved ? it.resolutionNote || '' : '',
             };
           }
           return it;
@@ -158,14 +164,14 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
     });
   };
 
-  // Toggle Comfort Resolution
-  const handleToggleComfortResolved = (isResolved: boolean) => {
+  // Toggle Comfort Resolution with 3 modes: 'YAPILDI' | 'BETA' | 'KALDI'
+  const handleToggleComfortResolved = (type: 'YAPILDI' | 'BETA' | 'KALDI') => {
+    const isResolved = type === 'YAPILDI' || type === 'BETA';
     setWorkingData((prev) => ({
       ...prev,
       rideComfortResolved: isResolved,
-      rideComfortResolutionNote: isResolved
-        ? prev.rideComfortResolutionNote || 'Seyir konforu test edildi ve uygun bulundu.'
-        : '',
+      rideComfortResolutionType: type,
+      rideComfortResolutionNote: isResolved ? prev.rideComfortResolutionNote || '' : '',
     }));
   };
 
@@ -273,7 +279,11 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
                   key={entry.itemId}
                   className={`p-2 sm:p-2.5 rounded-lg border transition-all ${
                     isItemResolved
-                      ? isDark
+                      ? entry.item.resolutionType === 'BETA'
+                        ? isDark
+                          ? 'bg-blue-950/40 border-blue-400/60'
+                          : 'bg-blue-50/90 border-blue-400'
+                        : isDark
                         ? 'bg-emerald-950/25 border-emerald-500/50'
                         : 'bg-emerald-50 border-emerald-300'
                       : isDark
@@ -281,12 +291,16 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
                       : 'bg-rose-50/90 border-rose-300'
                   }`}
                 >
-                  {/* Satır 1: No, Kategori/Kat, Başlık ve Hızlı Durum Butonları */}
-                  <div className="flex items-center justify-between gap-2">
+                  {/* Satır 1: No, Kategori/Kat, Başlık ve Hızlı Durum Butonları (Yapıldı, BETA, Kaldı) */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
                       <span
                         className={`w-5 h-5 rounded-md text-[11px] font-black flex items-center justify-center shrink-0 ${
-                          isItemResolved ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+                          isItemResolved
+                            ? entry.item.resolutionType === 'BETA'
+                              ? 'bg-[#0A2647] text-amber-300 border border-amber-400/50 font-bold'
+                              : 'bg-emerald-600 text-white'
+                            : 'bg-rose-600 text-white'
                         }`}
                       >
                         {idx + 1}
@@ -310,33 +324,54 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Hızlı Butonlar: Yapıldı / Kaldı */}
-                    <div className="flex items-center gap-1 shrink-0">
+                    {/* Hızlı 3 Buton: Yapıldı | BETA | Kaldı */}
+                    <div className="flex items-center gap-1 shrink-0 self-end sm:self-auto">
+                      {/* 1. YAPILDI BUTONU */}
                       <button
                         type="button"
-                        onClick={() => handleToggleItemResolved(entry.listKey, entry.itemId, true)}
-                        className={`px-2.5 py-1 rounded text-xs font-black uppercase flex items-center gap-1 transition-all cursor-pointer select-none active:scale-95 ${
-                          isItemResolved
+                        onClick={() => handleToggleItemResolved(entry.listKey, entry.itemId, 'YAPILDI')}
+                        className={`px-2 py-1 rounded text-xs font-black uppercase flex items-center gap-1 transition-all cursor-pointer select-none active:scale-95 ${
+                          isItemResolved && entry.item.resolutionType !== 'BETA'
                             ? 'bg-emerald-600 text-white ring-2 ring-emerald-400 shadow-sm font-black'
                             : isDark
                             ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700'
                             : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-300'
                         }`}
+                        title="Montaj veya genel olarak yapıldı/giderildi olarak işaretle"
                       >
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
                         <span>Yapıldı</span>
                       </button>
 
+                      {/* 2. BETA BUTONU */}
                       <button
                         type="button"
-                        onClick={() => handleToggleItemResolved(entry.listKey, entry.itemId, false)}
+                        onClick={() => handleToggleItemResolved(entry.listKey, entry.itemId, 'BETA')}
                         className={`px-2.5 py-1 rounded text-xs font-black uppercase flex items-center gap-1 transition-all cursor-pointer select-none active:scale-95 ${
+                          isItemResolved && entry.item.resolutionType === 'BETA'
+                            ? 'bg-[#0A2647] text-amber-300 ring-2 ring-amber-400 border-2 border-amber-400 shadow-md font-black'
+                            : isDark
+                            ? 'bg-slate-800 hover:bg-blue-950 text-blue-300 border border-slate-700 hover:border-blue-400'
+                            : 'bg-white hover:bg-blue-50 text-blue-700 border border-blue-300'
+                        }`}
+                        title="BETA tarafından giderildi olarak işaretle"
+                      >
+                        <span className="text-amber-400 font-black">★</span>
+                        <span>BETA</span>
+                      </button>
+
+                      {/* 3. KALDI BUTONU */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleItemResolved(entry.listKey, entry.itemId, 'KALDI')}
+                        className={`px-2 py-1 rounded text-xs font-black uppercase flex items-center gap-1 transition-all cursor-pointer select-none active:scale-95 ${
                           !isItemResolved
                             ? 'bg-rose-600 text-white ring-2 ring-rose-400 shadow-sm font-black'
                             : isDark
                             ? 'bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700'
                             : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-300'
                         }`}
+                        title="Giderilmedi / Kaldı olarak işaretle"
                       >
                         <X className="w-3.5 h-3.5 stroke-[3]" />
                         <span>Kaldı</span>
@@ -360,7 +395,7 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
                         onChange={(e) =>
                           handleResolutionNoteChange(entry.listKey, entry.itemId, e.target.value)
                         }
-                        placeholder="Kapatma notu (opsiyonel)..."
+                        placeholder="Kapatma açıklaması yazın (isteğe bağlı)..."
                         className={`w-full px-2 py-0.5 rounded text-[11px] border ${
                           isDark
                             ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-emerald-400'
@@ -379,7 +414,11 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
             <div
               className={`p-2 sm:p-2.5 rounded-lg border transition-all ${
                 workingData.rideComfortResolved
-                  ? isDark
+                  ? workingData.rideComfortResolutionType === 'BETA'
+                    ? isDark
+                      ? 'bg-blue-950/40 border-blue-400/60'
+                      : 'bg-blue-50/90 border-blue-400'
+                    : isDark
                     ? 'bg-emerald-950/25 border-emerald-500/50'
                     : 'bg-emerald-50 border-emerald-300'
                   : isDark
@@ -387,7 +426,7 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
                   : 'bg-rose-50/90 border-rose-300'
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-1.5 min-w-0 flex-1">
                   <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
                     Seyir ve Konfor
@@ -397,12 +436,12 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
                   </h4>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 shrink-0 self-end sm:self-auto">
                   <button
                     type="button"
-                    onClick={() => handleToggleComfortResolved(true)}
-                    className={`px-2.5 py-1 rounded text-xs font-black uppercase flex items-center gap-1 cursor-pointer ${
-                      workingData.rideComfortResolved
+                    onClick={() => handleToggleComfortResolved('YAPILDI')}
+                    className={`px-2 py-1 rounded text-xs font-black uppercase flex items-center gap-1 cursor-pointer ${
+                      workingData.rideComfortResolved && workingData.rideComfortResolutionType !== 'BETA'
                         ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
                         : isDark
                         ? 'bg-slate-800 text-slate-400 border border-slate-700'
@@ -415,8 +454,23 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => handleToggleComfortResolved(false)}
+                    onClick={() => handleToggleComfortResolved('BETA')}
                     className={`px-2.5 py-1 rounded text-xs font-black uppercase flex items-center gap-1 cursor-pointer ${
+                      workingData.rideComfortResolved && workingData.rideComfortResolutionType === 'BETA'
+                        ? 'bg-[#0A2647] text-amber-300 ring-2 ring-amber-400 border-2 border-amber-400 font-black'
+                        : isDark
+                        ? 'bg-slate-800 text-blue-300 border border-slate-700'
+                        : 'bg-white text-blue-700 border border-blue-300'
+                    }`}
+                  >
+                    <span className="text-amber-400 font-black">★</span>
+                    <span>BETA</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleToggleComfortResolved('KALDI')}
+                    className={`px-2 py-1 rounded text-xs font-black uppercase flex items-center gap-1 cursor-pointer ${
                       !workingData.rideComfortResolved
                         ? 'bg-rose-600 text-white ring-2 ring-rose-400'
                         : isDark
