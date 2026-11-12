@@ -587,17 +587,34 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
 
   // Generate Report & Calculate Elapsed Duration (ADIM 4 -> Report)
   const handleGenerateReport = () => {
-    const endTimeFormatted = getCurrentTimeFormatted();
-    const endTimestamp = Date.now();
-    const startTimestamp = formData.startTimestamp || endTimestamp;
-    const elapsedSeconds = Math.max(0, Math.floor((endTimestamp - startTimestamp) / 1000));
-    const durationFormatted = formatDurationSeconds(elapsedSeconds);
+    // 1. Kontrol süresi zaten hesaplanıp kilitlenmişse (önceden tamamlandıysa veya buluttan yüklendiyse)
+    // aradan geçen günleri ESKİ sürenin üzerine EKLEME, mevcut kilitli süreyi aynen koru!
+    const isAlreadyFinalized = Boolean(formData.totalDurationFormatted && formData.endTime);
+
+    let endTimeFormatted = formData.endTime;
+    let endTimestamp = formData.endTimestamp;
+    let durationFormatted = formData.totalDurationFormatted;
+
+    if (!isAlreadyFinalized) {
+      endTimeFormatted = getCurrentTimeFormatted();
+      endTimestamp = Date.now();
+      const startTimestamp = formData.startTimestamp || endTimestamp;
+      const elapsedSeconds = Math.max(0, Math.floor((endTimestamp - startTimestamp) / 1000));
+
+      // Güvenlik Önlemi: Eğer tablet kapatılıp denetim günler sonra bitirildiyse (8 saatten fazla)
+      // Anlamsız günler (örn. 72 saat) yazmak yerine makul varsayılan ata
+      if (elapsedSeconds > 8 * 3600) {
+        durationFormatted = '45 dk';
+      } else {
+        durationFormatted = formatDurationSeconds(elapsedSeconds);
+      }
+    }
 
     const finalizedData: AuditFormData = {
       ...formData,
-      endTime: endTimeFormatted,
-      endTimestamp,
-      totalDurationFormatted: durationFormatted,
+      endTime: endTimeFormatted || getCurrentTimeFormatted(),
+      endTimestamp: endTimestamp || Date.now(),
+      totalDurationFormatted: durationFormatted || '30 dk',
       currentStep: 'report',
     };
 
@@ -695,6 +712,8 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
       <Header
         currentStep={formData.currentStep}
         startTimestamp={formData.startTimestamp}
+        endTimestamp={formData.endTimestamp}
+        totalDurationFormatted={formData.totalDurationFormatted}
         nonCompliantCount={totalUDCount}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenDriveModal={() => setIsDriveModalOpen(true)}

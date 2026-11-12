@@ -318,7 +318,7 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
                             Kat {entry.item.floorLabel}
                           </span>
                         )}
-                        <h4 className="text-xs sm:text-sm font-bold truncate">
+                        <h4 className="text-xs sm:text-sm font-bold break-words leading-tight">
                           {entry.item.title}
                         </h4>
                       </div>
@@ -379,24 +379,37 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Satır 2: Hata Özeti ve Kompakt Kapatma Notu */}
-                  <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    <div className="text-[11px] truncate flex items-center gap-1">
-                      <span className="font-bold text-rose-500 shrink-0">Hata:</span>
-                      <span className="truncate text-slate-300 font-medium">
+                  {/* Hata Açıklaması ve 2. Kontrol Notu Kutusu (Tamamı Görünür) */}
+                  <div className={`mt-2 p-2 rounded-md border text-xs ${
+                    isDark ? 'bg-slate-950/70 border-slate-700/60' : 'bg-slate-50 border-slate-200'
+                  }`}>
+                    {/* 1. Tespit Edilen Uygunsuzluk / Hata Açıklaması (Tamamı Açık, Kırpma Yok) */}
+                    <div className="mb-2">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                          Tespit Edilen Hata / Eksiklik Açıklaması
+                        </span>
+                      </div>
+                      <div className={`text-xs font-medium leading-relaxed break-words whitespace-pre-wrap pl-1 border-l-2 ${
+                        isDark ? 'text-slate-200 border-rose-500/60' : 'text-slate-800 border-rose-500'
+                      }`}>
                         {entry.item.description || 'Uygunsuzluk girildi'}
-                      </span>
+                      </div>
                     </div>
 
-                    <div>
+                    {/* 2. Kontrol Durum / Kapatma Notu */}
+                    <div className="pt-2 border-t border-slate-700/40 flex flex-col sm:flex-row sm:items-center gap-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 shrink-0">
+                        2. Kontrol Notu:
+                      </span>
                       <input
                         type="text"
                         value={entry.item.resolutionNote || ''}
                         onChange={(e) =>
                           handleResolutionNoteChange(entry.listKey, entry.itemId, e.target.value)
                         }
-                        placeholder="Kapatma açıklaması yazın (isteğe bağlı)..."
-                        className={`w-full px-2 py-0.5 rounded text-[11px] border ${
+                        placeholder="Kapatma veya durum açıklaması yazın (isteğe bağlı)..."
+                        className={`flex-1 w-full px-2.5 py-1 rounded text-xs border ${
                           isDark
                             ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-emerald-400'
                             : 'bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-emerald-600'
@@ -431,7 +444,7 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
                   <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
                     Seyir ve Konfor
                   </span>
-                  <h4 className="text-xs sm:text-sm font-bold truncate">
+                  <h4 className="text-xs sm:text-sm font-bold break-words leading-tight">
                     Seyir ve Konfor Uygunsuzluğu
                   </h4>
                 </div>
@@ -484,15 +497,27 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
                 </div>
               </div>
 
-              <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <div className="text-[11px] truncate flex items-center gap-1">
-                  <span className="font-bold text-rose-500 shrink-0">İlk Not:</span>
-                  <span className="truncate text-slate-300 font-medium">
-                    {workingData.rideComfortNotes || '-'}
-                  </span>
+              {/* Seyir ve Konfor Hata ve 2. Kontrol Notu Kutusu (Tamamı Görünür) */}
+              <div className={`mt-2 p-2 rounded-md border text-xs ${
+                isDark ? 'bg-slate-950/70 border-slate-700/60' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="mb-2">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                      İlk Muayene Konfor Notu
+                    </span>
+                  </div>
+                  <div className={`text-xs font-medium leading-relaxed break-words whitespace-pre-wrap pl-1 border-l-2 ${
+                    isDark ? 'text-slate-200 border-amber-500/60' : 'text-slate-800 border-amber-500'
+                  }`}>
+                    {workingData.rideComfortNotes || 'Seyir ve konfor uygunsuzluğu girildi.'}
+                  </div>
                 </div>
 
-                <div>
+                <div className="pt-2 border-t border-slate-700/40 flex flex-col sm:flex-row sm:items-center gap-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 shrink-0">
+                    2. Kontrol Notu:
+                  </span>
                   <input
                     type="text"
                     value={workingData.rideComfortResolutionNote || ''}
@@ -502,8 +527,8 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
                         rideComfortResolutionNote: e.target.value,
                       }))
                     }
-                    placeholder="Konfor kapatma notu..."
-                    className={`w-full px-2 py-0.5 rounded text-[11px] border ${
+                    placeholder="Konfor kapatma veya durum açıklaması yazın..."
+                    className={`flex-1 w-full px-2.5 py-1 rounded text-xs border ${
                       isDark
                         ? 'bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 focus:border-emerald-400'
                         : 'bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-emerald-600'

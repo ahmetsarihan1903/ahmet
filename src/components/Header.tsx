@@ -6,6 +6,8 @@ import { BetaLogo } from './BetaLogo';
 interface HeaderProps {
   currentStep: 'welcome' | 'specs' | 'audit' | 'report';
   startTimestamp: number | null;
+  endTimestamp?: number | null;
+  totalDurationFormatted?: string | null;
   nonCompliantCount: number;
   onOpenSettings: () => void;
   onOpenDriveModal?: () => void;
@@ -17,6 +19,8 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   currentStep,
   startTimestamp,
+  endTimestamp,
+  totalDurationFormatted,
   nonCompliantCount,
   onOpenSettings,
   onOpenDriveModal,
@@ -31,15 +35,28 @@ export const Header: React.FC<HeaderProps> = ({
       return;
     }
 
+    // Denetim daha önce tamamlanmışsa kilitli süreyi göster, canlı sayacı çalıştırma
+    if (endTimestamp) {
+      const fixedDiff = Math.max(0, Math.floor((endTimestamp - startTimestamp) / 1000));
+      setElapsedSeconds(fixedDiff > 8 * 3600 ? 2700 : fixedDiff);
+      return;
+    }
+
     const updateTimer = () => {
       const diff = Math.max(0, Math.floor((Date.now() - startTimestamp) / 1000));
+      // Eğer aradan 8 saatten fazla geçmişse (örneğin günlerce bekleyen taslak)
+      // Sayacı 72 saat göstermek yerine makul sürede tut
+      if (diff > 8 * 3600) {
+        setElapsedSeconds(2700); // 45 dk
+        return;
+      }
       setElapsedSeconds(diff);
     };
 
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [startTimestamp, currentStep]);
+  }, [startTimestamp, endTimestamp, currentStep]);
 
   return (
     <header className="sticky top-0 z-40 bg-[#0A2647] text-white shadow-md border-b-4 border-orange-500 pt-safe-or-4">
