@@ -128,6 +128,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
         description: data.rideComfortNotes || 'Konfor problemi tespit edildi.',
         category: 'Seyir ve Konfor',
         isResolved: data.rideComfortResolved,
+        resolutionType: data.rideComfortResolutionType,
         resolutionNote: data.rideComfortResolutionNote,
       },
     });
@@ -415,59 +416,177 @@ export const ReportView: React.FC<ReportViewProps> = ({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     lastY = (doc as any).lastAutoTable.finalY + 3;
 
-    // 5. SEYİR KONFORU VE SAHA ÖLÇÜLERİ BÖLÜMÜ (1. Sayfada)
-    const hasComfortInfo = !!data.rideComfortNotes || data.rideComfortNonCompliant;
-    const hasMeasures = data.measures && data.measures.length > 0;
+    // 2. Kontrolde BETA işaretli veya 2. kontrol açıklaması yazılmış maddeler
+    const secondControlHighlightItems = allUDItems.filter((entry) => {
+      const isBeta = !!entry.item.isResolved && entry.item.resolutionType === 'BETA';
+      const hasResNote = Boolean(entry.item.resolutionNote && entry.item.resolutionNote.trim() !== '');
+      return isBeta || hasResNote;
+    });
 
-    if (hasComfortInfo || hasMeasures) {
-      const comfortAndMeasureRows: any[] = [];
+    const isSecondControlReport =
+      Boolean(data.reAuditDate) ||
+      Boolean(data.reAuditInspector) ||
+      Boolean(data.reAuditCompleted) ||
+      hasReAuditDone ||
+      secondControlHighlightItems.length > 0;
 
-      if (hasComfortInfo) {
-        const isComfortResolved = data.rideComfortResolved;
-        const comfortStatus = data.rideComfortNonCompliant
-          ? (isComfortResolved ? 'GIDERILDI (100% Konforlu)' : 'UYGUNSUZ (Sarsinti/Sikayet Var)')
-          : 'UYGUN (Sarsintisiz & Konforlu Seyir)';
-        const comfortNote = cleanTr(data.rideComfortNotes) || 'Standartlara uygun sarsintisiz calisma saglandi.';
-        const resNote = isComfortResolved && data.rideComfortResolutionNote ? ` - Kapatma Notu: ${cleanTr(data.rideComfortResolutionNote)}` : '';
+    if (isSecondControlReport) {
+      // 2. Kontrolde oluşturulan PDF raporunun 1. sayfasında
+      // SEYIR KONFORU VE SAHA OLCUM DEGERLERI bölümü kaldırıldı;
+      // yerine özetin altına 2. kontrolde BETA işaretli ve açıklama yazılan maddeler gösterilir.
+      if (secondControlHighlightItems.length > 0) {
+        const highlightRows = secondControlHighlightItems.map((entry, idx) => {
+          const isResolved = !!entry.item.isResolved;
+          const resType = entry.item.resolutionType || (isResolved ? 'YAPILDI' : 'KALDI');
+          const descText = cleanTr(entry.item.description) || '-';
+          const resNote = cleanTr(entry.item.resolutionNote || '').trim();
 
-        comfortAndMeasureRows.push([
-          { content: 'SEYIR VE KONFOR DEGERLENDIRMESI:', styles: { fontStyle: 'bold' as const, fillColor: [241, 245, 249] as [number, number, number], cellWidth: 55 } },
-          { content: `${comfortStatus} -> ${comfortNote}${resNote}`, colSpan: 3, styles: { fontStyle: 'bold' as const, textColor: data.rideComfortNonCompliant && !isComfortResolved ? [185, 28, 28] as [number, number, number] : [5, 150, 105] as [number, number, number] } },
-        ]);
-      }
+          let statusText = '';
+          if (resType === 'BETA') {
+            statusText = 'BETA';
+          } else if (isResolved) {
+            statusText = 'GIDERILDI';
+          } else {
+            statusText = 'KALDI (UD)';
+          }
 
-      if (hasMeasures) {
-        const measureSummaryStr = data.measures
-          .map((m) => `${cleanTr(m.name)}: ${cleanTr(m.value || '-')}`)
-          .join('   |   ');
+          const secondControlText = resNote ? `${statusText}\nNot: ${resNote}` : statusText;
 
-        comfortAndMeasureRows.push([
-          { content: 'TEMEL SAHA OLCU DEGERLERI:', styles: { fontStyle: 'bold' as const, fillColor: [241, 245, 249] as [number, number, number], cellWidth: 55 } },
-          { content: measureSummaryStr, colSpan: 3 },
-        ]);
-      }
-
-      autoTable(doc, {
-        startY: lastY,
-        margin: { left: margin, right: margin },
-        head: [
-          [
+          return [
+            (idx + 1).toString(),
+            cleanTr(entry.category),
+            cleanTr(entry.item.title),
+            descText,
+            cleanTr(entry.item.floorLabel) || '-',
             {
-              content: 'SEYIR KONFORU VE SAHA OLCUM DEGERLERI',
-              colSpan: 4,
-              styles: { fillColor: [14, 116, 144], textColor: [255, 255, 255], fontStyle: 'bold' as const, fontSize: 7.5, cellPadding: 1.4 },
+              content: secondControlText,
+              styles: {
+                textColor:
+                  resType === 'BETA'
+                    ? ([10, 38, 71] as [number, number, number])
+                    : isResolved
+                    ? ([5, 150, 105] as [number, number, number])
+                    : ([185, 28, 28] as [number, number, number]),
+                fillColor:
+                  resType === 'BETA'
+                    ? ([239, 246, 255] as [number, number, number])
+                    : undefined,
+                fontStyle: 'bold' as const,
+              },
             },
+          ];
+        });
+
+        autoTable(doc, {
+          startY: lastY,
+          margin: { left: margin, right: margin },
+          head: [
+            [
+              {
+                content: `2. KONTROL OZEL OZETI: BETA ISARETLI VE ACIKLAMALI MADDELER (${secondControlHighlightItems.length} Madde)`,
+                colSpan: 6,
+                styles: {
+                  fillColor: [10, 38, 71],
+                  textColor: [255, 255, 255],
+                  fontStyle: 'bold' as const,
+                  fontSize: 8,
+                  cellPadding: 1.8,
+                },
+              },
+            ],
+            [
+              { content: '#', styles: { halign: 'center' as const, cellWidth: 7 } },
+              { content: 'BOLUM', styles: { cellWidth: 28 } },
+              { content: 'KONTROL MADDESI', styles: { cellWidth: 38 } },
+              { content: 'ILK TESPIT ACIKLAMASI', styles: { cellWidth: 46 } },
+              { content: 'DURAK', styles: { halign: 'center' as const, cellWidth: 13 } },
+              { content: '2. KONTROL DURUMU & NOTU', styles: { cellWidth: 58 } },
+            ],
           ],
-        ],
-        body: comfortAndMeasureRows,
-        theme: 'grid',
-        styles: {
-          fontSize: 7,
-          cellPadding: 1.5,
-          lineColor: [203, 213, 225],
-          lineWidth: 0.2,
-        },
-      });
+          body: highlightRows,
+          theme: 'grid',
+          headStyles: {
+            fillColor: [51, 65, 85],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold' as const,
+            fontSize: 7,
+            cellPadding: 1.5,
+          },
+          styles: {
+            fontSize: 7.2,
+            cellPadding: 1.6,
+            lineColor: [203, 213, 225],
+            lineWidth: 0.2,
+            textColor: [15, 23, 42],
+            valign: 'middle' as const,
+          },
+          alternateRowStyles: {
+            fillColor: [248, 250, 252],
+          },
+          columnStyles: {
+            0: { halign: 'center' as const, fontStyle: 'bold' as const },
+            1: { fontStyle: 'bold' as const },
+            2: { fontStyle: 'bold' as const },
+            3: { textColor: [185, 28, 28], fontStyle: 'normal' as const },
+            4: { halign: 'center' as const, fontStyle: 'bold' as const },
+          },
+        });
+      }
+    } else {
+      // 5. SEYİR KONFORU VE SAHA ÖLÇÜLERİ BÖLÜMÜ (1. Sayfada - Yalnızca 1. Kontrol Raporunda)
+      const hasComfortInfo = !!data.rideComfortNotes || data.rideComfortNonCompliant;
+      const hasMeasures = data.measures && data.measures.length > 0;
+
+      if (hasComfortInfo || hasMeasures) {
+        const comfortAndMeasureRows: any[] = [];
+
+        if (hasComfortInfo) {
+          const isComfortResolved = data.rideComfortResolved;
+          const comfortStatus = data.rideComfortNonCompliant
+            ? (isComfortResolved ? 'GIDERILDI (100% Konforlu)' : 'UYGUNSUZ (Sarsinti/Sikayet Var)')
+            : 'UYGUN (Sarsintisiz & Konforlu Seyir)';
+          const comfortNote = cleanTr(data.rideComfortNotes) || 'Standartlara uygun sarsintisiz calisma saglandi.';
+          const resNote = isComfortResolved && data.rideComfortResolutionNote ? ` - Kapatma Notu: ${cleanTr(data.rideComfortResolutionNote)}` : '';
+
+          comfortAndMeasureRows.push([
+            { content: 'SEYIR VE KONFOR DEGERLENDIRMESI:', styles: { fontStyle: 'bold' as const, fillColor: [241, 245, 249] as [number, number, number], cellWidth: 55 } },
+            { content: `${comfortStatus} -> ${comfortNote}${resNote}`, colSpan: 3, styles: { fontStyle: 'bold' as const, textColor: data.rideComfortNonCompliant && !isComfortResolved ? [185, 28, 28] as [number, number, number] : [5, 150, 105] as [number, number, number] } },
+          ]);
+        }
+
+        if (hasMeasures) {
+          const measureSummaryStr = data.measures
+            .map((m) => `${cleanTr(m.name)}: ${cleanTr(m.value || '-')}`)
+            .join('   |   ');
+
+          comfortAndMeasureRows.push([
+            { content: 'TEMEL SAHA OLCU DEGERLERI:', styles: { fontStyle: 'bold' as const, fillColor: [241, 245, 249] as [number, number, number], cellWidth: 55 } },
+            { content: measureSummaryStr, colSpan: 3 },
+          ]);
+        }
+
+        autoTable(doc, {
+          startY: lastY,
+          margin: { left: margin, right: margin },
+          head: [
+            [
+              {
+                content: 'SEYIR KONFORU VE SAHA OLCUM DEGERLERI',
+                colSpan: 4,
+                styles: { fillColor: [14, 116, 144], textColor: [255, 255, 255], fontStyle: 'bold' as const, fontSize: 7.5, cellPadding: 1.4 },
+              },
+            ],
+          ],
+          body: comfortAndMeasureRows,
+          theme: 'grid',
+          styles: {
+            fontSize: 7,
+            cellPadding: 1.5,
+            lineColor: [203, 213, 225],
+            lineWidth: 0.2,
+          },
+        });
+      }
     }
 
     // -------------------------------------------------------------

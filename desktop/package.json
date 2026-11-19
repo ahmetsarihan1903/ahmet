@@ -1,0 +1,53 @@
+{
+  "name": "beta-asansor-kalite-kontrol-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Beta Asansör Kalite Kontrol ve Saha Yönetim Sistemi (Windows Masaüstü)",
+  "main": "main.cjs",
+  "scripts": {
+    "prepare-assets": "node prepare.cjs",
+    "start": "node prepare.cjs && electron .",
+    "dist:win": "node prepare.cjs && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.betaasansor.kalite.desktop",
+    "productName": "Beta Asansör Kalite Kontrol",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.cjs",
+      "dist/**/*",
+      "icon.ico",
+      "icon.png"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Beta Asansör Kalite Kontrol",
+      "artifactName": "BetaAsansor-Kalite-Kontrol-Kurulum.${ext}"
+    },
+    "portable": {
+      "artifactName": "BetaAsansor-Kalite-Kontrol-Tasinabilir.${ext}"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}

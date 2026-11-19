@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+desktop/node_modules/
+desktop/dist/
+desktop/release/
+desktop/icon.ico
+desktop/icon.png
