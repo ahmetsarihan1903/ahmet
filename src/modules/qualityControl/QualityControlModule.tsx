@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Clock, Play, Pause } from 'lucide-react';
 import { AuditFormData, ElevatorType, InspectionItem, MeasureItem } from '../../types';
 import {
   CONTROL_PANEL_ITEMS,
@@ -14,6 +15,7 @@ import {
   getCurrentDateFormatted,
   getCurrentTimeFormatted,
   formatDurationSeconds,
+  formatTimerDisplay,
 } from '../../utils/textUtils';
 import {
   saveActiveDraft,
@@ -69,7 +71,6 @@ function syncItemsWithMaster(draftItems: InspectionItem[], masterItems: Inspecti
     return JSON.parse(JSON.stringify(masterItems));
   }
 
-  const masterMap = new Map(masterItems.map((it) => [it.id, it]));
   const draftMap = new Map(draftItems.map((it) => [it.id, it]));
 
   const synced: InspectionItem[] = masterItems.map((masterIt) => {
@@ -78,7 +79,12 @@ function syncItemsWithMaster(draftItems: InspectionItem[], masterItems: Inspecti
       return {
         ...masterIt,
         isNonCompliant: userIt.isNonCompliant || false,
+        isPassed: userIt.isPassed || false,
         description: userIt.description || '',
+        isResolved: userIt.isResolved,
+        resolutionType: userIt.resolutionType,
+        resolvedAt: userIt.resolvedAt,
+        resolutionNote: userIt.resolutionNote,
       };
     }
     return { ...masterIt };
@@ -86,6 +92,38 @@ function syncItemsWithMaster(draftItems: InspectionItem[], masterItems: Inspecti
 
   const customItems = draftItems.filter((it) => it.isCustom);
   return [...synced, ...customItems];
+}
+
+function getLiveAccumulatedSeconds(data: AuditFormData, paused: boolean): number {
+  const base = data.accumulatedElapsedSeconds || 0;
+  if (paused || !data.lastTimerAnchorTimestamp || data.endTimestamp) {
+    return base;
+  }
+  const seg = Math.max(0, Math.floor((Date.now() - data.lastTimerAnchorTimestamp) / 1000));
+  if (seg > 8 * 3600) {
+    return base;
+  }
+  return base + seg;
+}
+
+function getInitialPausedElapsedSeconds(draft: AuditFormData): number {
+  if (typeof draft.accumulatedElapsedSeconds === 'number') {
+    return draft.accumulatedElapsedSeconds;
+  }
+  if (draft.startTimestamp && !draft.endTimestamp) {
+    const diff = Math.max(0, Math.floor((Date.now() - draft.startTimestamp) / 1000));
+    return diff > 8 * 3600 ? 0 : diff;
+  }
+  return 0;
+}
+
+function buildPersistedAuditSnapshot(data: AuditFormData, paused: boolean): AuditFormData {
+  const isActiveRunning = !paused && data.currentStep === 'audit' && !data.endTimestamp && !!data.startTimestamp;
+  return {
+    ...data,
+    accumulatedElapsedSeconds: getLiveAccumulatedSeconds(data, paused),
+    lastTimerAnchorTimestamp: isActiveRunning ? Date.now() : null,
+  };
 }
 
 function resolveMotorChassisItems(type: ElevatorType, customSynced?: Record<string, InspectionItem[]> | null): InspectionItem[] {
@@ -143,11 +181,29 @@ interface QualityControlModuleProps {
 export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleProps) {
   const { isDark } = useTheme();
   const { userName, isNameRegistered } = useUser();
+  const [initialLoadedDraft] = useState<AuditFormData | null>(() => loadActiveDraft());
+  const shouldPromptResumeOnMount = Boolean(
+    initialLoadedDraft &&
+      initialLoadedDraft.currentStep === 'audit' &&
+      initialLoadedDraft.startTimestamp &&
+      !initialLoadedDraft.endTimestamp
+  );
+
+  const [isTimerPaused, setIsTimerPaused] = useState<boolean>(shouldPromptResumeOnMount);
+  const [showResumeTimerPrompt, setShowResumeTimerPrompt] = useState<boolean>(shouldPromptResumeOnMount);
+
   const [formData, setFormData] = useState<AuditFormData>(() => {
     // 1. Önce aktif taslağı yükle (hangi adımda kalmışsa: welcome, specs, audit veya report)
-    const draft = loadActiveDraft();
+    const draft = initialLoadedDraft;
     if (draft) {
       const synced = syncDraftWithMaster(draft);
+      if (synced.currentStep === 'audit' && synced.startTimestamp && !synced.endTimestamp) {
+        return {
+          ...synced,
+          accumulatedElapsedSeconds: getInitialPausedElapsedSeconds(synced),
+          lastTimerAnchorTimestamp: null,
+        };
+      }
       return synced;
     }
 
@@ -178,6 +234,8 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
       endTime: null,
       endTimestamp: null,
       totalDurationFormatted: null,
+      accumulatedElapsedSeconds: 0,
+      lastTimerAnchorTimestamp: null,
       measures: JSON.parse(JSON.stringify(DEFAULT_FIXED_MEASURES)),
       controlPanelItems: customSynced?.controlPanel?.length
         ? JSON.parse(JSON.stringify(customSynced.controlPanel))
@@ -211,42 +269,49 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
   const [isSaveSuccess, setIsSaveSuccess] = useState(false);
   const [saveToastMessage, setSaveToastMessage] = useState<string | null>(null);
 
-  // Keep a synchronous reference to the latest formData for background/unload handlers
+  // Keep synchronous references to latest formData & timer pause state for background/unload handlers
   const formDataRef = useRef<AuditFormData>(formData);
+  const isTimerPausedRef = useRef<boolean>(isTimerPaused);
   useEffect(() => {
     formDataRef.current = formData;
   }, [formData]);
-
-  // Auto-save active draft whenever formData changes (offline local storage & history snapshot)
   useEffect(() => {
-    saveActiveDraft(formData);
-    if (formData.clientProjectName || formData.serialNumber || formData.startTimestamp) {
-      saveManualAuditSnapshot(formData);
-    }
-  }, [formData]);
+    isTimerPausedRef.current = isTimerPaused;
+  }, [isTimerPaused]);
 
-  // Periodic auto-save draft every 15 seconds
+  // Auto-save active draft whenever formData or pause state changes (offline local storage & history snapshot)
+  useEffect(() => {
+    const persisted = buildPersistedAuditSnapshot(formData, isTimerPaused);
+    saveActiveDraft(persisted);
+    if (persisted.clientProjectName || persisted.serialNumber || persisted.startTimestamp) {
+      saveManualAuditSnapshot(persisted);
+    }
+  }, [formData, isTimerPaused]);
+
+  // Periodic auto-save draft & active duration checkpoint every 10 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       if (formDataRef.current) {
-        saveActiveDraft(formDataRef.current);
+        const persisted = buildPersistedAuditSnapshot(formDataRef.current, isTimerPausedRef.current);
+        saveActiveDraft(persisted);
       }
-    }, 15000);
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
   // Comprehensive Mobile & Desktop Lifecycle Listeners:
-  // Saves current state immediately when switching tabs, minimizing app, locking screen, or closing window
+  // Saves current state & active duration immediately when switching tabs, minimizing app, locking screen, or closing window
   useEffect(() => {
     const handleImmediatePersist = () => {
       if (formDataRef.current) {
-        saveActiveDraft(formDataRef.current);
+        const persisted = buildPersistedAuditSnapshot(formDataRef.current, isTimerPausedRef.current);
+        saveActiveDraft(persisted);
         if (
-          formDataRef.current.clientProjectName ||
-          formDataRef.current.serialNumber ||
-          formDataRef.current.startTimestamp
+          persisted.clientProjectName ||
+          persisted.serialNumber ||
+          persisted.startTimestamp
         ) {
-          saveManualAuditSnapshot(formDataRef.current);
+          saveManualAuditSnapshot(persisted);
         }
       }
     };
@@ -375,13 +440,56 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
     const timeFormatted = getCurrentTimeFormatted();
     const timestamp = now.getTime();
 
+    setIsTimerPaused(false);
+    setShowResumeTimerPrompt(false);
+
     setFormData((prev) => ({
       ...prev,
       startTime: prev.startTime || timeFormatted,
       startTimestamp: prev.startTimestamp || timestamp,
+      accumulatedElapsedSeconds: prev.accumulatedElapsedSeconds ?? 0,
+      lastTimerAnchorTimestamp: timestamp,
       currentStep: 'audit',
     }));
   };
+
+  // Timer choice handler when reopening an unfinished audit after app close
+  const handleResumeTimerChoice = (shouldStart: boolean) => {
+    setShowResumeTimerPrompt(false);
+    if (shouldStart) {
+      setIsTimerPaused(false);
+      setFormData((prev) => ({
+        ...prev,
+        lastTimerAnchorTimestamp: Date.now(),
+      }));
+    } else {
+      setIsTimerPaused(true);
+      setFormData((prev) => ({
+        ...prev,
+        lastTimerAnchorTimestamp: null,
+      }));
+    }
+  };
+
+  // Manual toggle in Header (Pause / Resume active timer)
+  const handleToggleTimerPause = useCallback(() => {
+    if (formDataRef.current.endTimestamp) return;
+    if (isTimerPausedRef.current) {
+      setIsTimerPaused(false);
+      setFormData((prev) => ({
+        ...prev,
+        lastTimerAnchorTimestamp: Date.now(),
+      }));
+    } else {
+      const totalSoFar = getLiveAccumulatedSeconds(formDataRef.current, false);
+      setIsTimerPaused(true);
+      setFormData((prev) => ({
+        ...prev,
+        accumulatedElapsedSeconds: totalSoFar,
+        lastTimerAnchorTimestamp: null,
+      }));
+    }
+  }, []);
 
   // Toggle UD (Uygun Değil) status on an inspection item
   const handleToggleUD = useCallback((categoryKey: string, id: string) => {
@@ -594,26 +702,32 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
     let endTimeFormatted = formData.endTime;
     let endTimestamp = formData.endTimestamp;
     let durationFormatted = formData.totalDurationFormatted;
+    let activeSeconds = formData.accumulatedElapsedSeconds || 0;
 
     if (!isAlreadyFinalized) {
       endTimeFormatted = getCurrentTimeFormatted();
       endTimestamp = Date.now();
-      const startTimestamp = formData.startTimestamp || endTimestamp;
-      const elapsedSeconds = Math.max(0, Math.floor((endTimestamp - startTimestamp) / 1000));
 
-      // Güvenlik Önlemi: Eğer tablet kapatılıp denetim günler sonra bitirildiyse (8 saatten fazla)
-      // Anlamsız günler (örn. 72 saat) yazmak yerine makul varsayılan ata
-      if (elapsedSeconds > 8 * 3600) {
-        durationFormatted = '45 dk';
+      if (typeof formData.accumulatedElapsedSeconds === 'number' || formData.lastTimerAnchorTimestamp) {
+        activeSeconds = getLiveAccumulatedSeconds(formData, isTimerPaused);
       } else {
-        durationFormatted = formatDurationSeconds(elapsedSeconds);
+        const startTimestamp = formData.startTimestamp || endTimestamp;
+        const rawDiff = Math.max(0, Math.floor((endTimestamp - startTimestamp) / 1000));
+        activeSeconds = rawDiff > 8 * 3600 ? 2700 : rawDiff;
       }
+
+      durationFormatted = formatDurationSeconds(activeSeconds);
     }
+
+    setIsTimerPaused(false);
+    setShowResumeTimerPrompt(false);
 
     const finalizedData: AuditFormData = {
       ...formData,
       endTime: endTimeFormatted || getCurrentTimeFormatted(),
       endTimestamp: endTimestamp || Date.now(),
+      accumulatedElapsedSeconds: activeSeconds,
+      lastTimerAnchorTimestamp: null,
       totalDurationFormatted: durationFormatted || '30 dk',
       currentStep: 'report',
     };
@@ -629,6 +743,8 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
   // Start fresh new inspection
   const handleNewInspection = () => {
     clearActiveDraft();
+    setIsTimerPaused(false);
+    setShowResumeTimerPrompt(false);
     const defaultStopCount = 10;
     const defaultFloorStart = -1;
     const customSynced = loadSyncedItemsFromStorage();
@@ -652,6 +768,8 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
       endTime: null,
       endTimestamp: null,
       totalDurationFormatted: null,
+      accumulatedElapsedSeconds: 0,
+      lastTimerAnchorTimestamp: null,
       measures: JSON.parse(JSON.stringify(DEFAULT_FIXED_MEASURES)),
       controlPanelItems: customSynced?.controlPanel?.length
         ? JSON.parse(JSON.stringify(customSynced.controlPanel))
@@ -714,6 +832,10 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
         startTimestamp={formData.startTimestamp}
         endTimestamp={formData.endTimestamp}
         totalDurationFormatted={formData.totalDurationFormatted}
+        accumulatedElapsedSeconds={formData.accumulatedElapsedSeconds || 0}
+        lastTimerAnchorTimestamp={formData.lastTimerAnchorTimestamp || null}
+        isTimerPaused={isTimerPaused}
+        onToggleTimerPause={handleToggleTimerPause}
         nonCompliantCount={totalUDCount}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         onOpenDriveModal={() => setIsDriveModalOpen(true)}
@@ -882,6 +1004,82 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
         onApplySyncedData={handleApplySyncedData}
         onResetToDefault={handleResetToDefault}
       />
+
+      {/* Uygulama Kapatılıp Tekrar Açıldığında Süre Başlatma Seçimi Modalı */}
+      {showResumeTimerPrompt && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div
+            className={`w-full max-w-md rounded-2xl shadow-2xl border overflow-hidden ${
+              isDark
+                ? 'bg-slate-900 border-slate-700 text-slate-100'
+                : 'bg-white border-slate-300 text-slate-900'
+            }`}
+          >
+            <div className="bg-[#0A2647] text-white px-4 py-3 border-b-4 border-orange-500 flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-orange-500 text-slate-950 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-black uppercase tracking-tight">
+                  Yarım Kalan Denetim — Süre Başlasın mı?
+                </h3>
+                <p className="text-[11px] text-slate-300 font-semibold">
+                  {formData.clientProjectName || 'Aktif Denetim'}{' '}
+                  {formData.serialNumber ? `• Seri: ${formData.serialNumber}` : ''}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 space-y-3 text-xs sm:text-sm">
+              <div
+                className={`p-3 rounded-xl border flex items-center justify-between ${
+                  isDark
+                    ? 'bg-slate-950/80 border-slate-700'
+                    : 'bg-slate-50 border-slate-200'
+                }`}
+              >
+                <span className="font-bold text-slate-400">Önceki Kayıtlı Süre:</span>
+                <span className="font-mono font-black text-base text-orange-500">
+                  {formatTimerDisplay(formData.accumulatedElapsedSeconds || 0)}
+                </span>
+              </div>
+
+              <p className={`text-xs leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                Uygulama kapatılıp tekrar açıldığı için denetim sayacı şu an <strong>duraklatıldı</strong>.
+                Sürenin kaldığı yerden saymaya devam etmesini ister misiniz?
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleResumeTimerChoice(true)}
+                  className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs sm:text-sm uppercase flex items-center justify-center gap-1.5 shadow-lg cursor-pointer transition-all"
+                >
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>Evet, Süre Başlasın</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleResumeTimerChoice(false)}
+                  className={`w-full py-2.5 px-3 rounded-xl font-black text-xs sm:text-sm uppercase flex items-center justify-center gap-1.5 border active:scale-95 cursor-pointer transition-all ${
+                    isDark
+                      ? 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/50'
+                      : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-400'
+                  }`}
+                >
+                  <Pause className="w-4 h-4" />
+                  <span>Hayır, Duraklatılsın</span>
+                </button>
+              </div>
+
+              <p className="text-[11px] text-center text-slate-400 pt-1">
+                İstediğiniz zaman üst menüdeki süre kutusuna dokunarak sayacı başlatıp duraklatabilirsiniz.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

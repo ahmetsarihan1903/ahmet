@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, shell } = require('electron');
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
@@ -47,11 +48,71 @@ function getDistDir() {
   return path.resolve(__dirname, '..', 'dist');
 }
 
+function fetchHttpsWithRedirects(targetUrl, depth = 0) {
+  return new Promise((resolve, reject) => {
+    if (depth > 6) {
+      reject(new Error('Too many redirects'));
+      return;
+    }
+    const client = targetUrl.startsWith('http://') ? http : https;
+    const req = client.get(targetUrl, (upstream) => {
+      if (
+        upstream.statusCode >= 300 &&
+        upstream.statusCode < 400 &&
+        upstream.headers.location
+      ) {
+        const nextUrl = new URL(upstream.headers.location, targetUrl).toString();
+        upstream.resume();
+        fetchHttpsWithRedirects(nextUrl, depth + 1).then(resolve).catch(reject);
+        return;
+      }
+      let data = '';
+      upstream.setEncoding('utf8');
+      upstream.on('data', (chunk) => {
+        data += chunk;
+      });
+      upstream.on('end', () => {
+        resolve({ statusCode: upstream.statusCode || 200, body: data });
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(12000, () => {
+      req.destroy(new Error('Timeout'));
+    });
+  });
+}
+
 function startLocalStaticServer(distDir) {
   return new Promise((resolve, reject) => {
-    const server = http.createServer((req, res) => {
+    const server = http.createServer(async (req, res) => {
       try {
-        const reqPathRaw = (req.url || '/').split('?')[0];
+        const reqUrl = new URL(req.url || '/', 'http://127.0.0.1');
+        if (reqUrl.pathname === '/api/fetch-sheet') {
+          const targetUrl = reqUrl.searchParams.get('url');
+          if (
+            !targetUrl ||
+            (!targetUrl.startsWith('https://docs.google.com/') &&
+              !targetUrl.startsWith('https://drive.google.com/'))
+          ) {
+            res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('Gecersiz URL');
+            return;
+          }
+          try {
+            const result = await fetchHttpsWithRedirects(targetUrl);
+            res.writeHead(result.statusCode, {
+              'Content-Type': 'text/csv; charset=utf-8',
+              'Cache-Control': 'no-cache',
+            });
+            res.end(result.body);
+          } catch (fetchErr) {
+            res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end(fetchErr?.message || 'Baglanti hatasi');
+          }
+          return;
+        }
+
+        const reqPathRaw = reqUrl.pathname;
         let reqPath = '/';
         try {
           reqPath = decodeURIComponent(reqPathRaw);

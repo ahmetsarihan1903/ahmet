@@ -16,6 +16,7 @@ import {
 } from '../constants';
 import { getBetaLogoDataUrl } from '../../../utils/logoUtils';
 import { getDeviceSecurityProfile } from '../../../utils/deviceSecurity';
+import { sanitizePdfFileNamePart } from '../../../utils/pdfGenerator';
 
 // Clean Turkish special characters for standard jsPDF Latin fonts to prevent garbled text
 export const cleanTr = (val: string | number | undefined | null): string => {
@@ -40,15 +41,15 @@ export const cleanTr = (val: string | number | undefined | null): string => {
  * Standardized filename for Ray, Kapi & Makine Sase Report PDF
  */
 export function getRailDoorStandardizedFileName(data: RailDoorInspectionFullData): string {
-  const cleanSerial = cleanTr(data.identity.serialNumber || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-  if (cleanSerial) {
-    return `Ray_Kapi_${cleanSerial}.pdf`;
+  const safeSerial = sanitizePdfFileNamePart(data.identity.serialNumber);
+  if (safeSerial) {
+    return `Ray_Kapı_${safeSerial}.pdf`;
   }
-  const cleanRef = cleanTr(data.identity.reference || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-  if (cleanRef) {
-    return `Ray_Kapi_${cleanRef}.pdf`;
+  const safeRef = sanitizePdfFileNamePart(data.identity.reference);
+  if (safeRef) {
+    return `Ray_Kapı_${safeRef}.pdf`;
   }
-  return 'Beta_Ray_Kapi_Kontrol_Raporu.pdf';
+  return 'Beta_Ray_Kapı_Kontrol_Raporu.pdf';
 }
 
 /**

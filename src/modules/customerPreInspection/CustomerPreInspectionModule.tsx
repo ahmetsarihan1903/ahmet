@@ -8,22 +8,11 @@ import {
 } from './customerChecklistData';
 import { CustomerThemeMode } from './customerThemes';
 import { BetaLogo } from '../../components/BetaLogo';
-import { VoiceInputButton } from '../../components/VoiceInputButton';
 import {
   ArrowLeft,
-  Building2,
-  CheckCircle2,
-  AlertTriangle,
   FileText,
   Plus,
-  Trash2,
-  RotateCcw,
   Edit3,
-  Calendar,
-  User,
-  Hash,
-  Layers,
-  Sparkles,
   Settings,
   Save,
   Check,
@@ -33,6 +22,7 @@ import { CustomerReportPreviewModal } from './CustomerReportPreviewModal';
 import { CustomerInspectionForm } from './CustomerInspectionForm';
 import { CustomerSettingsModal } from './CustomerSettingsModal';
 import { CustomerSyncModal } from './CustomerSyncModal';
+import { CustomerInspectionItemCard } from './CustomerInspectionItemCard';
 import { useTheme } from '../../context/ThemeContext';
 
 interface CustomerPreInspectionModuleProps {
@@ -134,9 +124,34 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
   // Toggle Defective state (Kırmızı / Yeşil)
   const handleToggleDefective = (id: string) => {
     setItems((prevItems) =>
-      prevItems.map((item) =>
-        item.id === id ? { ...item, isDefective: !item.isDefective } : item
-      )
+      prevItems.map((item) => {
+        if (item.id === id) {
+          const nextDefective = !item.isDefective;
+          return {
+            ...item,
+            isDefective: nextDefective,
+            isPassed: nextDefective ? false : item.isPassed,
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  // Toggle Passed/Verified state (2 sn basılı tutunca yeşil & uygun)
+  const handleTogglePassed = (id: string) => {
+    setItems((prevItems) =>
+      prevItems.map((item) => {
+        if (item.id === id) {
+          const nextPassed = item.isDefective ? true : !item.isPassed;
+          return {
+            ...item,
+            isPassed: nextPassed,
+            isDefective: nextPassed ? false : item.isDefective,
+          };
+        }
+        return item;
+      })
     );
   };
 
@@ -147,7 +162,12 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
         if (item.id === id) {
           // Bir maddeye not yazıldığı anda otomatik olarak UYGUNSUZ (isDefective: true) yapılır
           const shouldBeDefective = notes.trim().length > 0 ? true : item.isDefective;
-          return { ...item, notes, isDefective: shouldBeDefective };
+          return {
+            ...item,
+            notes,
+            isDefective: shouldBeDefective,
+            isPassed: shouldBeDefective ? false : item.isPassed,
+          };
         }
         return item;
       })
@@ -516,130 +536,15 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
             {/* Maddeler Listesi */}
             <div className="space-y-2.5">
               {filteredItems.map((item) => (
-                <div
+                <CustomerInspectionItemCard
                   key={item.id}
-                  className={`p-3 sm:p-3.5 rounded-xl border transition-all duration-150 ${
-                    item.isDefective
-                      ? isDark
-                        ? 'bg-slate-900 border-rose-500/40 hover:border-rose-500'
-                        : 'bg-rose-50/70 border-rose-300 hover:border-rose-400'
-                      : isDark
-                      ? 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
-                      : 'bg-[#FFFFFF] border-amber-200/80 hover:border-amber-300'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                      {/* Toggle Butonu (Kusurlu/Uygun) */}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleDefective(item.id)}
-                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 font-black text-xs border transition-all cursor-pointer ${
-                          item.isDefective
-                            ? 'bg-rose-600 border-rose-500 text-white shadow-md shadow-rose-600/30'
-                            : isDark
-                            ? 'bg-emerald-950/60 border-emerald-600/40 text-emerald-400 hover:bg-emerald-900'
-                            : 'bg-emerald-100 border-emerald-300 text-emerald-800 hover:bg-emerald-200'
-                        }`}
-                        title={
-                          item.isDefective
-                            ? 'Eksik Olarak İşaretlendi (Tıklayarak Uygun Yap)'
-                            : 'Uygun Olarak İşaretlendi (Tıklayarak Eksik Yap)'
-                        }
-                      >
-                        {item.isDefective ? '✕' : '✓'}
-                      </button>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span
-                            className={`text-xs font-black ${
-                              isDark ? 'text-slate-300' : 'text-slate-800'
-                            }`}
-                          >
-                            #{item.itemNumber}
-                          </span>
-                          <span
-                            className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded border ${
-                              item.category === 'COMMON'
-                                ? isDark
-                                  ? 'bg-slate-800 text-slate-300 border-slate-700'
-                                  : 'bg-slate-100 text-slate-700 border-slate-300'
-                                : item.category === 'MR'
-                                ? isDark
-                                  ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
-                                  : 'bg-blue-100 text-blue-800 border-blue-300'
-                                : item.category === 'MRL'
-                                ? isDark
-                                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
-                                  : 'bg-purple-100 text-purple-800 border-purple-300'
-                                : isDark
-                                ? 'bg-orange-500/20 text-orange-300 border-orange-500/30'
-                                : 'bg-orange-100 text-orange-800 border-orange-300'
-                            }`}
-                          >
-                            {item.category === 'COMMON' ? 'ORTAK' : item.category}
-                          </span>
-                          <span
-                            className={`text-[10px] font-bold ${
-                              item.isDefective
-                                ? 'text-rose-600'
-                                : 'text-emerald-600'
-                            }`}
-                          >
-                            {item.isDefective ? '• EKSİK / BİNA SORUMLULUĞUNDA' : '• UYGUN'}
-                          </span>
-                        </div>
-
-                        <p
-                          className={`text-xs sm:text-sm font-medium leading-relaxed ${
-                            item.isDefective
-                              ? isDark
-                                ? 'text-white'
-                                : 'text-slate-900 font-semibold'
-                              : isDark
-                              ? 'text-slate-300'
-                              : 'text-slate-700'
-                          }`}
-                        >
-                          {item.description}
-                        </p>
-
-                        {/* Not Alanı ve Sesli Giriş */}
-                        <div className="mt-2 flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={item.notes || ''}
-                            onChange={(e) => handleUpdateNotes(item.id, e.target.value)}
-                            placeholder="Bu maddeye özel şantiye/bina notu ekle..."
-                            className={`flex-1 rounded-lg px-2.5 py-1.5 text-xs outline-none border transition-all ${
-                              isDark
-                                ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500'
-                                : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-amber-500'
-                            }`}
-                          />
-                          <VoiceInputButton
-                            onTranscript={(text) => {
-                              const current = item.notes || '';
-                              handleUpdateNotes(item.id, current ? `${current} ${text}` : text);
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {item.isCustom && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="text-slate-400 hover:text-rose-500 p-1 cursor-pointer"
-                        title="Özel Maddeyi Sil"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
+                  item={item}
+                  isDark={isDark}
+                  onToggleDefective={handleToggleDefective}
+                  onTogglePassed={handleTogglePassed}
+                  onUpdateNotes={handleUpdateNotes}
+                  onDeleteItem={handleDeleteItem}
+                />
               ))}
             </div>
 

@@ -17,6 +17,7 @@ export interface CustomerInspectionItem {
   category: 'COMMON' | 'MR' | 'MRL' | 'CUSTOM';
   description: string;
   isDefective: boolean;
+  isPassed?: boolean;
   notes?: string;
   isCustom?: boolean;
 }

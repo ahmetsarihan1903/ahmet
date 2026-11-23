@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import {
   exportPdfDirectly,
+  sanitizePdfFileNamePart,
 } from '../../utils/pdfGenerator';
 import { formatDateDMY } from '../../utils/dateUtils';
 import { BetaLogo } from '../../components/BetaLogo';
@@ -43,11 +44,11 @@ export const CustomerReportPreviewModal: React.FC<ReportPreviewModalProps> = ({
 
   const defectiveItems = items.filter((item) => item.isDefective || item.isCustom);
 
-  const sanitizeFilename = (text: string) => {
-    return text.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
-  };
-
-  const reportFileName = `uygunsuzluk_raporu_${sanitizeFilename(metadata.projectName)}_${sanitizeFilename(metadata.serialNumber)}_${metadata.inspectionDate}.pdf`;
+  const projectPart = sanitizePdfFileNamePart(metadata.projectName);
+  const serialPart = sanitizePdfFileNamePart(metadata.serialNumber);
+  const datePart = sanitizePdfFileNamePart(metadata.inspectionDate);
+  const nameParts = ['Uygunsuzluk_Raporu', projectPart, serialPart, datePart].filter(Boolean);
+  const reportFileName = `${nameParts.join('_')}.pdf`;
 
   const showToast = (msg: string) => {
     setStatusMessage(msg);

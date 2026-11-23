@@ -176,6 +176,7 @@ export const CustomerSyncModal: React.FC<CustomerSyncModalProps> = ({
       } catch {
         // ignore
       }
+      setSheetUrl(loadCustomerGoogleSheetUrl());
       setHasCustomData(false);
       onResetToDefault();
       setStatusMessage({

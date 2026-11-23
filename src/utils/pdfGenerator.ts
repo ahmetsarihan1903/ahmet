@@ -34,6 +34,18 @@ export const cleanTr = (val: string | number | undefined | null): string => {
 };
 
 /**
+ * Sanitizes a text segment for PDF filenames while preserving Turkish characters.
+ */
+export function sanitizePdfFileNamePart(val: string | number | undefined | null): string {
+  if (val === undefined || val === null) return '';
+  return String(val)
+    .trim()
+    .replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ_-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+/**
  * Builds the official jsPDF document for Yeşil Etiket Öncesi Müşteri İşleri
  */
 export function generateCustomerJsPdfDocument(

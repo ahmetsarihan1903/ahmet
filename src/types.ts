@@ -62,6 +62,8 @@ export interface AuditFormData {
   endTime: string | null;
   endTimestamp: number | null;
   totalDurationFormatted: string | null;
+  accumulatedElapsedSeconds?: number;
+  lastTimerAnchorTimestamp?: number | null;
 
   // Step 3: Checklists per page
   measures: MeasureItem[]; // Page 1

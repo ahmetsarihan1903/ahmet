@@ -32,6 +32,7 @@ import { getBetaLogoDataUrl } from '../utils/logoUtils';
 import { ReAuditModal } from './ReAuditModal';
 import { uploadAuditJsonToDrive } from '../services/googleDriveService';
 import { DriveSyncModal } from './DriveSyncModal';
+import { sanitizePdfFileNamePart } from '../utils/pdfGenerator';
 
 interface ReportViewProps {
   data: AuditFormData;
@@ -140,13 +141,20 @@ export const ReportView: React.FC<ReportViewProps> = ({
   const isAllResolved = totalUDCount > 0 && resolvedUDCount === totalUDCount;
   const hasReAuditDone = totalUDCount > 0 && resolvedUDCount > 0;
 
+  // 2. Sayfa Detay Dökümü: "YAPILDI" olarak işaretlenenler gösterilmez;
+  // yalnızca BETA işaretli olanlar ve açık uygunsuzluklar (UD / KALDI) listelenir.
+  const page2DetailItems = allUDItems.filter((entry) => {
+    const isMarkedDone = !!entry.item.isResolved && entry.item.resolutionType !== 'BETA';
+    return !isMarkedDone;
+  });
+
   // 8 Bölüm Bazlı Özet Listesi (1. Sayfa Yönetici Özeti İçin)
   const getCategorySummaries = (): CategorySummaryStat[] => {
     const rawCategories: { id: string; name: string; shortName: string; items: InspectionItem[] }[] = [
-      { id: 'panel', name: 'Kumanda Panosu', shortName: 'Panosu', items: data.controlPanelItems || [] },
+      { id: 'panel', name: 'Kumanda Panosu', shortName: 'Kumanda Panosu', items: data.controlPanelItems || [] },
       { id: 'motor', name: `Motor / Şase (${data.elevatorType})`, shortName: 'Motor / Şase', items: data.motorChassisItems || [] },
       { id: 'cabintop', name: 'Kabin Üstü Kontrolleri', shortName: 'Kabin Üstü', items: data.cabinTopItems || [] },
-      { id: 'cwt', name: 'Ağırlık Karkası Kontrolleri', shortName: 'Ağırlık', items: data.counterweightItems || [] },
+      { id: 'cwt', name: 'Ağırlık Karkası Kontrolleri', shortName: 'Ağırlık Karkası', items: data.counterweightItems || [] },
       { id: 'shaft', name: 'Kuyu İçerisi ve Kuyu Dibi', shortName: 'Kuyu & Dibi', items: data.shaftAndPitItems || [] },
       { id: 'cop', name: 'Kabin İçi ve Kat Butonları', shortName: 'Kabin & Butonlar', items: data.cabinAndFloorButtonsItems || [] },
       { id: 'doors', name: 'Kabin ve Kat Kapısı Montajları', shortName: 'Kapılar', items: data.doorsItems || [] },
@@ -200,15 +208,15 @@ export const ReportView: React.FC<ReportViewProps> = ({
 
   const categorySummaries = getCategorySummaries();
 
-  // Standardized filename using Serial Number
+  // Standardized filename using Serial Number (preserving Turkish characters)
   const getStandardizedFileName = (): string => {
-    const cleanSerial = cleanTr(data.serialNumber || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-    if (cleanSerial) {
-      return `${cleanSerial}.pdf`;
+    const safeSerial = sanitizePdfFileNamePart(data.serialNumber);
+    if (safeSerial) {
+      return `${safeSerial}.pdf`;
     }
-    const cleanProject = cleanTr(data.clientProjectName || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_');
-    if (cleanProject) {
-      return `${cleanProject}.pdf`;
+    const safeProject = sanitizePdfFileNamePart(data.clientProjectName);
+    if (safeProject) {
+      return `${safeProject}.pdf`;
     }
     return 'BETA_KK_Denetim_Raporu.pdf';
   };
@@ -231,43 +239,43 @@ export const ReportView: React.FC<ReportViewProps> = ({
     // SAYFA 1: YÖNETİCİ VE SAHA ÖZETİ (EXECUTIVE SUMMARY)
     // -------------------------------------------------------------
 
-    // 1. TOP HEADER BANNER (Navy #0A2647) - 18mm
-    const bannerHeight = 18;
+    // 1. TOP HEADER BANNER (Navy #0A2647) - Compact 15mm
+    const bannerHeight = 15;
     doc.setFillColor(10, 38, 71);
     doc.rect(margin, margin, pageWidth - margin * 2, bannerHeight, 'F');
 
     const logoDataUrl = getBetaLogoDataUrl();
     if (logoDataUrl) {
       try {
-        doc.addImage(logoDataUrl, 'PNG', margin + 2.5, margin + 1.8, 12, 14.4);
+        doc.addImage(logoDataUrl, 'PNG', margin + 2, margin + 1.5, 10, 12);
       } catch {
         doc.setFillColor(0, 136, 206);
-        doc.rect(margin + 2.5, margin + 1.8, 12, 14.4, 'F');
+        doc.rect(margin + 2, margin + 1.5, 10, 12, 'F');
       }
     }
 
-    doc.setFontSize(11.5);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
-    doc.text('BETA ASANSOR - KALITE KONTROL DENETIM RAPORU', margin + 16, margin + 7);
+    doc.text('BETA ASANSOR - KALITE KONTROL DENETIM RAPORU', margin + 14, margin + 6);
 
-    doc.setFontSize(7.5);
+    doc.setFontSize(7.2);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(203, 213, 225);
     doc.text(
       'Resmi Son Muayene ve Saha Uygunluk Belgesi | Kalite Guvence Birimi',
-      margin + 16,
-      margin + 13
+      margin + 14,
+      margin + 11.2
     );
 
     // Top Right Info
-    doc.setFontSize(8);
+    doc.setFontSize(7.8);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
-    doc.text(`RAPOR NO: ${cleanTr(data.serialNumber || 'BETA-QC')}`, pageWidth - margin - 3, margin + 7, { align: 'right' });
+    doc.text(`RAPOR NO: ${cleanTr(data.serialNumber || 'BETA-QC')}`, pageWidth - margin - 3, margin + 6, { align: 'right' });
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(203, 213, 225);
-    doc.text(`Tarih: ${cleanTr(data.dateDisplay)}`, pageWidth - margin - 3, margin + 13, { align: 'right' });
+    doc.text(`Tarih: ${cleanTr(data.dateDisplay)}`, pageWidth - margin - 3, margin + 11.2, { align: 'right' });
 
     // 2. METADATA TABLE (Compact 4 rows x 4 cols)
     const metaRows = [
@@ -303,8 +311,8 @@ export const ReportView: React.FC<ReportViewProps> = ({
       body: metaRows,
       theme: 'grid',
       styles: {
-        fontSize: 7.5,
-        cellPadding: 1.5,
+        fontSize: 7.2,
+        cellPadding: 1.15,
         lineColor: [203, 213, 225],
         lineWidth: 0.2,
         textColor: [15, 23, 42],
@@ -318,7 +326,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let lastY = (doc as any).lastAutoTable.finalY + 2.5;
+    let lastY = (doc as any).lastAutoTable.finalY + 2;
 
     // 3. GENEL MUAYENE SONUCU ONAY ÇUBUĞU
     let statusBg: [number, number, number] = [16, 185, 129];
@@ -337,36 +345,54 @@ export const ReportView: React.FC<ReportViewProps> = ({
     }
 
     doc.setFillColor(...statusBg);
-    doc.roundedRect(margin, lastY, pageWidth - margin * 2, 6.5, 1, 1, 'F');
-    doc.setFontSize(8);
+    doc.roundedRect(margin, lastY, pageWidth - margin * 2, 5.5, 1, 1, 'F');
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
-    doc.text(statusText, pageWidth / 2, lastY + 4.4, { align: 'center' });
+    doc.text(statusText, pageWidth / 2, lastY + 3.8, { align: 'center' });
 
-    lastY += 8.5;
+    lastY += 7.2;
 
-    // 4. BÖLÜM VE KATEGORİ BAZLI KONTROL ÖZET TABLOSU (SADECE SAYISAL DURUM & 2. KONTROL)
-    const catTableRows = categorySummaries.map((cat, idx) => {
-      let durText = '0 UYGUNSUZLUK (Kusursuz)';
-      let durStyle: any = { textColor: [5, 150, 105], fontStyle: 'bold' as const };
-
-      if (cat.udCount > 0) {
-        if (cat.resolvedCount === cat.udCount) {
-          durText = `${cat.udCount} UYGUNSUZLUK (2. Kontrolde Duzeltildi)`;
-          durStyle = { textColor: [5, 150, 105], fontStyle: 'bold' as const };
-        } else if (cat.resolvedCount === 0) {
-          durText = `${cat.udCount} UYGUNSUZLUK (Acik Eksik)`;
-          durStyle = { textColor: [185, 28, 28], fontStyle: 'bold' as const };
-        } else {
-          durText = `${cat.udCount} UYGUNSUZLUK (${cat.resolvedCount} Adedi 2. Kontrolde Duzeltildi, ${cat.udCount - cat.resolvedCount} Acik)`;
-          durStyle = { textColor: [217, 119, 6], fontStyle: 'bold' as const };
-        }
+    // 4. BÖLÜM VE KATEGORİ BAZLI KONTROL ÖZET TABLOSU (Kompakt 2 Sütunlu / 4 Satırlı Düzen - Sayfa 1 Taşmasını Önler)
+    const formatCompactCatStatus = (cat: CategorySummaryStat) => {
+      if (cat.udCount === 0) {
+        return {
+          text: '0 UD (Kusursuz)',
+          style: { textColor: [5, 150, 105] as [number, number, number], fontStyle: 'bold' as const },
+        };
       }
+      if (cat.resolvedCount === cat.udCount) {
+        return {
+          text: `${cat.udCount} UD (Duzeltildi)`,
+          style: { textColor: [5, 150, 105] as [number, number, number], fontStyle: 'bold' as const, fillColor: [240, 253, 244] as [number, number, number] },
+        };
+      }
+      if (cat.resolvedCount === 0) {
+        return {
+          text: `${cat.udCount} UD (Acik Eksik)`,
+          style: { textColor: [185, 28, 28] as [number, number, number], fontStyle: 'bold' as const, fillColor: [254, 242, 242] as [number, number, number] },
+        };
+      }
+      return {
+        text: `${cat.udCount} UD (${cat.resolvedCount} Duz., ${cat.udCount - cat.resolvedCount} Acik)`,
+        style: { textColor: [180, 83, 9] as [number, number, number], fontStyle: 'bold' as const, fillColor: [255, 251, 235] as [number, number, number] },
+      };
+    };
+
+    const halfCount = Math.ceil(categorySummaries.length / 2);
+    const catPairRows = Array.from({ length: halfCount }, (_, rowIdx) => {
+      const leftCat = categorySummaries[rowIdx];
+      const rightCat = categorySummaries[rowIdx + halfCount];
+      const leftDur = formatCompactCatStatus(leftCat);
+      const rightDur = rightCat ? formatCompactCatStatus(rightCat) : null;
 
       return [
-        (idx + 1).toString(),
-        cleanTr(cat.name),
-        { content: durText, styles: durStyle },
+        (rowIdx + 1).toString(),
+        cleanTr(leftCat.shortName || leftCat.name),
+        { content: leftDur.text, styles: leftDur.style },
+        rightCat ? (rowIdx + halfCount + 1).toString() : '',
+        rightCat ? cleanTr(rightCat.shortName || rightCat.name) : '',
+        rightDur ? { content: rightDur.text, styles: rightDur.style } : '',
       ];
     });
 
@@ -377,44 +403,48 @@ export const ReportView: React.FC<ReportViewProps> = ({
         [
           {
             content: '1. SAYFA: BOLUM VE KATEGORI BAZLI KONTROL OZETI',
-            colSpan: 3,
-            styles: { fillColor: [10, 38, 71], textColor: [255, 255, 255], fontStyle: 'bold' as const, fontSize: 8.5, cellPadding: 2 },
+            colSpan: 6,
+            styles: { fillColor: [10, 38, 71], textColor: [255, 255, 255], fontStyle: 'bold' as const, fontSize: 7.8, cellPadding: 1.4 },
           },
         ],
         [
-          { content: '#', styles: { halign: 'center' as const, cellWidth: 8 } },
-          { content: 'DENETIM BOLUMU / KATEGORI', styles: { cellWidth: 72 } },
-          { content: 'UYGUNSUZLUK & SAHA DURUMU', styles: { cellWidth: 110 } },
+          { content: '#', styles: { halign: 'center' as const, cellWidth: 6 } },
+          { content: 'BOLUM', styles: { cellWidth: 41 } },
+          { content: 'DURUM', styles: { cellWidth: 48 } },
+          { content: '#', styles: { halign: 'center' as const, cellWidth: 6 } },
+          { content: 'BOLUM', styles: { cellWidth: 41 } },
+          { content: 'DURUM', styles: { cellWidth: 48 } },
         ],
       ],
-      body: catTableRows,
+      body: catPairRows,
       theme: 'grid',
       headStyles: {
         fillColor: [51, 65, 85],
         textColor: [255, 255, 255],
         fontStyle: 'bold' as const,
-        fontSize: 7.5,
-        cellPadding: 1.8,
+        fontSize: 6.8,
+        cellPadding: 1.2,
       },
       styles: {
-        fontSize: 8,
-        cellPadding: 2,
+        fontSize: 7,
+        cellPadding: 1.3,
         lineColor: [203, 213, 225],
         lineWidth: 0.2,
         textColor: [15, 23, 42],
-      },
-      alternateRowStyles: {
-        fillColor: [248, 250, 252],
+        valign: 'middle' as const,
       },
       columnStyles: {
-        0: { halign: 'center' as const, fontStyle: 'bold' as const },
+        0: { halign: 'center' as const, fontStyle: 'bold' as const, fillColor: [248, 250, 252] },
         1: { fontStyle: 'bold' as const },
         2: { fontStyle: 'bold' as const },
+        3: { halign: 'center' as const, fontStyle: 'bold' as const, fillColor: [248, 250, 252] },
+        4: { fontStyle: 'bold' as const },
+        5: { fontStyle: 'bold' as const },
       },
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    lastY = (doc as any).lastAutoTable.finalY + 3;
+    lastY = (doc as any).lastAutoTable.finalY + 2.5;
 
     // 2. Kontrolde BETA işaretli veya 2. kontrol açıklaması yazılmış maddeler
     const secondControlHighlightItems = allUDItems.filter((entry) => {
@@ -434,32 +464,145 @@ export const ReportView: React.FC<ReportViewProps> = ({
       // 2. Kontrolde oluşturulan PDF raporunun 1. sayfasında
       // SEYIR KONFORU VE SAHA OLCUM DEGERLERI bölümü kaldırıldı;
       // yerine özetin altına 2. kontrolde BETA işaretli ve açıklama yazılan maddeler gösterilir.
+      // İlk sayfadan taşmaması için madde sayısına ve kalan alan yüksekliğine göre dinamik listeleme uygulanır.
       if (secondControlHighlightItems.length > 0) {
-        const highlightRows = secondControlHighlightItems.map((entry, idx) => {
+        const remainingHeight = pageHeight - 12 - lastY;
+        const estimatedStdHeight =
+          12 +
+          secondControlHighlightItems.reduce((acc, entry) => {
+            const titleLen = (entry.item.title || '').length;
+            const descLen = (entry.item.description || '').length;
+            const noteLen = (entry.item.resolutionNote || '').length;
+            const lines = Math.max(2, Math.ceil((titleLen + descLen) / 42), Math.ceil((noteLen + 15) / 40));
+            return acc + lines * 3.1 + 2.6;
+          }, 0);
+
+        const useTwoColumnCardMode =
+          secondControlHighlightItems.length > 12 || estimatedStdHeight > remainingHeight;
+
+        const formatHighlightStatus = (entry: { category: string; item: InspectionItem }) => {
           const isResolved = !!entry.item.isResolved;
           const resType = entry.item.resolutionType || (isResolved ? 'YAPILDI' : 'KALDI');
-          const descText = cleanTr(entry.item.description) || '-';
           const resNote = cleanTr(entry.item.resolutionNote || '').trim();
-
-          let statusText = '';
+          let statusLabel = '';
           if (resType === 'BETA') {
-            statusText = 'BETA';
+            statusLabel = 'BETA';
           } else if (isResolved) {
-            statusText = 'GIDERILDI';
+            statusLabel = 'GIDERILDI';
           } else {
-            statusText = 'KALDI (UD)';
+            statusLabel = 'KALDI (UD)';
           }
+          return { isResolved, resType, resNote, statusLabel };
+        };
 
-          const secondControlText = resNote ? `${statusText}\nNot: ${resNote}` : statusText;
+        if (!useTwoColumnCardMode) {
+          // 4 Sütunlu Kompakt Tablo (Az/orta madde sayısında maksimum okunabilirlik)
+          const isDense = secondControlHighlightItems.length > 6;
+          const highlightRows = secondControlHighlightItems.map((entry, idx) => {
+            const { isResolved, resType, resNote, statusLabel } = formatHighlightStatus(entry);
+            const rawDesc = cleanTr(entry.item.description) || '';
+            const clippedDesc =
+              isDense && rawDesc.length > 95 ? `${rawDesc.slice(0, 92)}...` : rawDesc;
+            const itemTitle = cleanTr(entry.item.title);
+            const itemCellText = clippedDesc ? `${itemTitle}\nTespit: ${clippedDesc}` : itemTitle;
+            const floorText = cleanTr(entry.item.floorLabel) || '';
+            const catText = floorText ? `${cleanTr(entry.category)}\n(${floorText})` : cleanTr(entry.category);
+            const secondControlText = resNote ? `${statusLabel}\nNot: ${resNote}` : statusLabel;
 
-          return [
-            (idx + 1).toString(),
-            cleanTr(entry.category),
-            cleanTr(entry.item.title),
-            descText,
-            cleanTr(entry.item.floorLabel) || '-',
-            {
-              content: secondControlText,
+            return [
+              (idx + 1).toString(),
+              catText,
+              itemCellText,
+              {
+                content: secondControlText,
+                styles: {
+                  textColor:
+                    resType === 'BETA'
+                      ? ([10, 38, 71] as [number, number, number])
+                      : isResolved
+                      ? ([5, 150, 105] as [number, number, number])
+                      : ([185, 28, 28] as [number, number, number]),
+                  fillColor:
+                    resType === 'BETA'
+                      ? ([239, 246, 255] as [number, number, number])
+                      : undefined,
+                  fontStyle: 'bold' as const,
+                },
+              },
+            ];
+          });
+
+          autoTable(doc, {
+            startY: lastY,
+            margin: { left: margin, right: margin },
+            head: [
+              [
+                {
+                  content: `2. KONTROL OZEL OZETI: BETA ISARETLI VE ACIKLAMALI MADDELER (${secondControlHighlightItems.length} Madde)`,
+                  colSpan: 4,
+                  styles: {
+                    fillColor: [10, 38, 71],
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold' as const,
+                    fontSize: 7.6,
+                    cellPadding: 1.4,
+                  },
+                },
+              ],
+              [
+                { content: '#', styles: { halign: 'center' as const, cellWidth: 7 } },
+                { content: 'BOLUM / DURAK', styles: { cellWidth: 32 } },
+                { content: 'KONTROL MADDESI & ILK TESPIT', styles: { cellWidth: 78 } },
+                { content: '2. KONTROL DURUMU & NOTU', styles: { cellWidth: 73 } },
+              ],
+            ],
+            body: highlightRows,
+            theme: 'grid',
+            headStyles: {
+              fillColor: [51, 65, 85],
+              textColor: [255, 255, 255],
+              fontStyle: 'bold' as const,
+              fontSize: 6.8,
+              cellPadding: 1.2,
+            },
+            styles: {
+              fontSize: isDense ? 6.5 : 7,
+              cellPadding: isDense ? 1.0 : 1.3,
+              lineColor: [203, 213, 225],
+              lineWidth: 0.2,
+              textColor: [15, 23, 42],
+              valign: 'middle' as const,
+            },
+            alternateRowStyles: {
+              fillColor: [248, 250, 252],
+            },
+            columnStyles: {
+              0: { halign: 'center' as const, fontStyle: 'bold' as const },
+              1: { fontStyle: 'bold' as const },
+              2: { fontStyle: 'normal' as const },
+            },
+          });
+        } else {
+          // 2 Sütunlu (Yan Yana Çiftli) Kompakt Liste Düzeni: Çok fazla madde olduğunda 1. sayfadan taşmayı önler
+          const isUltraDense = secondControlHighlightItems.length > 22;
+          const pairCount = Math.ceil(secondControlHighlightItems.length / 2);
+
+          const formatCompactPairCell = (entry: { category: string; item: InspectionItem } | undefined) => {
+            if (!entry) return '';
+            const { isResolved, resType, resNote, statusLabel } = formatHighlightStatus(entry);
+            const floorText = cleanTr(entry.item.floorLabel) || '';
+            const headerTag = floorText
+              ? `${cleanTr(entry.category)} (${floorText})`
+              : cleanTr(entry.category);
+            const titleText = cleanTr(entry.item.title);
+            const clippedNote =
+              isUltraDense && resNote.length > 65 ? `${resNote.slice(0, 62)}...` : resNote;
+            const bodyLines = [
+              `${headerTag}: ${titleText}`,
+              clippedNote ? `[${statusLabel}] Not: ${clippedNote}` : `[${statusLabel}]`,
+            ];
+            return {
+              content: bodyLines.join('\n'),
               styles: {
                 textColor:
                   resType === 'BETA'
@@ -473,64 +616,70 @@ export const ReportView: React.FC<ReportViewProps> = ({
                     : undefined,
                 fontStyle: 'bold' as const,
               },
-            },
-          ];
-        });
+            };
+          };
 
-        autoTable(doc, {
-          startY: lastY,
-          margin: { left: margin, right: margin },
-          head: [
-            [
-              {
-                content: `2. KONTROL OZEL OZETI: BETA ISARETLI VE ACIKLAMALI MADDELER (${secondControlHighlightItems.length} Madde)`,
-                colSpan: 6,
-                styles: {
-                  fillColor: [10, 38, 71],
-                  textColor: [255, 255, 255],
-                  fontStyle: 'bold' as const,
-                  fontSize: 8,
-                  cellPadding: 1.8,
+          const pairRows = Array.from({ length: pairCount }, (_, rowIdx) => {
+            const leftIdx = rowIdx;
+            const rightIdx = rowIdx + pairCount;
+            const leftEntry = secondControlHighlightItems[leftIdx];
+            const rightEntry = secondControlHighlightItems[rightIdx];
+
+            return [
+              (leftIdx + 1).toString(),
+              formatCompactPairCell(leftEntry),
+              rightEntry ? (rightIdx + 1).toString() : '',
+              formatCompactPairCell(rightEntry),
+            ];
+          });
+
+          autoTable(doc, {
+            startY: lastY,
+            margin: { left: margin, right: margin },
+            head: [
+              [
+                {
+                  content: `2. KONTROL OZEL OZETI: BETA ISARETLI VE ACIKLAMALI MADDELER (${secondControlHighlightItems.length} Madde - Kompakt Liste)`,
+                  colSpan: 4,
+                  styles: {
+                    fillColor: [10, 38, 71],
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold' as const,
+                    fontSize: 7.4,
+                    cellPadding: 1.2,
+                  },
                 },
-              },
+              ],
+              [
+                { content: '#', styles: { halign: 'center' as const, cellWidth: 6 } },
+                { content: 'MADDE / BOLUM / 2. KONTROL DURUMU', styles: { cellWidth: 89 } },
+                { content: '#', styles: { halign: 'center' as const, cellWidth: 6 } },
+                { content: 'MADDE / BOLUM / 2. KONTROL DURUMU', styles: { cellWidth: 89 } },
+              ],
             ],
-            [
-              { content: '#', styles: { halign: 'center' as const, cellWidth: 7 } },
-              { content: 'BOLUM', styles: { cellWidth: 28 } },
-              { content: 'KONTROL MADDESI', styles: { cellWidth: 38 } },
-              { content: 'ILK TESPIT ACIKLAMASI', styles: { cellWidth: 46 } },
-              { content: 'DURAK', styles: { halign: 'center' as const, cellWidth: 13 } },
-              { content: '2. KONTROL DURUMU & NOTU', styles: { cellWidth: 58 } },
-            ],
-          ],
-          body: highlightRows,
-          theme: 'grid',
-          headStyles: {
-            fillColor: [51, 65, 85],
-            textColor: [255, 255, 255],
-            fontStyle: 'bold' as const,
-            fontSize: 7,
-            cellPadding: 1.5,
-          },
-          styles: {
-            fontSize: 7.2,
-            cellPadding: 1.6,
-            lineColor: [203, 213, 225],
-            lineWidth: 0.2,
-            textColor: [15, 23, 42],
-            valign: 'middle' as const,
-          },
-          alternateRowStyles: {
-            fillColor: [248, 250, 252],
-          },
-          columnStyles: {
-            0: { halign: 'center' as const, fontStyle: 'bold' as const },
-            1: { fontStyle: 'bold' as const },
-            2: { fontStyle: 'bold' as const },
-            3: { textColor: [185, 28, 28], fontStyle: 'normal' as const },
-            4: { halign: 'center' as const, fontStyle: 'bold' as const },
-          },
-        });
+            body: pairRows,
+            theme: 'grid',
+            headStyles: {
+              fillColor: [51, 65, 85],
+              textColor: [255, 255, 255],
+              fontStyle: 'bold' as const,
+              fontSize: 6.4,
+              cellPadding: 1.0,
+            },
+            styles: {
+              fontSize: isUltraDense ? 5.9 : 6.3,
+              cellPadding: isUltraDense ? 0.75 : 0.95,
+              lineColor: [203, 213, 225],
+              lineWidth: 0.2,
+              textColor: [15, 23, 42],
+              valign: 'middle' as const,
+            },
+            columnStyles: {
+              0: { halign: 'center' as const, fontStyle: 'bold' as const, fillColor: [248, 250, 252] },
+              2: { halign: 'center' as const, fontStyle: 'bold' as const, fillColor: [248, 250, 252] },
+            },
+          });
+        }
       }
     } else {
       // 5. SEYİR KONFORU VE SAHA ÖLÇÜLERİ BÖLÜMÜ (1. Sayfada - Yalnızca 1. Kontrol Raporunda)
@@ -591,109 +740,106 @@ export const ReportView: React.FC<ReportViewProps> = ({
 
     // -------------------------------------------------------------
     // SAYFA 2+: DETAYLI UYGUNSUZLUK VE EKSİK KAPATMA DÖKÜMÜ
+    // ("YAPILDI" olarak işaretlenenler gösterilmez; yalnızca BETA ve açık uygunsuzluklar listelenir)
     // -------------------------------------------------------------
-    if (allUDItems.length > 0) {
+    if (page2DetailItems.length > 0 || (data.measures && data.measures.length > 0)) {
       doc.addPage();
       let page2Y = margin + 5;
 
-      // Page 2 Header Banner (Detay Dökümü)
-      doc.setFillColor(10, 38, 71);
-      doc.rect(margin, page2Y, pageWidth - margin * 2, 12, 'F');
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(255, 255, 255);
-      doc.text('TESPIT EDILEN UYGUNSUZLUKLAR VE EKSIK KAPATMA DETAY DOKUMU', margin + 4, page2Y + 7.5);
-      page2Y += 14;
+      if (page2DetailItems.length > 0) {
+        // Page 2 Header Banner (Detay Dökümü)
+        doc.setFillColor(10, 38, 71);
+        doc.rect(margin, page2Y, pageWidth - margin * 2, 12, 'F');
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(255, 255, 255);
+        doc.text('TESPIT EDILEN UYGUNSUZLUKLAR VE EKSIK KAPATMA DETAY DOKUMU', margin + 4, page2Y + 7.5);
+        page2Y += 14;
 
-      // DETAYLI UYGUNSUZLUK VE 2. KONTROL TABLOSU (Sıralama: Sıra No, Bölüm, Kontrol Maddesi, Açıklama, Durak, 2. Kontrol Durumu)
-      const udTableRows = allUDItems.map((entry, index) => {
-        const isResolved = !!entry.item.isResolved;
-        const resType = entry.item.resolutionType || (isResolved ? 'YAPILDI' : 'KALDI');
-        const descText = cleanTr(entry.item.description) || '-';
-        const resNote = cleanTr(entry.item.resolutionNote || '').trim();
+        // DETAYLI UYGUNSUZLUK VE BETA TABLOSU (YAPILDI hariç)
+        const udTableRows = page2DetailItems.map((entry, index) => {
+          const isResolved = !!entry.item.isResolved;
+          const resType = entry.item.resolutionType || (isResolved ? 'YAPILDI' : 'KALDI');
+          const descText = cleanTr(entry.item.description) || '-';
+          const resNote = cleanTr(entry.item.resolutionNote || '').trim();
 
-        let statusText = '';
-        if (resType === 'BETA') {
-          statusText = 'BETA';
-        } else if (isResolved) {
-          statusText = 'GIDERILDI';
-        } else {
-          statusText = 'KALDI (UD)';
-        }
+          const statusLabel = resType === 'BETA' ? 'BETA' : 'KALDI (UD)';
+          const secondControlText = resNote ? `${statusLabel}\nNot: ${resNote}` : statusLabel;
 
-        const secondControlText = resNote ? `${statusText}\nNot: ${resNote}` : statusText;
-
-        return [
-          (index + 1).toString(),
-          cleanTr(entry.category),
-          cleanTr(entry.item.title),
-          descText,
-          cleanTr(entry.item.floorLabel) || '-',
-          {
-            content: secondControlText,
-            styles: {
-              textColor:
-                resType === 'BETA'
-                  ? ([10, 38, 71] as [number, number, number])
-                  : isResolved
-                  ? ([5, 150, 105] as [number, number, number])
-                  : ([185, 28, 28] as [number, number, number]),
-              fontStyle: 'bold' as const,
+          return [
+            (index + 1).toString(),
+            cleanTr(entry.category),
+            cleanTr(entry.item.title),
+            descText,
+            cleanTr(entry.item.floorLabel) || '-',
+            {
+              content: secondControlText,
+              styles: {
+                textColor:
+                  resType === 'BETA'
+                    ? ([10, 38, 71] as [number, number, number])
+                    : ([185, 28, 28] as [number, number, number]),
+                fillColor:
+                  resType === 'BETA'
+                    ? ([239, 246, 255] as [number, number, number])
+                    : undefined,
+                fontStyle: 'bold' as const,
+              },
             },
-          },
-        ];
-      });
+          ];
+        });
 
-      autoTable(doc, {
-        startY: page2Y,
-        margin: { left: margin, right: margin },
-        head: [
-          [
-            { content: '#', styles: { halign: 'center' as const, cellWidth: 7 } },
-            { content: 'BOLUM / KATEGORI', styles: { cellWidth: 30 } },
-            { content: 'KONTROL MADDESI', styles: { cellWidth: 38 } },
-            { content: 'KONTROL MADDESI ACIKLAMASI (ILK TESPIT)', styles: { cellWidth: 50 } },
-            { content: 'DURAK', styles: { halign: 'center' as const, cellWidth: 13 } },
-            { content: '2. KONTROL DURUMU & NOTU', styles: { cellWidth: 60 } },
+        autoTable(doc, {
+          startY: page2Y,
+          margin: { left: margin, right: margin },
+          head: [
+            [
+              { content: '#', styles: { halign: 'center' as const, cellWidth: 7 } },
+              { content: 'BOLUM / KATEGORI', styles: { cellWidth: 28 } },
+              { content: 'KONTROL MADDESI', styles: { cellWidth: 37 } },
+              { content: 'KONTROL MADDESI ACIKLAMASI (ILK TESPIT)', styles: { cellWidth: 48 } },
+              { content: 'DURAK', styles: { halign: 'center' as const, cellWidth: 13 } },
+              { content: '2. KONTROL DURUMU & NOTU', styles: { cellWidth: 57 } },
+            ],
           ],
-        ],
-        body: udTableRows,
-        theme: 'striped',
-        headStyles: {
-          fillColor: isAllResolved ? [16, 185, 129] : hasReAuditDone ? [217, 119, 6] : [220, 38, 38],
-          textColor: [255, 255, 255],
-          fontStyle: 'bold' as const,
-          fontSize: 8,
-          cellPadding: 2,
-        },
-        styles: {
-          fontSize: 7.5,
-          cellPadding: 2,
-          lineColor: [226, 232, 240],
-          lineWidth: 0.2,
-          textColor: [15, 23, 42],
-          valign: 'middle' as const,
-        },
-        alternateRowStyles: {
-          fillColor: [248, 250, 252],
-        },
-        columnStyles: {
-          0: { halign: 'center' as const, fontStyle: 'bold' as const },
-          1: { fontStyle: 'bold' as const },
-          2: { fontStyle: 'bold' as const },
-          3: { textColor: [185, 28, 28], fontStyle: 'normal' as const },
-          4: { halign: 'center' as const, fontStyle: 'bold' as const },
-        },
-      });
+          body: udTableRows,
+          theme: 'striped',
+          headStyles: {
+            fillColor: hasReAuditDone ? [217, 119, 6] : [220, 38, 38],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold' as const,
+            fontSize: 7.8,
+            cellPadding: 1.8,
+          },
+          styles: {
+            fontSize: 7.5,
+            cellPadding: 1.8,
+            lineColor: [226, 232, 240],
+            lineWidth: 0.2,
+            textColor: [15, 23, 42],
+            valign: 'middle' as const,
+          },
+          alternateRowStyles: {
+            fillColor: [248, 250, 252],
+          },
+          columnStyles: {
+            0: { halign: 'center' as const, fontStyle: 'bold' as const },
+            1: { fontStyle: 'bold' as const },
+            2: { fontStyle: 'bold' as const },
+            3: { textColor: [185, 28, 28], fontStyle: 'normal' as const },
+            4: { halign: 'center' as const, fontStyle: 'bold' as const },
+          },
+        });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let p2LastY = (doc as any).lastAutoTable.finalY + 6;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        page2Y = (doc as any).lastAutoTable.finalY + 6;
+      }
 
       // Detaylı Saha Ölçü Tablosu
       if (data.measures && data.measures.length > 0) {
-        if (p2LastY > pageHeight - 40) {
+        if (page2Y > pageHeight - 40) {
           doc.addPage();
-          p2LastY = margin + 5;
+          page2Y = margin + 5;
         }
 
         const measureTableRows = data.measures.map((m, index) => [
@@ -704,7 +850,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
         ]);
 
         autoTable(doc, {
-          startY: p2LastY,
+          startY: page2Y,
           margin: { left: margin, right: margin },
           head: [
             [
@@ -1256,64 +1402,55 @@ export const ReportView: React.FC<ReportViewProps> = ({
               </span>
             </div>
 
-            <div className="border-2 border-slate-300 rounded-xl overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-200 border-b-2 border-slate-300 text-slate-900 font-black uppercase text-[10px]">
-                  <tr>
-                    <th className="p-2.5 border-r border-slate-300 w-12 text-center">#</th>
-                    <th className="p-2.5 border-r border-slate-300 w-64 sm:w-80">Denetim Bölümü / Kategori</th>
-                    <th className="p-2.5">Uygunsuzluk & Saha Durumu</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-300">
-                  {categorySummaries.map((cat, idx) => {
-                    const hasUD = cat.udCount > 0;
-                    const isAllCatResolved = hasUD && cat.resolvedCount === cat.udCount;
-                    const isPartialResolved = hasUD && cat.resolvedCount > 0 && cat.resolvedCount < cat.udCount;
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {categorySummaries.map((cat, idx) => {
+                const hasUD = cat.udCount > 0;
+                const isAllCatResolved = hasUD && cat.resolvedCount === cat.udCount;
+                const isPartialResolved = hasUD && cat.resolvedCount > 0 && cat.resolvedCount < cat.udCount;
 
-                    return (
-                      <tr
-                        key={cat.id}
-                        className={
-                          !hasUD
-                            ? 'bg-white hover:bg-slate-50'
-                            : isAllCatResolved
-                            ? 'bg-emerald-50/60 hover:bg-emerald-100/50'
-                            : isPartialResolved
-                            ? 'bg-amber-50/60 hover:bg-amber-100/50'
-                            : 'bg-red-50/60 hover:bg-red-100/50'
-                        }
-                      >
-                        <td className="p-2.5 border-r border-slate-300 text-center font-bold text-slate-700">
-                          {idx + 1}
-                        </td>
-                        <td className="p-2.5 border-r border-slate-300 font-black text-slate-950 text-xs sm:text-sm">
-                          {cat.name}
-                        </td>
-                        <td className="p-2.5">
-                          {!hasUD ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 border border-emerald-400 text-emerald-950 rounded-lg font-black text-xs">
-                              <Check className="w-4 h-4 text-emerald-700" /> 0 Uygunsuzluk (Kusursuz)
-                            </span>
-                          ) : isAllCatResolved ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 border border-emerald-500 text-emerald-950 rounded-lg font-black text-xs">
-                              <CheckCircle2 className="w-4 h-4 text-emerald-700" /> {cat.udCount} Uygunsuzluk (2. Kontrolde Düzeltildi)
-                            </span>
-                          ) : isPartialResolved ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 border border-amber-500 text-amber-950 rounded-lg font-black text-xs">
-                              <ShieldAlert className="w-4 h-4 text-amber-700" /> {cat.udCount} Uygunsuzluk ({cat.resolvedCount} Adedi 2. Kontrolde Düzeltildi, {cat.udCount - cat.resolvedCount} Açık)
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 border border-red-500 text-red-950 rounded-lg font-black text-xs">
-                              <ShieldAlert className="w-4 h-4 text-red-700" /> {cat.udCount} Uygunsuzluk (Açık Eksik)
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                return (
+                  <div
+                    key={cat.id}
+                    className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs ${
+                      !hasUD
+                        ? 'bg-white border-slate-300'
+                        : isAllCatResolved
+                        ? 'bg-emerald-50/70 border-emerald-400'
+                        : isPartialResolved
+                        ? 'bg-amber-50/70 border-amber-400'
+                        : 'bg-red-50/70 border-red-400'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-5 h-5 rounded bg-slate-200 text-slate-800 font-black text-[11px] flex items-center justify-center shrink-0">
+                        {idx + 1}
+                      </span>
+                      <span className="font-black text-slate-950 truncate">
+                        {cat.name}
+                      </span>
+                    </div>
+                    <div className="shrink-0">
+                      {!hasUD ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 border border-emerald-400 text-emerald-950 rounded font-black text-[11px]">
+                          <Check className="w-3.5 h-3.5 text-emerald-700" /> 0 UD (Kusursuz)
+                        </span>
+                      ) : isAllCatResolved ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 border border-emerald-500 text-emerald-950 rounded font-black text-[11px]">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" /> {cat.udCount} UD (Düzeltildi)
+                        </span>
+                      ) : isPartialResolved ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 border border-amber-500 text-amber-950 rounded font-black text-[11px]">
+                          <ShieldAlert className="w-3.5 h-3.5 text-amber-700" /> {cat.udCount} UD ({cat.resolvedCount} Düz., {cat.udCount - cat.resolvedCount} Açık)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 border border-red-500 text-red-950 rounded font-black text-[11px]">
+                          <ShieldAlert className="w-3.5 h-3.5 text-red-700" /> {cat.udCount} UD (Açık Eksik)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -1383,7 +1520,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
                 </h2>
               </div>
               <span className="text-xs font-black px-2.5 py-1 rounded bg-slate-100 text-slate-800 border border-slate-300">
-                Toplam {allUDItems.length} Madde
+                {page2DetailItems.length} Madde (BETA &amp; Açık UD)
               </span>
             </div>
 
@@ -1437,97 +1574,99 @@ export const ReportView: React.FC<ReportViewProps> = ({
               </div>
             )}
 
-            {/* Detaylı UD Tablosu */}
-            <div className="border-2 border-slate-300 rounded-xl overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-200 border-b-2 border-slate-300 text-slate-900 font-black uppercase text-[10px]">
-                  <tr>
-                    <th className="p-2 border-r border-slate-300 w-10 text-center">#</th>
-                    <th className="p-2 border-r border-slate-300 w-32">Bölüm / Kategori</th>
-                    <th className="p-2 border-r border-slate-300 w-48">Kontrol Maddesi</th>
-                    <th className="p-2 border-r border-slate-300">Kontrol Maddesi Açıklama</th>
-                    <th className="p-2 border-r border-slate-300 w-16 text-center">Durak</th>
-                    <th className="p-2 w-52">2. Kontrol Durumu &amp; Notu</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-300">
-                  {allUDItems.map((entry, index) => {
-                    const isResolved = !!entry.item.isResolved;
-                    return (
-                      <tr
-                        key={index}
-                        className={
-                          isResolved
-                            ? 'bg-emerald-50/70 hover:bg-emerald-100/60'
-                            : 'bg-red-50/70 hover:bg-red-100/60'
-                        }
-                      >
-                        <td
-                          className={`p-2 border-r border-slate-300 text-center font-black ${
-                            isResolved ? 'text-emerald-700' : 'text-red-600'
-                          }`}
+            {/* Detaylı UD Tablosu (YAPILDI hariç; yalnızca BETA ve açık uygunsuzluklar) */}
+            {page2DetailItems.length === 0 ? (
+              <div className="p-4 bg-emerald-50 border-2 border-emerald-400 rounded-xl text-xs font-bold text-emerald-900 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span>
+                  YAPILDI olarak işaretlenen maddeler bu dökümde gizlenmiştir; açık uygunsuzluk veya BETA maddesi bulunmamaktadır.
+                </span>
+              </div>
+            ) : (
+              <div className="border-2 border-slate-300 rounded-xl overflow-hidden">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-200 border-b-2 border-slate-300 text-slate-900 font-black uppercase text-[10px]">
+                    <tr>
+                      <th className="p-2 border-r border-slate-300 w-10 text-center">#</th>
+                      <th className="p-2 border-r border-slate-300 w-32">Bölüm / Kategori</th>
+                      <th className="p-2 border-r border-slate-300 w-48">Kontrol Maddesi</th>
+                      <th className="p-2 border-r border-slate-300">Kontrol Maddesi Açıklama</th>
+                      <th className="p-2 border-r border-slate-300 w-16 text-center">Durak</th>
+                      <th className="p-2 w-52">2. Kontrol Durumu &amp; Notu</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-300">
+                    {page2DetailItems.map((entry, index) => {
+                      const isResolved = !!entry.item.isResolved;
+                      const isBeta = isResolved && entry.item.resolutionType === 'BETA';
+                      return (
+                        <tr
+                          key={index}
+                          className={
+                            isBeta
+                              ? 'bg-blue-50/70 hover:bg-blue-100/60'
+                              : 'bg-red-50/70 hover:bg-red-100/60'
+                          }
                         >
-                          {index + 1}
-                        </td>
-                        <td className="p-2 border-r border-slate-300 font-black text-slate-950 text-[11px]">
-                          {entry.category}
-                        </td>
-                        <td className="p-2 border-r border-slate-300 font-bold text-slate-950">
-                          {entry.item.title}
-                        </td>
-                        <td className="p-2 border-r border-slate-300 text-xs font-semibold text-rose-900">
-                          {entry.item.description || (
-                            <span className="italic text-slate-400 font-normal">-</span>
-                          )}
-                        </td>
-                        <td className="p-2 border-r border-slate-300 text-center font-black text-slate-800 text-[11px]">
-                          {entry.item.floorLabel || '-'}
-                        </td>
-                        <td className="p-2 text-xs">
-                          <div>
-                            {isResolved ? (
-                              entry.item.resolutionType === 'BETA' ? (
+                          <td
+                            className={`p-2 border-r border-slate-300 text-center font-black ${
+                              isBeta ? 'text-blue-900' : 'text-red-600'
+                            }`}
+                          >
+                            {index + 1}
+                          </td>
+                          <td className="p-2 border-r border-slate-300 font-black text-slate-950 text-[11px]">
+                            {entry.category}
+                          </td>
+                          <td className="p-2 border-r border-slate-300 font-bold text-slate-950">
+                            {entry.item.title}
+                          </td>
+                          <td className="p-2 border-r border-slate-300 text-xs font-semibold text-rose-900">
+                            {entry.item.description || (
+                              <span className="italic text-slate-400 font-normal">-</span>
+                            )}
+                          </td>
+                          <td className="p-2 border-r border-slate-300 text-center font-black text-slate-800 text-[11px]">
+                            {entry.item.floorLabel || '-'}
+                          </td>
+                          <td className="p-2 text-xs">
+                            <div>
+                              {isBeta ? (
                                 <span className="inline-flex items-center justify-center px-2.5 py-0.5 bg-[#0A2647] border border-amber-400 text-amber-300 rounded font-black text-xs uppercase shadow-xs">
                                   BETA
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-200 border border-emerald-500 text-emerald-950 rounded font-black text-[10px] uppercase">
-                                  <Check className="w-3 h-3 text-emerald-700" /> Giderildi
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-200 border border-red-500 text-red-950 rounded font-black text-[10px] uppercase">
+                                  <ShieldAlert className="w-3 h-3 text-red-700" /> Kaldı / UD
                                 </span>
-                              )
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-200 border border-red-500 text-red-950 rounded font-black text-[10px] uppercase">
-                                <ShieldAlert className="w-3 h-3 text-red-700" /> Kaldı / UD
-                              </span>
-                            )}
-                          </div>
-                          {isResolved && entry.item.resolutionNote && entry.item.resolutionNote.trim() !== '' && (
-                            <div
-                              className={`text-[11px] font-bold mt-1 flex items-center gap-1 px-2 py-0.5 rounded border w-fit ${
-                                entry.item.resolutionType === 'BETA'
-                                  ? 'bg-blue-100/90 text-blue-950 border-blue-300'
-                                  : 'bg-emerald-100/80 text-emerald-800 border-emerald-300'
-                              }`}
-                            >
-                              <CheckCircle2
-                                className={`w-3 h-3 shrink-0 ${
-                                  entry.item.resolutionType === 'BETA'
-                                    ? 'text-blue-700'
-                                    : 'text-emerald-700'
-                                }`}
-                              />
-                              <span>
-                                Kapatma Açıklaması: {entry.item.resolutionNote}
-                              </span>
+                              )}
                             </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                            {entry.item.resolutionNote && entry.item.resolutionNote.trim() !== '' && (
+                              <div
+                                className={`text-[11px] font-bold mt-1 flex items-center gap-1 px-2 py-0.5 rounded border w-fit ${
+                                  isBeta
+                                    ? 'bg-blue-100/90 text-blue-950 border-blue-300'
+                                    : 'bg-rose-100/80 text-rose-900 border-rose-300'
+                                }`}
+                              >
+                                <CheckCircle2
+                                  className={`w-3 h-3 shrink-0 ${
+                                    isBeta ? 'text-blue-700' : 'text-rose-700'
+                                  }`}
+                                />
+                                <span>
+                                  Not: {entry.item.resolutionNote}
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

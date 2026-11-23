@@ -1,3 +1,4 @@
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { InspectionItem } from '../types';
 
 export interface DataSyncResult {
@@ -14,38 +15,46 @@ export function getGoogleSheetUrlCandidates(url: string): string[] {
 
   const candidates: string[] = [];
 
-  // Extract gid (tab ID) if present
+  // Extract gid (tab ID) only if explicitly present
   const gidMatch = trimmed.match(/[#&?]gid=([0-9]+)/);
-  const gid = gidMatch ? gidMatch[1] : '0';
+  const hasExplicitGid = Boolean(gidMatch && gidMatch[1]);
+  const gid = hasExplicitGid ? gidMatch![1] : '0';
 
-  // 1. Check for "Web'de Yayınla" (Publish to Web) format: /spreadsheets/d/e/2PACX-.../pub...
-  const pubWebMatch = trimmed.match(/\/spreadsheets\/d\/e\/([a-zA-Z0-9-_]+)/);
+  // 1. Check for "Web'de Yayınla" (Publish to Web) format: /spreadsheets(/u/0)?/d/e/2PACX-.../pub...
+  const pubWebMatch = trimmed.match(/\/spreadsheets(?:\/u\/\d+)?\/d\/e\/([a-zA-Z0-9-_]+)/);
   if (pubWebMatch && pubWebMatch[1]) {
     const pubId = pubWebMatch[1];
-    candidates.push(`https://docs.google.com/spreadsheets/d/e/${pubId}/pub?output=csv&gid=${gid}`);
-    candidates.push(`https://docs.google.com/spreadsheets/d/e/${pubId}/pub?output=csv`);
+    if (hasExplicitGid) {
+      candidates.push(`https://docs.google.com/spreadsheets/d/e/${pubId}/pub?output=csv&gid=${gid}`);
+      candidates.push(`https://docs.google.com/spreadsheets/d/e/${pubId}/pub?output=csv`);
+    } else {
+      candidates.push(`https://docs.google.com/spreadsheets/d/e/${pubId}/pub?output=csv`);
+      candidates.push(`https://docs.google.com/spreadsheets/d/e/${pubId}/pub?output=csv&gid=0`);
+    }
     return candidates;
   }
 
-  // 2. Standard Google Sheets share or edit URL: /spreadsheets/d/{SPREADSHEET_ID}/...
-  // Make sure not to match if it's the "e" path
-  const standardMatch = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  // 2. Standard Google Sheets share or edit URL: /spreadsheets(/u/0)?/d/{SPREADSHEET_ID}/...
+  const standardMatch = trimmed.match(/\/spreadsheets(?:\/u\/\d+)?\/d\/([a-zA-Z0-9-_]+)/);
   if (standardMatch && standardMatch[1] && standardMatch[1] !== 'e') {
     const sheetId = standardMatch[1];
-    // Candidate A: Google Visualization API CSV export (Best CORS support & handles public sheets without auth)
-    candidates.push(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`);
-    // Candidate B: Direct export endpoint
-    candidates.push(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`);
-    // Candidate C: Publish endpoint
-    candidates.push(`https://docs.google.com/spreadsheets/d/${sheetId}/pub?output=csv&gid=${gid}`);
+    if (hasExplicitGid) {
+      candidates.push(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`);
+      candidates.push(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`);
+      candidates.push(`https://docs.google.com/spreadsheets/d/${sheetId}/pub?output=csv&gid=${gid}`);
+    }
+    candidates.push(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv`);
+    candidates.push(`https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`);
+    candidates.push(`https://docs.google.com/spreadsheets/d/${sheetId}/pub?output=csv`);
     return candidates;
   }
 
-  // 3. Google Drive file URL: /file/d/{FILE_ID}/view
-  const driveMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9-_]+)/);
+  // 3. Google Drive file URL: /file/d/{FILE_ID}/view or ?id={FILE_ID}
+  const driveMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9-_]+)/) || trimmed.match(/[?&]id=([a-zA-Z0-9-_]+)/);
   if (driveMatch && driveMatch[1]) {
     const fileId = driveMatch[1];
     candidates.push(`https://docs.google.com/spreadsheets/d/${fileId}/gviz/tq?tqx=out:csv`);
+    candidates.push(`https://docs.google.com/spreadsheets/d/${fileId}/export?format=csv`);
     candidates.push(`https://drive.google.com/uc?export=download&id=${fileId}`);
     return candidates;
   }
@@ -66,7 +75,112 @@ export function formatGoogleSheetUrl(url: string): string {
   return candidates[0] || url.trim();
 }
 
-// Helper to fetch CSV text trying all candidate URLs
+function escapeCsvCell(val: unknown): string {
+  const str = val === null || val === undefined ? '' : String(val);
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+// Zero-CORS JSONP fallback via Google Visualization API for standard Google Sheets URLs
+function fetchViaGvizJsonp(sheetId: string, gid?: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (typeof document === 'undefined') {
+      reject(new Error('Document unavailable for JSONP'));
+      return;
+    }
+
+    const cbName = `__betaGvizCb_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    const script = document.createElement('script');
+    let settled = false;
+
+    const cleanup = () => {
+      try {
+        delete (window as any)[cbName];
+      } catch {
+        (window as any)[cbName] = undefined;
+      }
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        cleanup();
+        reject(new Error('Google E-Tablo zaman aşımına uğradı.'));
+      }
+    }, 12000);
+
+    (window as any)[cbName] = (payload: any) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      cleanup();
+
+      try {
+        if (!payload || payload.status === 'error' || !payload.table) {
+          reject(new Error('E-Tablo verisi okunamadı veya gizli görünüyor.'));
+          return;
+        }
+
+        const cols: any[] = payload.table.cols || [];
+        const rows: any[] = payload.table.rows || [];
+        const csvLines: string[] = [];
+
+        const colLabels = cols.map((c) => escapeCsvCell(c?.label || ''));
+        if (colLabels.some((lbl) => lbl.trim() !== '')) {
+          csvLines.push(colLabels.join(','));
+        }
+
+        for (const r of rows) {
+          const cells: any[] = r?.c || [];
+          const rowVals = cols.map((_, idx) => {
+            const cell = cells[idx];
+            if (!cell) return '';
+            const raw = cell.f !== undefined && cell.f !== null ? cell.f : cell.v;
+            return escapeCsvCell(raw);
+          });
+          if (rowVals.some((v) => v.trim() !== '')) {
+            csvLines.push(rowVals.join(','));
+          }
+        }
+
+        resolve(csvLines.join('\n'));
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    const gidParam = gid ? `&gid=${encodeURIComponent(gid)}` : '';
+    script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json;responseHandler:${cbName}${gidParam}`;
+    script.async = true;
+    script.onerror = () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        cleanup();
+        reject(new Error('Google E-Tablo bağlantısı kurulamadı.'));
+      }
+    };
+
+    document.head.appendChild(script);
+  });
+}
+
+function isHtmlAuthResponse(text: string): boolean {
+  const lower = text.trim().toLowerCase();
+  return (
+    lower.startsWith('<!doctype html') ||
+    lower.startsWith('<html') ||
+    lower.includes('accounts.google.com/servicelogin') ||
+    lower.includes('<title>google sheets')
+  );
+}
+
+// Helper to fetch CSV text trying native HTTP, Electron proxy, standard fetch, and JSONP fallback
 export async function fetchGoogleSheetCsvText(url: string): Promise<string> {
   const candidates = getGoogleSheetUrlCandidates(url);
   if (candidates.length === 0) {
@@ -74,21 +188,54 @@ export async function fetchGoogleSheetCsvText(url: string): Promise<string> {
   }
 
   let lastError: any = null;
+  const isNative = Capacitor.isNativePlatform();
+  const isElectronDesktop =
+    typeof window !== 'undefined' &&
+    window.location.hostname === 'localhost' &&
+    window.location.port === '45123';
 
   for (const candidateUrl of candidates) {
     try {
+      // 1. Android APK Native HTTP (bypasses WebView CORS & handles Google redirects cleanly)
+      if (isNative) {
+        const res = await CapacitorHttp.get({
+          url: candidateUrl,
+          responseType: 'text',
+        });
+        if (res.status >= 200 && res.status < 300) {
+          const text = typeof res.data === 'string' ? res.data : JSON.stringify(res.data || '');
+          if (text && text.trim().length > 0 && !isHtmlAuthResponse(text)) {
+            return text;
+          }
+          if (isHtmlAuthResponse(text)) {
+            throw new Error('E-Tablo gizli görünüyor. Lütfen paylaşım ayarını "Bağlantıya sahip olan herkes görüntüleyebilir" yapın.');
+          }
+        }
+      }
+
+      // 2. Windows Electron Desktop Local Proxy (bypasses CORS cleanly)
+      if (isElectronDesktop) {
+        const proxyRes = await fetch(`/api/fetch-sheet?url=${encodeURIComponent(candidateUrl)}`);
+        if (proxyRes.ok) {
+          const text = await proxyRes.text();
+          if (text && text.trim().length > 0 && !isHtmlAuthResponse(text)) {
+            return text;
+          }
+          if (isHtmlAuthResponse(text)) {
+            throw new Error('E-Tablo gizli görünüyor. Lütfen paylaşım ayarını "Bağlantıya sahip olan herkes görüntüleyebilir" yapın.');
+          }
+        }
+      }
+
+      // 3. Standard Web Browser Fetch
       const response = await fetch(candidateUrl, {
         method: 'GET',
-        headers: {
-          Accept: 'text/csv, text/plain, */*',
-        },
       });
 
       if (response.ok) {
         const text = await response.text();
-        // Check if returned text looks like HTML login page instead of CSV
         if (text && text.trim().length > 0) {
-          if (text.includes('<!DOCTYPE html>') || text.includes('<html') || text.includes('accounts.google.com')) {
+          if (isHtmlAuthResponse(text)) {
             throw new Error('E-Tablo gizli görünüyor. Lütfen paylaşım ayarını "Bağlantıya sahip olan herkes görüntüleyebilir" yapın.');
           }
           return text;
@@ -101,19 +248,58 @@ export async function fetchGoogleSheetCsvText(url: string): Promise<string> {
     }
   }
 
+  // 4. Zero-CORS JSONP fallback for standard Google Sheets links (/spreadsheets/d/{sheetId}/...)
+  const standardMatch = url.trim().match(/\/spreadsheets(?:\/u\/\d+)?\/d\/([a-zA-Z0-9-_]+)/);
+  if (standardMatch && standardMatch[1] && standardMatch[1] !== 'e') {
+    const gidMatch = url.trim().match(/[#&?]gid=([0-9]+)/);
+    try {
+      return await fetchViaGvizJsonp(standardMatch[1], gidMatch?.[1]);
+    } catch (jsonpErr: any) {
+      lastError = jsonpErr;
+    }
+  }
+
   throw lastError || new Error('E-Tabloya erişilemedi. Lütfen bağlantının "Bağlantıya sahip olan herkes görüntüleyebilir" veya "Web\'de Yayınla" olarak paylaşıldığından emin olun.');
 }
 
-// Simple robust CSV parser handling commas, quotes, and newlines
+// Detect dominant CSV delimiter (comma, semicolon, or tab) outside quoted strings
+function detectDelimiter(csvText: string): string {
+  const firstLineEnd = csvText.indexOf('\n');
+  const sampleLine = firstLineEnd >= 0 ? csvText.slice(0, firstLineEnd) : csvText;
+
+  let commas = 0;
+  let semicolons = 0;
+  let tabs = 0;
+  let inQuotes = false;
+
+  for (let i = 0; i < sampleLine.length; i++) {
+    const ch = sampleLine[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+    } else if (!inQuotes) {
+      if (ch === ',') commas++;
+      else if (ch === ';') semicolons++;
+      else if (ch === '\t') tabs++;
+    }
+  }
+
+  if (tabs > commas && tabs >= semicolons) return '\t';
+  if (semicolons > commas && semicolons > 0) return ';';
+  return ',';
+}
+
+// Simple robust CSV/TSV parser handling commas, semicolons, tabs, quotes, and newlines
 export function parseCSV(csvText: string): string[][] {
+  const cleanText = csvText.replace(/^\uFEFF/, '');
+  const delimiter = detectDelimiter(cleanText);
   const rows: string[][] = [];
   let currentRow: string[] = [];
   let currentField = '';
   let inQuotes = false;
 
-  for (let i = 0; i < csvText.length; i++) {
-    const char = csvText[i];
-    const nextChar = csvText[i + 1];
+  for (let i = 0; i < cleanText.length; i++) {
+    const char = cleanText[i];
+    const nextChar = cleanText[i + 1];
 
     if (inQuotes) {
       if (char === '"' && nextChar === '"') {
@@ -127,7 +313,7 @@ export function parseCSV(csvText: string): string[][] {
     } else {
       if (char === '"') {
         inQuotes = true;
-      } else if (char === ',') {
+      } else if (char === delimiter) {
         currentRow.push(currentField.trim());
         currentField = '';
       } else if (char === '\r') {

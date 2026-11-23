@@ -29,9 +29,17 @@ export function loadCustomerSyncedItemsFromStorage(): any {
   return null;
 }
 
+export const DEFAULT_CUSTOMER_GOOGLE_SHEET_URL =
+  'https://docs.google.com/spreadsheets/d/e/2PACX-1vTkeIj0QfV0lByars1nTb7_j3Z0Aw1wjxv5_skD-fTnJiZ7uBhUXB6BMnV0Z8UZuRE57qc2jchv_txl/pub?gid=1343619928&single=true&output=csv';
+
 export function saveCustomerGoogleSheetUrl(url: string): void {
   try {
-    localStorage.setItem('beta_customer_google_sheet_url', url);
+    const trimmed = url.trim();
+    if (trimmed) {
+      localStorage.setItem('beta_customer_google_sheet_url', trimmed);
+    } else {
+      localStorage.removeItem('beta_customer_google_sheet_url');
+    }
   } catch (e) {
     // ignore
   }
@@ -39,9 +47,10 @@ export function saveCustomerGoogleSheetUrl(url: string): void {
 
 export function loadCustomerGoogleSheetUrl(): string {
   try {
-    return localStorage.getItem('beta_customer_google_sheet_url') || '';
+    const saved = localStorage.getItem('beta_customer_google_sheet_url');
+    return saved && saved.trim() ? saved.trim() : DEFAULT_CUSTOMER_GOOGLE_SHEET_URL;
   } catch {
-    return '';
+    return DEFAULT_CUSTOMER_GOOGLE_SHEET_URL;
   }
 }
 
@@ -54,19 +63,19 @@ export function parseCustomerChecklistCsv(csvText: string): CustomerDataSyncResu
   }
 
   const rows = parseCSV(csvText);
-  if (rows.length < 2) {
+  if (rows.length === 0) {
     return {
       success: false,
-      message: 'Tabloda yeterli veri satırı bulunamadı (En az 1 başlık ve 1 veri satırı olmalıdır).',
+      message: 'Tabloda hiç veri satırı bulunamadı.',
     };
   }
 
-  // Identify column indices
-  const headers = rows[0].map((h) => h.toLowerCase().trim());
-  let categoryIdx = headers.findIndex(
+  // Identify column indices if row 0 is a header
+  const firstRowLower = rows[0].map((h) => h.toLowerCase().trim());
+  let categoryIdx = firstRowLower.findIndex(
     (h) => h.includes('kategori') || h.includes('category') || h.includes('bolum') || h.includes('bölüm')
   );
-  let descIdx = headers.findIndex(
+  let descIdx = firstRowLower.findIndex(
     (h) =>
       h.includes('madde') ||
       h.includes('aciklama') ||
@@ -76,6 +85,7 @@ export function parseCustomerChecklistCsv(csvText: string): CustomerDataSyncResu
       h.includes('kontrol')
   );
 
+  const hasExplicitHeader = categoryIdx !== -1 || descIdx !== -1;
   if (categoryIdx === -1) categoryIdx = 0;
   if (descIdx === -1) descIdx = 1;
 
@@ -83,13 +93,16 @@ export function parseCustomerChecklistCsv(csvText: string): CustomerDataSyncResu
   const mr: { description: string }[] = [];
   const mrl: { description: string }[] = [];
 
-  for (let i = 1; i < rows.length; i++) {
+  const startRow = hasExplicitHeader ? 1 : 0;
+
+  for (let i = startRow; i < rows.length; i++) {
     const row = rows[i];
     if (!row || row.length === 0) continue;
 
-    const rawCat = (row[categoryIdx] || '').toUpperCase().trim();
-    // If only 1 column was provided in row, use it as description
-    const desc = (row[descIdx] !== undefined ? row[descIdx] : row[0] || '').trim();
+    // If only 1 column was provided in row, treat it directly as ORTAK description
+    const isSingleCol = row.length === 1;
+    const rawCat = isSingleCol ? 'ORTAK' : (row[categoryIdx] || '').toUpperCase().trim();
+    const desc = (isSingleCol ? row[0] : row[descIdx] !== undefined ? row[descIdx] : row[0] || '').trim();
 
     if (!desc) continue;
 

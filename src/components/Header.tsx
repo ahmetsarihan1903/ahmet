@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Clock, AlertTriangle, Save, Check, Settings, Cloud } from 'lucide-react';
+import { ShieldCheck, Clock, AlertTriangle, Save, Check, Settings, Cloud, Play, Pause } from 'lucide-react';
 import { formatTimerDisplay } from '../utils/textUtils';
 import { BetaLogo } from './BetaLogo';
 
@@ -8,6 +8,10 @@ interface HeaderProps {
   startTimestamp: number | null;
   endTimestamp?: number | null;
   totalDurationFormatted?: string | null;
+  accumulatedElapsedSeconds?: number;
+  lastTimerAnchorTimestamp?: number | null;
+  isTimerPaused?: boolean;
+  onToggleTimerPause?: () => void;
   nonCompliantCount: number;
   onOpenSettings: () => void;
   onOpenDriveModal?: () => void;
@@ -20,7 +24,10 @@ export const Header: React.FC<HeaderProps> = ({
   currentStep,
   startTimestamp,
   endTimestamp,
-  totalDurationFormatted,
+  accumulatedElapsedSeconds = 0,
+  lastTimerAnchorTimestamp = null,
+  isTimerPaused = false,
+  onToggleTimerPause,
   nonCompliantCount,
   onOpenSettings,
   onOpenDriveModal,
@@ -37,26 +44,34 @@ export const Header: React.FC<HeaderProps> = ({
 
     // Denetim daha önce tamamlanmışsa kilitli süreyi göster, canlı sayacı çalıştırma
     if (endTimestamp) {
-      const fixedDiff = Math.max(0, Math.floor((endTimestamp - startTimestamp) / 1000));
-      setElapsedSeconds(fixedDiff > 8 * 3600 ? 2700 : fixedDiff);
+      if (accumulatedElapsedSeconds > 0) {
+        setElapsedSeconds(accumulatedElapsedSeconds);
+      } else {
+        const fixedDiff = Math.max(0, Math.floor((endTimestamp - startTimestamp) / 1000));
+        setElapsedSeconds(fixedDiff > 8 * 3600 ? 2700 : fixedDiff);
+      }
+      return;
+    }
+
+    // Süre duraklatılmışsa (örn. uygulama kapatılıp tekrar açıldığında kullanıcı duraklatmayı seçtiyse)
+    if (isTimerPaused || !lastTimerAnchorTimestamp) {
+      setElapsedSeconds(accumulatedElapsedSeconds);
       return;
     }
 
     const updateTimer = () => {
-      const diff = Math.max(0, Math.floor((Date.now() - startTimestamp) / 1000));
-      // Eğer aradan 8 saatten fazla geçmişse (örneğin günlerce bekleyen taslak)
-      // Sayacı 72 saat göstermek yerine makul sürede tut
-      if (diff > 8 * 3600) {
-        setElapsedSeconds(2700); // 45 dk
+      const seg = Math.max(0, Math.floor((Date.now() - lastTimerAnchorTimestamp) / 1000));
+      if (seg > 8 * 3600) {
+        setElapsedSeconds(accumulatedElapsedSeconds);
         return;
       }
-      setElapsedSeconds(diff);
+      setElapsedSeconds(accumulatedElapsedSeconds + seg);
     };
 
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [startTimestamp, endTimestamp, currentStep]);
+  }, [startTimestamp, endTimestamp, accumulatedElapsedSeconds, lastTimerAnchorTimestamp, isTimerPaused, currentStep]);
 
   return (
     <header className="sticky top-0 z-40 bg-[#0A2647] text-white shadow-md border-b-4 border-orange-500 pt-safe-or-4">
@@ -95,13 +110,42 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Active Timer (during audit) */}
           {startTimestamp && currentStep === 'audit' && (
-            <div className="text-right bg-slate-900/90 px-2 sm:px-2.5 py-1 rounded border border-slate-700">
-              <p className="font-mono text-orange-400 font-black text-xs sm:text-sm leading-tight flex items-center gap-1 justify-end">
-                <Clock className="w-3.5 h-3.5 text-orange-400 animate-pulse shrink-0" />
+            <button
+              type="button"
+              onClick={onToggleTimerPause}
+              disabled={!!endTimestamp || !onToggleTimerPause}
+              title={
+                endTimestamp
+                  ? 'Denetim tamamlandı (süre kilitli)'
+                  : isTimerPaused
+                  ? 'Süre duraklatıldı — Başlatmak için dokunun'
+                  : 'Süre çalışıyor — Duraklatmak için dokunun'
+              }
+              className={`text-right px-2 sm:px-2.5 py-1 rounded border transition-colors ${
+                isTimerPaused
+                  ? 'bg-amber-950/80 border-amber-500/70 hover:bg-amber-900/80 cursor-pointer'
+                  : 'bg-slate-900/90 border-slate-700 hover:border-slate-500 cursor-pointer'
+              }`}
+            >
+              <p
+                className={`font-mono font-black text-xs sm:text-sm leading-tight flex items-center gap-1 justify-end ${
+                  isTimerPaused ? 'text-amber-300' : 'text-orange-400'
+                }`}
+              >
+                {isTimerPaused ? (
+                  <Play className="w-3 h-3 text-emerald-400 fill-emerald-400 shrink-0" />
+                ) : (
+                  <>
+                    <Clock className="w-3.5 h-3.5 text-orange-400 animate-pulse shrink-0" />
+                    {!endTimestamp && <Pause className="w-2.5 h-2.5 text-slate-400 shrink-0 hidden sm:inline" />}
+                  </>
+                )}
                 {formatTimerDisplay(elapsedSeconds)}
               </p>
-              <p className="text-[8px] sm:text-[9px] text-slate-300 font-mono font-bold tracking-tight">Geçen Süre</p>
-            </div>
+              <p className="text-[8px] sm:text-[9px] text-slate-300 font-mono font-bold tracking-tight">
+                {isTimerPaused ? 'Duraklatıldı (Başlat)' : 'Geçen Süre'}
+              </p>
+            </button>
           )}
 
           {/* UD Count Badge (if in audit) */}
