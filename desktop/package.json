@@ -26,10 +26,6 @@
         {
           "target": "nsis",
           "arch": ["x64"]
-        },
-        {
-          "target": "portable",
-          "arch": ["x64"]
         }
       ],
       "icon": "icon.ico"
@@ -41,9 +37,6 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Beta Asansör Kalite Kontrol",
       "artifactName": "BetaAsansor-Kalite-Kontrol-Kurulum.${ext}"
-    },
-    "portable": {
-      "artifactName": "BetaAsansor-Kalite-Kontrol-Tasinabilir.${ext}"
     }
   },
   "devDependencies": {

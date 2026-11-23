@@ -353,46 +353,29 @@ export const ReportView: React.FC<ReportViewProps> = ({
 
     lastY += 7.2;
 
-    // 4. BÖLÜM VE KATEGORİ BAZLI KONTROL ÖZET TABLOSU (Kompakt 2 Sütunlu / 4 Satırlı Düzen - Sayfa 1 Taşmasını Önler)
-    const formatCompactCatStatus = (cat: CategorySummaryStat) => {
-      if (cat.udCount === 0) {
-        return {
-          text: '0 UD (Kusursuz)',
-          style: { textColor: [5, 150, 105] as [number, number, number], fontStyle: 'bold' as const },
-        };
-      }
-      if (cat.resolvedCount === cat.udCount) {
-        return {
-          text: `${cat.udCount} UD (Duzeltildi)`,
-          style: { textColor: [5, 150, 105] as [number, number, number], fontStyle: 'bold' as const, fillColor: [240, 253, 244] as [number, number, number] },
-        };
-      }
-      if (cat.resolvedCount === 0) {
-        return {
-          text: `${cat.udCount} UD (Acik Eksik)`,
-          style: { textColor: [185, 28, 28] as [number, number, number], fontStyle: 'bold' as const, fillColor: [254, 242, 242] as [number, number, number] },
-        };
-      }
-      return {
-        text: `${cat.udCount} UD (${cat.resolvedCount} Duz., ${cat.udCount - cat.resolvedCount} Acik)`,
-        style: { textColor: [180, 83, 9] as [number, number, number], fontStyle: 'bold' as const, fillColor: [255, 251, 235] as [number, number, number] },
-      };
-    };
+    // 4. BÖLÜM VE KATEGORİ BAZLI KONTROL ÖZET TABLOSU (ORİJİNAL 8 SATIRLIK DÜZEN)
+    const catTableRows = categorySummaries.map((cat, idx) => {
+      let durText = '0 UYGUNSUZLUK (Kusursuz)';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let durStyle: any = { textColor: [5, 150, 105], fontStyle: 'bold' as const };
 
-    const halfCount = Math.ceil(categorySummaries.length / 2);
-    const catPairRows = Array.from({ length: halfCount }, (_, rowIdx) => {
-      const leftCat = categorySummaries[rowIdx];
-      const rightCat = categorySummaries[rowIdx + halfCount];
-      const leftDur = formatCompactCatStatus(leftCat);
-      const rightDur = rightCat ? formatCompactCatStatus(rightCat) : null;
+      if (cat.udCount > 0) {
+        if (cat.resolvedCount === cat.udCount) {
+          durText = `${cat.udCount} UYGUNSUZLUK (2. Kontrolde Duzeltildi)`;
+          durStyle = { textColor: [5, 150, 105], fontStyle: 'bold' as const };
+        } else if (cat.resolvedCount === 0) {
+          durText = `${cat.udCount} UYGUNSUZLUK (Acik Eksik)`;
+          durStyle = { textColor: [185, 28, 28], fontStyle: 'bold' as const };
+        } else {
+          durText = `${cat.udCount} UYGUNSUZLUK (${cat.resolvedCount} Adedi 2. Kontrolde Duzeltildi, ${cat.udCount - cat.resolvedCount} Acik)`;
+          durStyle = { textColor: [217, 119, 6], fontStyle: 'bold' as const };
+        }
+      }
 
       return [
-        (rowIdx + 1).toString(),
-        cleanTr(leftCat.shortName || leftCat.name),
-        { content: leftDur.text, styles: leftDur.style },
-        rightCat ? (rowIdx + halfCount + 1).toString() : '',
-        rightCat ? cleanTr(rightCat.shortName || rightCat.name) : '',
-        rightDur ? { content: rightDur.text, styles: rightDur.style } : '',
+        (idx + 1).toString(),
+        cleanTr(cat.name),
+        { content: durText, styles: durStyle },
       ];
     });
 
@@ -403,43 +386,39 @@ export const ReportView: React.FC<ReportViewProps> = ({
         [
           {
             content: '1. SAYFA: BOLUM VE KATEGORI BAZLI KONTROL OZETI',
-            colSpan: 6,
-            styles: { fillColor: [10, 38, 71], textColor: [255, 255, 255], fontStyle: 'bold' as const, fontSize: 7.8, cellPadding: 1.4 },
+            colSpan: 3,
+            styles: { fillColor: [10, 38, 71], textColor: [255, 255, 255], fontStyle: 'bold' as const, fontSize: 8.2, cellPadding: 1.7 },
           },
         ],
         [
-          { content: '#', styles: { halign: 'center' as const, cellWidth: 6 } },
-          { content: 'BOLUM', styles: { cellWidth: 41 } },
-          { content: 'DURUM', styles: { cellWidth: 48 } },
-          { content: '#', styles: { halign: 'center' as const, cellWidth: 6 } },
-          { content: 'BOLUM', styles: { cellWidth: 41 } },
-          { content: 'DURUM', styles: { cellWidth: 48 } },
+          { content: '#', styles: { halign: 'center' as const, cellWidth: 8 } },
+          { content: 'DENETIM BOLUMU / KATEGORI', styles: { cellWidth: 72 } },
+          { content: 'UYGUNSUZLUK & SAHA DURUMU', styles: { cellWidth: 110 } },
         ],
       ],
-      body: catPairRows,
+      body: catTableRows,
       theme: 'grid',
       headStyles: {
         fillColor: [51, 65, 85],
         textColor: [255, 255, 255],
         fontStyle: 'bold' as const,
-        fontSize: 6.8,
-        cellPadding: 1.2,
+        fontSize: 7.3,
+        cellPadding: 1.5,
       },
       styles: {
-        fontSize: 7,
-        cellPadding: 1.3,
+        fontSize: 7.8,
+        cellPadding: 1.6,
         lineColor: [203, 213, 225],
         lineWidth: 0.2,
         textColor: [15, 23, 42],
-        valign: 'middle' as const,
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
       },
       columnStyles: {
-        0: { halign: 'center' as const, fontStyle: 'bold' as const, fillColor: [248, 250, 252] },
+        0: { halign: 'center' as const, fontStyle: 'bold' as const },
         1: { fontStyle: 'bold' as const },
         2: { fontStyle: 'bold' as const },
-        3: { halign: 'center' as const, fontStyle: 'bold' as const, fillColor: [248, 250, 252] },
-        4: { fontStyle: 'bold' as const },
-        5: { fontStyle: 'bold' as const },
       },
     });
 
@@ -478,7 +457,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
           }, 0);
 
         const useTwoColumnCardMode =
-          secondControlHighlightItems.length > 12 || estimatedStdHeight > remainingHeight;
+          secondControlHighlightItems.length > 9 || estimatedStdHeight > remainingHeight;
 
         const formatHighlightStatus = (entry: { category: string; item: InspectionItem }) => {
           const isResolved = !!entry.item.isResolved;
@@ -1402,55 +1381,64 @@ export const ReportView: React.FC<ReportViewProps> = ({
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {categorySummaries.map((cat, idx) => {
-                const hasUD = cat.udCount > 0;
-                const isAllCatResolved = hasUD && cat.resolvedCount === cat.udCount;
-                const isPartialResolved = hasUD && cat.resolvedCount > 0 && cat.resolvedCount < cat.udCount;
+            <div className="border-2 border-slate-300 rounded-xl overflow-hidden">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-200 border-b-2 border-slate-300 text-slate-900 font-black uppercase text-[10px]">
+                  <tr>
+                    <th className="p-2.5 border-r border-slate-300 w-12 text-center">#</th>
+                    <th className="p-2.5 border-r border-slate-300 w-64 sm:w-80">Denetim Bölümü / Kategori</th>
+                    <th className="p-2.5">Uygunsuzluk & Saha Durumu</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-300">
+                  {categorySummaries.map((cat, idx) => {
+                    const hasUD = cat.udCount > 0;
+                    const isAllCatResolved = hasUD && cat.resolvedCount === cat.udCount;
+                    const isPartialResolved = hasUD && cat.resolvedCount > 0 && cat.resolvedCount < cat.udCount;
 
-                return (
-                  <div
-                    key={cat.id}
-                    className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs ${
-                      !hasUD
-                        ? 'bg-white border-slate-300'
-                        : isAllCatResolved
-                        ? 'bg-emerald-50/70 border-emerald-400'
-                        : isPartialResolved
-                        ? 'bg-amber-50/70 border-amber-400'
-                        : 'bg-red-50/70 border-red-400'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-5 h-5 rounded bg-slate-200 text-slate-800 font-black text-[11px] flex items-center justify-center shrink-0">
-                        {idx + 1}
-                      </span>
-                      <span className="font-black text-slate-950 truncate">
-                        {cat.name}
-                      </span>
-                    </div>
-                    <div className="shrink-0">
-                      {!hasUD ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 border border-emerald-400 text-emerald-950 rounded font-black text-[11px]">
-                          <Check className="w-3.5 h-3.5 text-emerald-700" /> 0 UD (Kusursuz)
-                        </span>
-                      ) : isAllCatResolved ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 border border-emerald-500 text-emerald-950 rounded font-black text-[11px]">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" /> {cat.udCount} UD (Düzeltildi)
-                        </span>
-                      ) : isPartialResolved ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 border border-amber-500 text-amber-950 rounded font-black text-[11px]">
-                          <ShieldAlert className="w-3.5 h-3.5 text-amber-700" /> {cat.udCount} UD ({cat.resolvedCount} Düz., {cat.udCount - cat.resolvedCount} Açık)
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 border border-red-500 text-red-950 rounded font-black text-[11px]">
-                          <ShieldAlert className="w-3.5 h-3.5 text-red-700" /> {cat.udCount} UD (Açık Eksik)
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                    return (
+                      <tr
+                        key={cat.id}
+                        className={
+                          !hasUD
+                            ? 'bg-white hover:bg-slate-50'
+                            : isAllCatResolved
+                            ? 'bg-emerald-50/60 hover:bg-emerald-100/50'
+                            : isPartialResolved
+                            ? 'bg-amber-50/60 hover:bg-amber-100/50'
+                            : 'bg-red-50/60 hover:bg-red-100/50'
+                        }
+                      >
+                        <td className="p-2.5 border-r border-slate-300 text-center font-bold text-slate-700">
+                          {idx + 1}
+                        </td>
+                        <td className="p-2.5 border-r border-slate-300 font-black text-slate-950 text-xs sm:text-sm">
+                          {cat.name}
+                        </td>
+                        <td className="p-2.5">
+                          {!hasUD ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 border border-emerald-400 text-emerald-950 rounded-lg font-black text-xs">
+                              <Check className="w-4 h-4 text-emerald-700" /> 0 Uygunsuzluk (Kusursuz)
+                            </span>
+                          ) : isAllCatResolved ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 border border-emerald-500 text-emerald-950 rounded-lg font-black text-xs">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-700" /> {cat.udCount} Uygunsuzluk (2. Kontrolde Düzeltildi)
+                            </span>
+                          ) : isPartialResolved ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 border border-amber-500 text-amber-950 rounded-lg font-black text-xs">
+                              <ShieldAlert className="w-4 h-4 text-amber-700" /> {cat.udCount} Uygunsuzluk ({cat.resolvedCount} Adedi 2. Kontrolde Düzeltildi, {cat.udCount - cat.resolvedCount} Açık)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 border border-red-500 text-red-950 rounded-lg font-black text-xs">
+                              <ShieldAlert className="w-4 h-4 text-red-700" /> {cat.udCount} Uygunsuzluk (Açık Eksik)
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
 

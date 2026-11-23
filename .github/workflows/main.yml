@@ -117,15 +117,13 @@ jobs:
         working-directory: desktop
         run: npm install --legacy-peer-deps
 
-      - name: Build Windows Setup & Portable EXE
+      - name: Build Windows Setup EXE
         working-directory: desktop
         run: npm run dist:win
 
-      - name: Upload Windows EXE Artifacts
+      - name: Upload Windows Setup EXE Artifact
         uses: actions/upload-artifact@v4
         with:
           name: BetaAsansor-Kalite-Kontrol-Windows-EXE
-          path: |
-            desktop/release/BetaAsansor-Kalite-Kontrol-Kurulum.exe
-            desktop/release/BetaAsansor-Kalite-Kontrol-Tasinabilir.exe
+          path: desktop/release/BetaAsansor-Kalite-Kontrol-Kurulum.exe
           retention-days: 30
