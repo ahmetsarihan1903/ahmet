@@ -394,12 +394,22 @@ export function setSavedDriveFolderUrl(url: string): void {
   }
 }
 
-export const DEFAULT_SCRIPT_WEBHOOK_URL =
+const LEGACY_V1_SCRIPT_WEBHOOK_URL =
   'https://script.google.com/macros/s/AKfycbzPnUqLVf4oHwS5OIHO15sR0O2y62Z1pw2HUx1PFhGGQnBuFUuHY9AGi7iUI3VtnHEA/exec';
+
+export const DEFAULT_SCRIPT_WEBHOOK_URL =
+  'https://script.google.com/macros/s/AKfycbyBXwWhelaZ5Yl2xmMSCXAof3DZBn2fuMJ8LXTnH6OxBxGqXOW7im-6ESIJChZ63sBh/exec';
 
 export function getSavedDriveScriptUrl(): string {
   try {
-    return localStorage.getItem(STORAGE_SCRIPT_URL_KEY) || DEFAULT_SCRIPT_WEBHOOK_URL;
+    const saved = localStorage.getItem(STORAGE_SCRIPT_URL_KEY);
+    if (!saved || saved.trim() === LEGACY_V1_SCRIPT_WEBHOOK_URL) {
+      if (saved) {
+        localStorage.setItem(STORAGE_SCRIPT_URL_KEY, DEFAULT_SCRIPT_WEBHOOK_URL);
+      }
+      return DEFAULT_SCRIPT_WEBHOOK_URL;
+    }
+    return saved.trim();
   } catch {
     return DEFAULT_SCRIPT_WEBHOOK_URL;
   }
