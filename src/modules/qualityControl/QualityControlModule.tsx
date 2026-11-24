@@ -85,6 +85,10 @@ function syncItemsWithMaster(draftItems: InspectionItem[], masterItems: Inspecti
         resolutionType: userIt.resolutionType,
         resolvedAt: userIt.resolvedAt,
         resolutionNote: userIt.resolutionNote,
+        contractorDone: userIt.contractorDone,
+        contractorNote: userIt.contractorNote,
+        contractorUpdatedAt: userIt.contractorUpdatedAt,
+        contractorName: userIt.contractorName,
       };
     }
     return { ...masterIt };

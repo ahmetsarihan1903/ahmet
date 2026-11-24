@@ -7,10 +7,36 @@ import { RailDoorInspectionModule } from './modules/railDoorInspection/RailDoorI
 import { UnderConstructionModule } from './components/UnderConstructionModule';
 import { InitialUserSetupModal } from './components/InitialUserSetupModal';
 import { useTheme } from './context/ThemeContext';
+import { ContractorPortalView } from './modules/contractorPortal/ContractorPortalView';
 
 export default function App() {
   const [activeModule, setActiveModule] = useState<ActiveAppModule>('hub');
   const { isDark } = useTheme();
+
+  // Taşeron (Usta) Web Linki Tespiti: ?taseron=1&f=<FILE_ID>&k=<AUDIT_ID>
+  const contractorParams = React.useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('taseron') === '1') {
+      const fileId = (params.get('f') || '').trim();
+      const auditKey = (params.get('k') || '').trim();
+      const scriptUrlOverride = (params.get('w') || '').trim() || undefined;
+      if (fileId && auditKey) {
+        return { fileId, auditKey, scriptUrlOverride };
+      }
+    }
+    return null;
+  }, []);
+
+  if (contractorParams) {
+    return (
+      <ContractorPortalView
+        fileId={contractorParams.fileId}
+        auditKey={contractorParams.auditKey}
+        scriptUrlOverride={contractorParams.scriptUrlOverride}
+      />
+    );
+  }
 
   const handleSelectModule = (mod: ActiveAppModule) => {
     if (mod !== 'hub') {

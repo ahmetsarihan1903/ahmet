@@ -36,8 +36,33 @@ let isSigningIn = false;
 
 export const STORAGE_SCRIPT_URL_KEY = 'beta_drive_script_webhook_url_v1';
 
+export const DEFAULT_CONTRACTOR_PORTAL_URL = 'https://ahmetsarihan1903.github.io/ahmet/';
+const STORAGE_CONTRACTOR_PORTAL_URL_KEY = 'beta_contractor_portal_url_v1';
+
+export function getContractorPortalUrl(): string {
+  try {
+    const saved = localStorage.getItem(STORAGE_CONTRACTOR_PORTAL_URL_KEY);
+    return saved && saved.trim() ? saved.trim() : DEFAULT_CONTRACTOR_PORTAL_URL;
+  } catch {
+    return DEFAULT_CONTRACTOR_PORTAL_URL;
+  }
+}
+
+export function setContractorPortalUrl(url: string): void {
+  try {
+    const trimmed = url.trim();
+    if (trimmed) {
+      localStorage.setItem(STORAGE_CONTRACTOR_PORTAL_URL_KEY, trimmed);
+    } else {
+      localStorage.removeItem(STORAGE_CONTRACTOR_PORTAL_URL_KEY);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 export const GOOGLE_APPS_SCRIPT_TEMPLATE = `// =======================================================
-// BETA ASANSÖR - GOOGLE DRIVE BULUT KÖPRÜSÜ
+// BETA ASANSÖR - GOOGLE DRIVE BULUT KÖPRÜSÜ (v2.0 - Taşeron Destekli)
 // Yetkili Hesap: ahmetsarihan1903@gmail.com
 // =======================================================
 var DEFAULT_FOLDER_ID = "1GAUJoTIEtCpSRepZqHNkzq_dx64JRQ_4";
@@ -55,17 +80,95 @@ function getTargetFolder(folderId) {
   if (folders.hasNext()) {
     return folders.next();
   }
-  // Klasör hesapta yoksa otomatik olarak oluşturur
   return DriveApp.createFolder(FOLDER_NAME);
+}
+
+function collectContractorItems(audit) {
+  var categories = [
+    { key: 'controlPanelItems', label: 'Kumanda Panosu' },
+    { key: 'motorChassisItems', label: 'Motor / Şase (' + (audit.elevatorType || '') + ')' },
+    { key: 'cabinTopItems', label: 'Kabin Üstü' },
+    { key: 'counterweightItems', label: 'Ağırlık Karkası' },
+    { key: 'shaftAndPitItems', label: 'Kuyu ve Dip' },
+    { key: 'cabinAndFloorButtonsItems', label: 'Kabin ve Butonlar' },
+    { key: 'doorsItems', label: 'Kapılar' }
+  ];
+  var items = [];
+  for (var c = 0; c < categories.length; c++) {
+    var cat = categories[c];
+    var list = audit[cat.key];
+    if (Array.isArray(list)) {
+      for (var i = 0; i < list.length; i++) {
+        var it = list[i];
+        if (it && it.isNonCompliant && !it.isResolved) {
+          items.push({
+            id: it.id,
+            category: cat.label,
+            title: it.title || '',
+            description: it.description || '',
+            floorLabel: it.floorLabel || '',
+            contractorDone: !!it.contractorDone,
+            contractorNote: it.contractorNote || '',
+            contractorUpdatedAt: it.contractorUpdatedAt || '',
+            contractorName: it.contractorName || ''
+          });
+        }
+      }
+    }
+  }
+  if (audit.rideComfortNonCompliant && !audit.rideComfortResolved) {
+    items.push({
+      id: 'ride_comfort_report',
+      category: 'Seyir ve Konfor',
+      title: 'Asansör Seyir ve Konfor Uygunsuzluğu',
+      description: audit.rideComfortNotes || 'Konfor problemi tespit edildi.',
+      floorLabel: '',
+      contractorDone: !!audit.rideComfortContractorDone,
+      contractorNote: audit.rideComfortContractorNote || '',
+      contractorUpdatedAt: audit.rideComfortContractorUpdatedAt || '',
+      contractorName: audit.rideComfortContractorName || ''
+    });
+  }
+  return items;
 }
 
 function doGet(e) {
   try {
     var action = (e && e.parameter && e.parameter.action) || 'list';
     var folderId = (e && e.parameter && e.parameter.folderId) || DEFAULT_FOLDER_ID;
-    var folder = getTargetFolder(folderId);
 
-    // 1. Dosya İndirme (JSON Proje Verisi)
+    // 1. Taşeron Görev Verisi Çekme (Sadece Açık Eksikler & Doğrulama Anahtarı Kontrollü)
+    if (action === 'contractorGet') {
+      var cFileId = e.parameter.fileId;
+      var cKey = (e.parameter.key || '').trim();
+      if (!cFileId || !cKey) {
+        return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Eksik görev bağlantısı veya güvenlik kodu.' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var cFile = DriveApp.getFileById(cFileId);
+      var rawObj = JSON.parse(cFile.getBlob().getDataAsString());
+      var auditObj = rawObj.auditData ? rawObj.auditData : rawObj;
+      if (!auditObj || (auditObj.auditId && auditObj.auditId !== cKey)) {
+        return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Bu görev bağlantısı geçersiz veya süresi dolmuş.' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var openItems = collectContractorItems(auditObj);
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        task: {
+          fileId: cFileId,
+          auditId: auditObj.auditId || cKey,
+          projectName: auditObj.clientProjectName || '-',
+          serialNumber: auditObj.serialNumber || '-',
+          elevatorType: auditObj.elevatorType || '-',
+          stopCount: auditObj.stopCount || '-',
+          dateDisplay: auditObj.dateDisplay || '-',
+          items: openItems
+        }
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 2. Dosya İndirme (JSON Proje Verisi)
     if (action === 'download') {
       var fileId = e.parameter.fileId;
       var file = DriveApp.getFileById(fileId);
@@ -73,7 +176,8 @@ function doGet(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    // 2. Klasör Dosyalarını Listeleme
+    // 3. Klasör Dosyalarını Listeleme
+    var folder = getTargetFolder(folderId);
     var files = folder.getFiles();
     var list = [];
     while (files.hasNext()) {
@@ -89,7 +193,6 @@ function doGet(e) {
       });
     }
 
-    // En son değiştirilen en üstte
     list.sort(function(a, b) {
       return new Date(b.modifiedTime) - new Date(a.modifiedTime);
     });
@@ -107,14 +210,93 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  var lock = LockService.getScriptLock();
   try {
+    lock.waitLock(15000);
     var data = JSON.parse(e.postData.contents);
+    var action = data.action || 'uploadJson';
+
+    // 1. Taşeron Güncellemesi (Yalnızca Taşeron Alanlarını Güvenli Birleştirme)
+    if (action === 'contractorUpdate') {
+      var uFileId = data.fileId;
+      var uKey = (data.key || '').trim();
+      var updates = data.updates || [];
+      var uName = (data.contractorName || '').trim();
+      if (!uFileId || !uKey) {
+        return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Eksik dosya bilgisi.' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+
+      var target = DriveApp.getFileById(uFileId);
+      var wrapper = JSON.parse(target.getBlob().getDataAsString());
+      var audit = wrapper.auditData ? wrapper.auditData : wrapper;
+
+      if (!audit || (audit.auditId && audit.auditId !== uKey)) {
+        return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Doğrulama anahtarı eşleşmedi.' }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+
+      var updateMap = {};
+      for (var k = 0; k < updates.length; k++) {
+        if (updates[k] && updates[k].id) {
+          updateMap[updates[k].id] = updates[k];
+        }
+      }
+
+      var nowStr = Utilities.formatDate(new Date(), 'Europe/Istanbul', 'dd.MM.yyyy HH:mm');
+      var listKeys = ['controlPanelItems', 'motorChassisItems', 'cabinTopItems', 'counterweightItems', 'shaftAndPitItems', 'cabinAndFloorButtonsItems', 'doorsItems'];
+      var changedCount = 0;
+
+      for (var lk = 0; lk < listKeys.length; lk++) {
+        var arr = audit[listKeys[lk]];
+        if (Array.isArray(arr)) {
+          for (var j = 0; j < arr.length; j++) {
+            var item = arr[j];
+            if (item && updateMap[item.id]) {
+              var upd = updateMap[item.id];
+              item.contractorDone = !!upd.contractorDone;
+              item.contractorNote = (upd.contractorNote || '').toString().trim();
+              if (item.contractorDone || item.contractorNote) {
+                item.contractorUpdatedAt = nowStr;
+                if (uName) item.contractorName = uName;
+              }
+              changedCount++;
+            }
+          }
+        }
+      }
+
+      if (updateMap['ride_comfort_report']) {
+        var rcUpd = updateMap['ride_comfort_report'];
+        audit.rideComfortContractorDone = !!rcUpd.contractorDone;
+        audit.rideComfortContractorNote = (rcUpd.contractorNote || '').toString().trim();
+        if (audit.rideComfortContractorDone || audit.rideComfortContractorNote) {
+          audit.rideComfortContractorUpdatedAt = nowStr;
+          if (uName) audit.rideComfortContractorName = uName;
+        }
+        changedCount++;
+      }
+
+      if (wrapper.auditData) {
+        wrapper.auditData = audit;
+        wrapper.contractorLastUpdatedAt = nowStr;
+      } else {
+        wrapper = audit;
+      }
+
+      target.setContent(JSON.stringify(wrapper, null, 2));
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        updatedAt: nowStr,
+        updatedCount: changedCount
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
     var folderId = data.folderId || DEFAULT_FOLDER_ID;
     var folder = getTargetFolder(folderId);
-    var action = data.action || 'uploadJson';
     var fileName = data.fileName || 'Proje_Verisi.json';
 
-    // 1. PDF Raporu Yükleme
+    // 2. PDF Raporu Yükleme
     if (action === 'uploadPdf') {
       var decoded = Utilities.base64Decode(data.base64);
       var blob = Utilities.newBlob(decoded, 'application/pdf', fileName);
@@ -128,7 +310,7 @@ function doPost(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // 2. JSON Denetim Dosyası Yükleme (Mevcut referans varsa üzerine yazar)
+    // 3. JSON Denetim Dosyası Yükleme (Mevcut referans varsa üzerine yazar, eski taşeron notlarını korur)
     var content = typeof data.content === 'string' ? data.content : JSON.stringify(data.content, null, 2);
     var existingFiles = folder.getFilesByName(fileName);
     var targetFile;
@@ -136,6 +318,42 @@ function doPost(e) {
 
     if (existingFiles.hasNext()) {
       targetFile = existingFiles.next();
+      try {
+        var oldWrapper = JSON.parse(targetFile.getBlob().getDataAsString());
+        var newWrapper = JSON.parse(content);
+        var oldAudit = oldWrapper.auditData ? oldWrapper.auditData : oldWrapper;
+        var newAudit = newWrapper.auditData ? newWrapper.auditData : newWrapper;
+        if (oldAudit && newAudit) {
+          var lKeys = ['controlPanelItems', 'motorChassisItems', 'cabinTopItems', 'counterweightItems', 'shaftAndPitItems', 'cabinAndFloorButtonsItems', 'doorsItems'];
+          for (var a = 0; a < lKeys.length; a++) {
+            var oldArr = oldAudit[lKeys[a]];
+            var newArr = newAudit[lKeys[a]];
+            if (Array.isArray(oldArr) && Array.isArray(newArr)) {
+              var oldMap = {};
+              for (var m = 0; m < oldArr.length; m++) {
+                if (oldArr[m] && oldArr[m].id) oldMap[oldArr[m].id] = oldArr[m];
+              }
+              for (var n = 0; n < newArr.length; n++) {
+                var ni = newArr[n];
+                var oi = ni && oldMap[ni.id];
+                if (oi && oi.contractorUpdatedAt && !ni.contractorUpdatedAt) {
+                  ni.contractorDone = oi.contractorDone;
+                  ni.contractorNote = oi.contractorNote;
+                  ni.contractorUpdatedAt = oi.contractorUpdatedAt;
+                  ni.contractorName = oi.contractorName;
+                }
+              }
+            }
+          }
+          if (oldAudit.rideComfortContractorUpdatedAt && !newAudit.rideComfortContractorUpdatedAt) {
+            newAudit.rideComfortContractorDone = oldAudit.rideComfortContractorDone;
+            newAudit.rideComfortContractorNote = oldAudit.rideComfortContractorNote;
+            newAudit.rideComfortContractorUpdatedAt = oldAudit.rideComfortContractorUpdatedAt;
+            newAudit.rideComfortContractorName = oldAudit.rideComfortContractorName;
+          }
+          content = JSON.stringify(newWrapper, null, 2);
+        }
+      } catch (mergeErr) {}
       targetFile.setContent(content);
       isUpdated = true;
     } else {
@@ -153,6 +371,8 @@ function doPost(e) {
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    try { lock.releaseLock(); } catch (e) {}
   }
 }`;
 
@@ -812,4 +1032,222 @@ export async function downloadAuditJsonFromDrive(fileId: string): Promise<AuditF
     return rawJson.auditData as AuditFormData;
   }
   return rawJson as AuditFormData;
+}
+
+// =========================================================================
+// TAŞERON (USTA) WHATSAPP BAĞLANTISI & DRİVE SENKRONİZASYONU
+// =========================================================================
+
+export interface ContractorTaskItem {
+  id: string;
+  category: string;
+  title: string;
+  description: string;
+  floorLabel?: string;
+  contractorDone: boolean;
+  contractorNote: string;
+  contractorUpdatedAt?: string;
+  contractorName?: string;
+}
+
+export interface ContractorTaskPayload {
+  fileId: string;
+  auditId: string;
+  projectName: string;
+  serialNumber: string;
+  elevatorType: string;
+  stopCount: number | string;
+  dateDisplay: string;
+  items: ContractorTaskItem[];
+}
+
+export interface ContractorSubmissionItem {
+  id: string;
+  contractorDone: boolean;
+  contractorNote: string;
+}
+
+export function buildContractorPortalLink(
+  fileId: string,
+  auditId: string,
+  customScriptUrl?: string
+): string {
+  const baseUrl = getContractorPortalUrl().replace(/\/+$/, '') + '/';
+  const params = new URLSearchParams();
+  params.set('taseron', '1');
+  params.set('f', fileId);
+  params.set('k', auditId);
+
+  const activeScript = (customScriptUrl || getSavedDriveScriptUrl() || '').trim();
+  if (activeScript && activeScript !== DEFAULT_SCRIPT_WEBHOOK_URL) {
+    params.set('w', activeScript);
+  }
+  return `${baseUrl}?${params.toString()}`;
+}
+
+export async function fetchContractorTaskFromDrive(
+  fileId: string,
+  auditKey: string,
+  scriptUrlOverride?: string
+): Promise<ContractorTaskPayload> {
+  const scriptUrl = (scriptUrlOverride || getSavedDriveScriptUrl() || DEFAULT_SCRIPT_WEBHOOK_URL).trim();
+  if (!scriptUrl) {
+    throw new Error('Google Drive Bulut Köprüsü yapılandırılmamış.');
+  }
+  const separator = scriptUrl.includes('?') ? '&' : '?';
+  const url = `${scriptUrl}${separator}action=contractorGet&fileId=${encodeURIComponent(fileId)}&key=${encodeURIComponent(auditKey)}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Bulut sunucusuna ulaşılamadı (${res.status})`);
+  }
+  const data = await res.json();
+  if (data && Array.isArray(data.files) && !data.task) {
+    throw new Error(
+      'Google Drive Köprüsü (Apps Script) henüz Taşeron (v2) sürümüne güncellenmemiş. Kontrol ekibinin Ayarlar > Drive Köprüsü üzerinden script kodunu güncellemesi gerekmektedir.'
+    );
+  }
+  if (!data || !data.success || !data.task) {
+    throw new Error(data?.error || 'Görev dosyası okunamadı.');
+  }
+  return data.task as ContractorTaskPayload;
+}
+
+export async function submitContractorUpdatesToDrive(params: {
+  fileId: string;
+  auditKey: string;
+  contractorName?: string;
+  updates: ContractorSubmissionItem[];
+  scriptUrlOverride?: string;
+}): Promise<{ success: boolean; updatedAt: string; updatedCount: number }> {
+  const scriptUrl = (params.scriptUrlOverride || getSavedDriveScriptUrl() || DEFAULT_SCRIPT_WEBHOOK_URL).trim();
+  if (!scriptUrl) {
+    throw new Error('Google Drive Bulut Köprüsü yapılandırılmamış.');
+  }
+  const res = await fetch(scriptUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8',
+    },
+    body: JSON.stringify({
+      action: 'contractorUpdate',
+      fileId: params.fileId,
+      key: params.auditKey,
+      contractorName: params.contractorName || '',
+      updates: params.updates,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Bulut kaydı başarısız oldu (${res.status})`);
+  }
+  const json = await res.json();
+  if (!json || !json.success) {
+    if (json && json.fileName && !json.updatedAt) {
+      throw new Error(
+        'Google Drive Köprüsü (Apps Script) henüz Taşeron (v2) sürümüne güncellenmemiş.'
+      );
+    }
+    throw new Error(json?.error || 'Taşeron güncellemesi kaydedilemedi.');
+  }
+  return {
+    success: true,
+    updatedAt: json.updatedAt || new Date().toLocaleString('tr-TR'),
+    updatedCount: json.updatedCount || 0,
+  };
+}
+
+/**
+ * Pulls latest contractor marks & notes from Drive into the local audit object
+ * without overwriting inspector's local edits or 2nd control status.
+ */
+export async function pullContractorUpdatesIntoAudit(
+  audit: AuditFormData
+): Promise<{ updatedAudit: AuditFormData; contractorUpdatedCount: number; fileId: string }> {
+  let targetFileId = audit.driveFileId || '';
+
+  if (!targetFileId) {
+    const files = await listDriveFolderFiles();
+    const cleanSerial = (audit.serialNumber || '').trim().toLowerCase();
+    const cleanProject = (audit.clientProjectName || '').trim().toLowerCase();
+    const jsonFiles = files.filter((f) => f.isAuditData);
+
+    const exactMatch = jsonFiles.find((f) => {
+      const lower = f.name.toLowerCase();
+      return (cleanSerial && lower.startsWith(`${cleanSerial}_`)) ||
+        (cleanSerial && cleanProject && lower.includes(cleanSerial) && lower.includes(cleanProject));
+    });
+
+    const fallbackMatch =
+      exactMatch ||
+      jsonFiles.find((f) => cleanSerial && f.name.toLowerCase().includes(cleanSerial)) ||
+      jsonFiles.find((f) => cleanProject && f.name.toLowerCase().includes(cleanProject));
+
+    if (!fallbackMatch) {
+      throw new Error('Bu projeye ait kayıt Google Drive klasöründe henüz bulunamadı.');
+    }
+    targetFileId = fallbackMatch.id;
+  }
+
+  const cloudAudit = await downloadAuditJsonFromDrive(targetFileId);
+
+  const cloudItemMap = new Map<string, any>();
+  const listKeys = [
+    'controlPanelItems',
+    'motorChassisItems',
+    'cabinTopItems',
+    'counterweightItems',
+    'shaftAndPitItems',
+    'cabinAndFloorButtonsItems',
+    'doorsItems',
+  ] as const;
+
+  listKeys.forEach((lk) => {
+    const list = cloudAudit[lk] as any[] | undefined;
+    if (Array.isArray(list)) {
+      list.forEach((it) => {
+        if (it && it.id) cloudItemMap.set(it.id, it);
+      });
+    }
+  });
+
+  const merged: AuditFormData = JSON.parse(JSON.stringify(audit));
+  merged.driveFileId = targetFileId;
+  let contractorUpdatedCount = 0;
+
+  listKeys.forEach((lk) => {
+    const list = merged[lk] as any[] | undefined;
+    if (Array.isArray(list)) {
+      (merged as Record<string, any>)[lk] = list.map((it) => {
+        const cloudIt = cloudItemMap.get(it.id);
+        if (cloudIt && (cloudIt.contractorDone || cloudIt.contractorNote || cloudIt.contractorUpdatedAt)) {
+          contractorUpdatedCount++;
+          return {
+            ...it,
+            contractorDone: !!cloudIt.contractorDone,
+            contractorNote: cloudIt.contractorNote || '',
+            contractorUpdatedAt: cloudIt.contractorUpdatedAt,
+            contractorName: cloudIt.contractorName,
+          };
+        }
+        return it;
+      });
+    }
+  });
+
+  if (
+    cloudAudit.rideComfortContractorDone ||
+    cloudAudit.rideComfortContractorNote ||
+    cloudAudit.rideComfortContractorUpdatedAt
+  ) {
+    contractorUpdatedCount++;
+    merged.rideComfortContractorDone = !!cloudAudit.rideComfortContractorDone;
+    merged.rideComfortContractorNote = cloudAudit.rideComfortContractorNote || '';
+    merged.rideComfortContractorUpdatedAt = cloudAudit.rideComfortContractorUpdatedAt;
+    merged.rideComfortContractorName = cloudAudit.rideComfortContractorName;
+  }
+
+  return {
+    updatedAudit: merged,
+    contractorUpdatedCount,
+    fileId: targetFileId,
+  };
 }

@@ -24,13 +24,21 @@ import {
   Edit3,
   Clock,
   X,
+  MessageCircle,
+  Copy,
+  Link2,
+  ExternalLink,
+  AlertTriangle,
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { AuditFormData, InspectionItem } from '../types';
 import { BetaLogo } from './BetaLogo';
 import { getBetaLogoDataUrl } from '../utils/logoUtils';
 import { ReAuditModal } from './ReAuditModal';
-import { uploadAuditJsonToDrive } from '../services/googleDriveService';
+import {
+  uploadAuditJsonToDrive,
+  buildContractorPortalLink,
+} from '../services/googleDriveService';
 import { DriveSyncModal } from './DriveSyncModal';
 import { sanitizePdfFileNamePart } from '../utils/pdfGenerator';
 
@@ -93,6 +101,16 @@ export const ReportView: React.FC<ReportViewProps> = ({
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
   const [isDriveUploading, setIsDriveUploading] = useState(false);
   const [driveUploadSuccess, setDriveUploadSuccess] = useState(false);
+
+  // Taşeron (Usta) Linki Hazırlama ve Paylaşım Modalı
+  const [isPreparingContractorLink, setIsPreparingContractorLink] = useState(false);
+  const [contractorError, setContractorError] = useState<string | null>(null);
+  const [contractorShareData, setContractorShareData] = useState<{
+    url: string;
+    fileName: string;
+    whatsAppText: string;
+  } | null>(null);
+  const [copiedContractorLink, setCopiedContractorLink] = useState(false);
 
   // Denetim Süresini Düzenleme Modalı (Bulut / Gün aşımı süresini anında düzeltme)
   const [isEditDurationOpen, setIsEditDurationOpen] = useState(false);
@@ -1106,6 +1124,88 @@ export const ReportView: React.FC<ReportViewProps> = ({
     }
   };
 
+  const handlePrepareContractorLink = async () => {
+    if (isPreparingContractorLink) return;
+    setIsPreparingContractorLink(true);
+    setContractorError(null);
+    setCopiedContractorLink(false);
+
+    try {
+      const ensuredAuditId =
+        data.auditId && data.auditId.trim()
+          ? data.auditId.trim()
+          : `BETA-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+
+      const auditToUpload: AuditFormData = {
+        ...data,
+        auditId: ensuredAuditId,
+      };
+
+      const uploadRes = await uploadAuditJsonToDrive(auditToUpload);
+      if (!uploadRes.fileId || uploadRes.fileId === 'webhook-file') {
+        throw new Error('Drive dosya kimliği (fileId) alınamadı. Lütfen Drive Köprüsü bağlantısını kontrol edin.');
+      }
+
+      onUpdateData?.({
+        ...auditToUpload,
+        driveFileId: uploadRes.fileId,
+      });
+
+      const portalUrl = buildContractorPortalLink(uploadRes.fileId, ensuredAuditId);
+      const projectLabel = data.clientProjectName || 'Asansör Projesi';
+      const serialLabel = data.serialNumber || '-';
+      const whatsAppText =
+        `🔧 *BETA ASANSÖR - EKSİK LİSTESİ*\n` +
+        `📌 Proje: ${projectLabel}\n` +
+        `🔢 Seri No: ${serialLabel}\n` +
+        `⚠️ Açık Eksik Sayısı: ${remainingUDCount} madde\n\n` +
+        `Kurulum gerekmeden telefonunuzdan açmak için aşağıdaki linke dokunun. Yaptığınız maddeleri işaretleyip not ekleyebilir, en alttan kaydedebilirsiniz. İşiniz bitince telefonla bilgi vermeniz yeterlidir.\n\n` +
+        `👉 ${portalUrl}`;
+
+      setContractorShareData({
+        url: portalUrl,
+        fileName: uploadRes.fileName,
+        whatsAppText,
+      });
+    } catch (err: any) {
+      setContractorError(
+        err?.message || 'Taşeron linki hazırlanırken Google Drive bağlantısında hata oluştu.'
+      );
+    } finally {
+      setIsPreparingContractorLink(false);
+    }
+  };
+
+  const handleCopyContractorLink = async (textToCopy: string) => {
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      setCopiedContractorLink(true);
+      setTimeout(() => setCopiedContractorLink(false), 3000);
+    } catch {
+      const el = document.createElement('textarea');
+      el.value = textToCopy;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      setCopiedContractorLink(true);
+      setTimeout(() => setCopiedContractorLink(false), 3000);
+    }
+  };
+
+  const handleNativeShareContractorLink = async () => {
+    if (!contractorShareData) return;
+    try {
+      await Share.share({
+        title: `Eksik Listesi - ${data.serialNumber || data.clientProjectName || 'Asansör'}`,
+        text: contractorShareData.whatsAppText,
+        dialogTitle: 'Taşeron Eksik Linkini WhatsApp ile Gönder',
+      });
+    } catch {
+      // Kullanıcı iptal ettiyse sessiz geç
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto py-4 px-3 sm:px-4 pb-16">
       {/* Top Action Bar */}
@@ -1126,6 +1226,29 @@ export const ReportView: React.FC<ReportViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {/* TAŞERONA GÖNDER (WEB LİNKİ) BUTONU */}
+            {remainingUDCount > 0 && (
+              <button
+                type="button"
+                id="btn-share-contractor"
+                disabled={isPreparingContractorLink}
+                onClick={handlePrepareContractorLink}
+                className={`min-h-[42px] px-4 py-2 bg-orange-500 hover:bg-orange-400 active:scale-95 text-slate-950 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 shadow-lg border-2 border-orange-300 transition-all cursor-pointer ${
+                  isPreparingContractorLink ? 'opacity-80 cursor-wait' : ''
+                }`}
+                title="Yalnızca açık eksikleri içeren kurulumsuz web linki oluştur ve WhatsApp ile paylaş"
+              >
+                {isPreparingContractorLink ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                ) : (
+                  <MessageCircle className="w-4 h-4 text-slate-950" />
+                )}
+                <span>
+                  {isPreparingContractorLink ? 'Link Hazırlanıyor...' : 'Taşerona Gönder'}
+                </span>
+              </button>
+            )}
+
             {/* 2. KONTROL / EKSİK KAPATMA BUTONU */}
             {allUDItems.length > 0 && (
               <button
@@ -1234,6 +1357,26 @@ export const ReportView: React.FC<ReportViewProps> = ({
                 Android tablet ve telefonunuzda <strong>Dosyalarım &gt; İndirilenler</strong> veya <strong>Documents/BETAKALİTE</strong> klasöründen PDF dosyanıza anında ulaşabilirsiniz.
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Taşeron Linki Hata Bilgilendirmesi */}
+        {contractorError && (
+          <div className="bg-rose-950 border-2 border-rose-400 rounded-xl p-3 text-xs flex items-start justify-between gap-2.5 text-rose-100 animate-fadeIn">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 text-rose-300 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-black text-rose-200 block">Taşeron Linki Hazırlanamadı</span>
+                <span>{contractorError}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setContractorError(null)}
+              className="p-1 text-rose-300 hover:text-white cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
       </div>
@@ -1820,6 +1963,116 @@ export const ReportView: React.FC<ReportViewProps> = ({
                 <Check className="w-3.5 h-3.5" />
                 <span>Süreyi Kaydet</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Taşerona Gönder (Kurulumsuz Web Linki) Paylaşım Modalı */}
+      {contractorShareData && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 print:hidden">
+          <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border-2 border-slate-300 dark:border-slate-700 p-4 sm:p-5 text-slate-900 dark:text-white space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-orange-500 text-slate-950 flex items-center justify-center shadow">
+                  <Link2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black uppercase tracking-tight">
+                    Taşeron Eksik Linki Hazır
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Drive dosyası güncellendi: <span className="font-mono">{contractorShareData.fileName}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setContractorShareData(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 text-xs text-emerald-950 dark:text-emerald-200 space-y-1">
+              <p className="font-bold">
+                Bu link yalnızca bu asansöre ait {remainingUDCount} açık eksiği gösterir.
+              </p>
+              <p className="text-[11px] opacity-90">
+                Usta iOS veya Android telefonundan linke tıklayarak kurulumsuz açar, yaptıklarını işaretleyip not yazar ve doğrudan Drive dosyasına kaydeder.
+              </p>
+            </div>
+
+            {/* Link Kutusu */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 block">
+                Taşeron Web Bağlantısı:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={contractorShareData.url}
+                  onFocus={(e) => e.target.select()}
+                  className="flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-950 text-xs font-mono text-slate-800 dark:text-slate-200 select-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleCopyContractorLink(contractorShareData.url)}
+                  className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-black uppercase flex items-center gap-1.5 shrink-0 cursor-pointer"
+                >
+                  {copiedContractorLink ? (
+                    <Check className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                  <span>{copiedContractorLink ? 'Kopyalandı' : 'Linki Kopyala'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Hazır WhatsApp Mesaj Önizlemesi */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 block">
+                WhatsApp Mesaj Önizlemesi:
+              </span>
+              <pre className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-[11px] font-sans whitespace-pre-wrap break-words text-slate-700 dark:text-slate-300 max-h-36 overflow-y-auto">
+                {contractorShareData.whatsAppText}
+              </pre>
+            </div>
+
+            {/* Aksiyon Butonları */}
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setContractorShareData(null)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold uppercase text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Kapat
+              </button>
+
+              {Capacitor.isNativePlatform() ? (
+                <button
+                  type="button"
+                  onClick={handleNativeShareContractorLink}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-md cursor-pointer"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>WhatsApp ile Gönder</span>
+                </button>
+              ) : (
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(contractorShareData.whatsAppText)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-wider inline-flex items-center gap-2 shadow-md"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>WhatsApp ile Gönder</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
             </div>
           </div>
         </div>

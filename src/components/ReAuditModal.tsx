@@ -7,10 +7,16 @@ import {
   Check,
   User,
   Lock,
+  CloudDownload,
+  RefreshCw,
+  Wrench,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 import { AuditFormData, InspectionItem } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { useUser } from '../context/UserContext';
+import { pullContractorUpdatesIntoAudit } from '../services/googleDriveService';
 
 interface ReAuditModalProps {
   isOpen: boolean;
@@ -57,6 +63,12 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
     return `${d}.${m}.${y} ${h}:${min}`;
   });
 
+  const [isPullingContractor, setIsPullingContractor] = useState(false);
+  const [contractorPullMsg, setContractorPullMsg] = useState<{
+    type: 'success' | 'info' | 'error';
+    text: string;
+  } | null>(null);
+
   // Sync when data prop changes or modal opens
   useEffect(() => {
     if (isOpen) {
@@ -80,6 +92,12 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
       }
     }
   }, [isOpen, data, userName, isNameRegistered]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setContractorPullMsg(null);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -175,6 +193,36 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
     }));
   };
 
+  // Pull subcontractor completion marks and notes from Google Drive
+  const handlePullContractorUpdates = async () => {
+    if (isPullingContractor) return;
+    setIsPullingContractor(true);
+    setContractorPullMsg(null);
+    try {
+      const { updatedAudit, contractorUpdatedCount } = await pullContractorUpdatesIntoAudit(workingData);
+      setWorkingData(updatedAudit);
+      onSaveReAudit(updatedAudit);
+      if (contractorUpdatedCount > 0) {
+        setContractorPullMsg({
+          type: 'success',
+          text: `${contractorUpdatedCount} maddede taşeron güncellemesi alındı. Onaylamak için Yapıldı / BETA / Kaldı seçiniz.`,
+        });
+      } else {
+        setContractorPullMsg({
+          type: 'info',
+          text: "Drive üzerindeki dosyada henüz taşeron tarafından işaretlenmiş madde veya not bulunmuyor.",
+        });
+      }
+    } catch (err: any) {
+      setContractorPullMsg({
+        type: 'error',
+        text: err?.message || "Drive'dan taşeron güncellemesi çekilemedi.",
+      });
+    } finally {
+      setIsPullingContractor(false);
+    }
+  };
+
   // Save changes
   const handleSave = () => {
     const finalData: AuditFormData = {
@@ -250,7 +298,58 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
               {inspectorName || 'Denetçi'}
             </span>
           </div>
+
+          <button
+            type="button"
+            id="btn-pull-contractor-updates"
+            disabled={isPullingContractor}
+            onClick={handlePullContractorUpdates}
+            className="px-2.5 py-1 rounded-md bg-orange-500 hover:bg-orange-400 disabled:opacity-70 text-slate-950 font-black text-[11px] uppercase tracking-wide flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+            title="Taşeron ustanın web linkinden girdiği işaret ve notları Google Drive üzerinden çek"
+          >
+            {isPullingContractor ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <CloudDownload className="w-3.5 h-3.5" />
+            )}
+            <span>
+              {isPullingContractor
+                ? 'Çekiliyor...'
+                : "Drive'dan Taşeron Güncellemesini Çek"}
+            </span>
+          </button>
         </div>
+
+        {/* Taşeron Güncelleme Durum Mesajı */}
+        {contractorPullMsg && (
+          <div
+            className={`px-3 sm:px-4 py-2 border-b text-xs font-bold flex items-center justify-between gap-2 shrink-0 ${
+              contractorPullMsg.type === 'success'
+                ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200'
+                : contractorPullMsg.type === 'error'
+                ? 'bg-rose-950/60 border-rose-500/40 text-rose-200'
+                : 'bg-blue-950/60 border-blue-500/40 text-blue-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {contractorPullMsg.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : contractorPullMsg.type === 'error' ? (
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+              ) : (
+                <Wrench className="w-4 h-4 text-blue-400 shrink-0" />
+              )}
+              <span>{contractorPullMsg.text}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setContractorPullMsg(null)}
+              className="p-0.5 opacity-70 hover:opacity-100 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* EKSİK LİSTESİ - KOMPAKT TASARIM: TABLETTE EN AZ 3-4 MADDE DİREKT GÖRÜNÜR */}
         <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-2">
@@ -397,6 +496,41 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
                       </div>
                     </div>
 
+                    {/* Taşeron (Usta) Bildirimi ve Notu (Varsa) */}
+                    {(entry.item.contractorDone || entry.item.contractorNote || entry.item.contractorUpdatedAt) && (
+                      <div
+                        className={`mb-2 p-2 rounded-md border ${
+                          isDark
+                            ? 'bg-orange-950/35 border-orange-500/40 text-orange-100'
+                            : 'bg-orange-50 border-orange-300 text-orange-950'
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                          <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-orange-500 text-slate-950 inline-flex items-center gap-1">
+                            <Wrench className="w-3 h-3" />
+                            <span>
+                              {entry.item.contractorDone ? 'Taşeron: Yaptım Dedi' : 'Taşeron Notu'}
+                            </span>
+                          </span>
+                          {entry.item.contractorName && (
+                            <span className="text-[10px] font-bold opacity-90">
+                              Usta: {entry.item.contractorName}
+                            </span>
+                          )}
+                          {entry.item.contractorUpdatedAt && (
+                            <span className="text-[10px] font-mono opacity-80 ml-auto">
+                              {entry.item.contractorUpdatedAt}
+                            </span>
+                          )}
+                        </div>
+                        {entry.item.contractorNote && (
+                          <div className="text-xs font-medium whitespace-pre-wrap break-words border-l-2 border-orange-500 pl-1.5">
+                            {entry.item.contractorNote}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* 2. Kontrol Durum / Kapatma Notu */}
                     <div className="pt-2 border-t border-slate-700/40 flex flex-col sm:flex-row sm:items-center gap-1.5">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 shrink-0">
@@ -513,6 +647,44 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
                     {workingData.rideComfortNotes || 'Seyir ve konfor uygunsuzluğu girildi.'}
                   </div>
                 </div>
+
+                {(workingData.rideComfortContractorDone ||
+                  workingData.rideComfortContractorNote ||
+                  workingData.rideComfortContractorUpdatedAt) && (
+                  <div
+                    className={`mb-2 p-2 rounded-md border ${
+                      isDark
+                        ? 'bg-orange-950/35 border-orange-500/40 text-orange-100'
+                        : 'bg-orange-50 border-orange-300 text-orange-950'
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                      <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-orange-500 text-slate-950 inline-flex items-center gap-1">
+                        <Wrench className="w-3 h-3" />
+                        <span>
+                          {workingData.rideComfortContractorDone
+                            ? 'Taşeron: Yaptım Dedi'
+                            : 'Taşeron Notu'}
+                        </span>
+                      </span>
+                      {workingData.rideComfortContractorName && (
+                        <span className="text-[10px] font-bold opacity-90">
+                          Usta: {workingData.rideComfortContractorName}
+                        </span>
+                      )}
+                      {workingData.rideComfortContractorUpdatedAt && (
+                        <span className="text-[10px] font-mono opacity-80 ml-auto">
+                          {workingData.rideComfortContractorUpdatedAt}
+                        </span>
+                      )}
+                    </div>
+                    {workingData.rideComfortContractorNote && (
+                      <div className="text-xs font-medium whitespace-pre-wrap break-words border-l-2 border-orange-500 pl-1.5">
+                        {workingData.rideComfortContractorNote}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="pt-2 border-t border-slate-700/40 flex flex-col sm:flex-row sm:items-center gap-1.5">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 shrink-0">

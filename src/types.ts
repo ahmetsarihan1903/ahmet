@@ -26,6 +26,10 @@ export interface InspectionItem {
   resolutionType?: ResolutionType; // 'YAPILDI' | 'BETA' | 'KALDI'
   resolvedAt?: string; // e.g. "17.09.2026 14:30"
   resolutionNote?: string; // Notes entered when resolving the punch-list item
+  contractorDone?: boolean; // True when subcontractor marks item completed via web link
+  contractorNote?: string; // Subcontractor note submitted via web link
+  contractorUpdatedAt?: string; // Timestamp of subcontractor submission
+  contractorName?: string; // Name of craftsman/team who submitted
 }
 
 export interface MeasureItem {
@@ -39,6 +43,7 @@ export interface MeasureItem {
 export interface AuditFormData {
   // Unique Audit Session ID (persists across saves of the same audit)
   auditId?: string;
+  driveFileId?: string;
 
   // Step 1: Welcome / Basic Info
   date: string; // ISO date or localized string
@@ -81,6 +86,10 @@ export interface AuditFormData {
   rideComfortResolved?: boolean;
   rideComfortResolutionType?: ResolutionType;
   rideComfortResolutionNote?: string;
+  rideComfortContractorDone?: boolean;
+  rideComfortContractorNote?: string;
+  rideComfortContractorUpdatedAt?: string;
+  rideComfortContractorName?: string;
 
   // Step 5: Re-Audit & Punch List Tracking (Optional)
   reAuditDate?: string;

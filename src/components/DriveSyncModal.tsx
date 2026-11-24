@@ -344,8 +344,12 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
               {showGuide && (
                 <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 space-y-2 text-xs text-slate-300 animate-fadeIn">
                   <p className="font-bold text-slate-100 border-b border-slate-800 pb-1">
-                    📌 1 Dakikalık Kurulum Adımları (Tek Seferlik):
+                    📌 1 Dakikalık Kurulum &amp; Güncelleme Adımları (v2.0 - Taşeron Linki + Eşzamanlı Kilit):
                   </p>
+                  <div className="p-2 rounded bg-amber-950/40 border border-amber-500/40 text-[11px] text-amber-200 leading-snug">
+                    <strong>Mevcut Script Güncellemesi:</strong> Daha önce kurulu bir scriptiniz varsa eski kodu silip aşağıdaki yeni <strong>v2.0</strong> kodu yapıştırın, ardından sağ üstten{' '}
+                    <strong>Dağıt &gt; Dağıtımları Yönet &gt; Kalem (Düzenle) &gt; Sürüm: Yeni sürüm &gt; Dağıt</strong> seçin. Böylece link değişmeden taşeron sistemi ve 20+ ekip eşzamanlı yazma kilidi aktif olur.
+                  </div>
                   <ol className="list-decimal list-inside space-y-1.5 text-[11px] leading-relaxed text-slate-300">
                     <li>
                       Bilgisayarda veya tablette{' '}
@@ -357,13 +361,13 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
                       >
                         script.google.com
                       </a>{' '}
-                      adresine girip <strong>Yeni Proje</strong> açın.
+                      adresine girip mevcut projenizi veya <strong>Yeni Proje</strong> açın.
                     </li>
                     <li>
-                      Açılan ekrandaki varsayılan kodu silin ve aşağıdaki <strong>Hazır Kodu</strong> yapıştırın.
+                      Açılan ekrandaki kodu silin ve aşağıdaki <strong>Hazır Kodu (v2.0)</strong> yapıştırın.
                     </li>
                     <li>
-                      Sağ üstteki mavi <strong>Dağıt (Deploy) &gt; Yeni Dağıtım</strong> butonuna basın.
+                      İlk kurulumda sağ üstteki mavi <strong>Dağıt (Deploy) &gt; Yeni Dağıtım</strong> butonuna basın (güncellemede <strong>Dağıtımları Yönet &gt; Yeni sürüm</strong>).
                     </li>
                     <li>
                       Sol çark simgesinden <strong>Web Uygulaması (Web app)</strong> seçin:
@@ -373,7 +377,7 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
                       </div>
                     </li>
                     <li>
-                      <strong>Dağıt</strong>'a basıp çıkan <strong>Web Uygulaması URL'sini (Web app URL)</strong> kopyalayıp aşağıdaki kutucuğa yapıştırın.
+                      <strong>Dağıt</strong>&apos;a basıp çıkan <strong>Web Uygulaması URL&apos;sini (Web app URL)</strong> kopyalayıp aşağıdaki kutucuğa yapıştırın.
                     </li>
                   </ol>
 
@@ -385,7 +389,7 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
                       className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow cursor-pointer transition-colors"
                     >
                       {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedCode ? 'Kod Panoya Kopyalandı! ✓' : 'Google Apps Script Kodunu Kopyala'}</span>
+                      <span>{copiedCode ? 'v2.0 Kod Panoya Kopyalandı! ✓' : 'Google Apps Script (v2.0) Kodunu Kopyala'}</span>
                     </button>
                   </div>
                 </div>
