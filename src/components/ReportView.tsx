@@ -29,6 +29,7 @@ import {
   Link2,
   ExternalLink,
   AlertTriangle,
+  History,
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { AuditFormData, InspectionItem } from '../types';
@@ -38,9 +39,11 @@ import { ReAuditModal } from './ReAuditModal';
 import {
   uploadAuditJsonToDrive,
   buildContractorPortalLink,
+  buildContractorSlug,
 } from '../services/googleDriveService';
 import { DriveSyncModal } from './DriveSyncModal';
 import { sanitizePdfFileNamePart } from '../utils/pdfGenerator';
+import { appendWindowsChangeLog } from '../utils/windowsAuth';
 
 interface ReportViewProps {
   data: AuditFormData;
@@ -91,7 +94,13 @@ export const ReportView: React.FC<ReportViewProps> = ({
   onNewInspection,
   onUpdateData,
 }) => {
-  const { deviceProfile } = useUser();
+  const {
+    deviceProfile,
+    isWindowsDesktop,
+    windowsUser,
+    isReadOnlyMonitoringMode,
+    openWindowsAuthModal,
+  } = useUser();
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
@@ -109,6 +118,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
     url: string;
     fileName: string;
     whatsAppText: string;
+    needsScriptV21Upgrade?: boolean;
   } | null>(null);
   const [copiedContractorLink, setCopiedContractorLink] = useState(false);
 
@@ -739,7 +749,8 @@ export const ReportView: React.FC<ReportViewProps> = ({
     // SAYFA 2+: DETAYLI UYGUNSUZLUK VE EKSİK KAPATMA DÖKÜMÜ
     // ("YAPILDI" olarak işaretlenenler gösterilmez; yalnızca BETA ve açık uygunsuzluklar listelenir)
     // -------------------------------------------------------------
-    if (page2DetailItems.length > 0 || (data.measures && data.measures.length > 0)) {
+    const hasChangeLogs = Boolean(data.changeLogs && data.changeLogs.length > 0);
+    if (page2DetailItems.length > 0 || (data.measures && data.measures.length > 0) || hasChangeLogs) {
       doc.addPage();
       let page2Y = margin + 5;
 
@@ -881,6 +892,78 @@ export const ReportView: React.FC<ReportViewProps> = ({
             0: { halign: 'center' as const, fontStyle: 'bold' as const },
             1: { fontStyle: 'bold' as const },
             2: { halign: 'center' as const, fontStyle: 'bold' as const, textColor: [10, 38, 71] },
+          },
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        page2Y = (doc as any).lastAutoTable.finalY + 6;
+      }
+
+      // Windows Kullanıcı Değişiklik ve İşlem Kaydı Tablosu
+      if (data.changeLogs && data.changeLogs.length > 0) {
+        if (page2Y > pageHeight - 40) {
+          doc.addPage();
+          page2Y = margin + 5;
+        }
+
+        const changeLogRows = data.changeLogs.map((log, index) => [
+          (index + 1).toString(),
+          cleanTr(log.timestamp),
+          cleanTr(log.userName),
+          cleanTr(log.userId),
+          cleanTr(log.actionSummary),
+        ]);
+
+        autoTable(doc, {
+          startY: page2Y,
+          margin: { left: margin, right: margin },
+          head: [
+            [
+              {
+                content: 'WINDOWS DEGISIKLIK VE ISLEM KAYDI',
+                colSpan: 5,
+                styles: {
+                  fillColor: [10, 38, 71],
+                  textColor: [255, 255, 255],
+                  fontStyle: 'bold' as const,
+                  fontSize: 8.5,
+                  cellPadding: 2,
+                },
+              },
+            ],
+            [
+              { content: '#', styles: { halign: 'center' as const, cellWidth: 8 } },
+              { content: 'TARIH / SAAT', styles: { cellWidth: 32 } },
+              { content: 'PERSONEL ADI', styles: { cellWidth: 42 } },
+              { content: 'KULLANICI ID', styles: { halign: 'center' as const, cellWidth: 26 } },
+              { content: 'YAPILAN ISLEM', styles: { cellWidth: 82 } },
+            ],
+          ],
+          body: changeLogRows,
+          theme: 'grid',
+          headStyles: {
+            fillColor: [51, 65, 85],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold' as const,
+            fontSize: 7.4,
+            cellPadding: 1.6,
+          },
+          styles: {
+            fontSize: 7.4,
+            cellPadding: 1.6,
+            lineColor: [203, 213, 225],
+            lineWidth: 0.2,
+            textColor: [15, 23, 42],
+            valign: 'middle' as const,
+          },
+          alternateRowStyles: {
+            fillColor: [248, 250, 252],
+          },
+          columnStyles: {
+            0: { halign: 'center' as const, fontStyle: 'bold' as const },
+            1: { fontStyle: 'normal' as const },
+            2: { fontStyle: 'bold' as const },
+            3: { halign: 'center' as const, fontStyle: 'bold' as const, textColor: [10, 38, 71] },
           },
         });
       }
@@ -1106,10 +1189,21 @@ export const ReportView: React.FC<ReportViewProps> = ({
   };
 
   const handleDriveUpload = async () => {
+    if (isReadOnlyMonitoringMode) {
+      openWindowsAuthModal('login', 'Google Drive bulutuna kayıt/yedekleme yapmak için giriş yapmalısınız.');
+      return;
+    }
     if (isDriveUploading) return;
     setIsDriveUploading(true);
     try {
-      const result = await uploadAuditJsonToDrive(data);
+      const dataToUpload =
+        isWindowsDesktop && windowsUser
+          ? appendWindowsChangeLog(data, windowsUser, 'Drive bulutuna yedeklendi')
+          : data;
+      const result = await uploadAuditJsonToDrive(dataToUpload);
+      if (dataToUpload !== data) {
+        onUpdateData?.(dataToUpload);
+      }
       setDriveUploadSuccess(true);
       setTimeout(() => setDriveUploadSuccess(false), 5000);
       alert(
@@ -1125,6 +1219,10 @@ export const ReportView: React.FC<ReportViewProps> = ({
   };
 
   const handlePrepareContractorLink = async () => {
+    if (isReadOnlyMonitoringMode) {
+      openWindowsAuthModal('login', 'Taşeron eksik linki oluşturmak için adınız ve şifrenizle giriş yapın.');
+      return;
+    }
     if (isPreparingContractorLink) return;
     setIsPreparingContractorLink(true);
     setContractorError(null);
@@ -1136,22 +1234,38 @@ export const ReportView: React.FC<ReportViewProps> = ({
           ? data.auditId.trim()
           : `BETA-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 
-      const auditToUpload: AuditFormData = {
+      const ensuredSlug =
+        data.contractorSlug && data.contractorSlug.trim()
+          ? data.contractorSlug.trim()
+          : buildContractorSlug(data.serialNumber, data.clientProjectName);
+
+      let auditToUpload: AuditFormData = {
         ...data,
         auditId: ensuredAuditId,
+        contractorSlug: ensuredSlug,
       };
+      if (isWindowsDesktop && windowsUser) {
+        auditToUpload = appendWindowsChangeLog(auditToUpload, windowsUser, 'Taşeron eksik linki hazırlandı');
+      }
 
       const uploadRes = await uploadAuditJsonToDrive(auditToUpload);
       if (!uploadRes.fileId || uploadRes.fileId === 'webhook-file') {
         throw new Error('Drive dosya kimliği (fileId) alınamadı. Lütfen Drive Köprüsü bağlantısını kontrol edin.');
       }
 
+      const confirmedSlug = uploadRes.contractorSlug;
+
       onUpdateData?.({
         ...auditToUpload,
         driveFileId: uploadRes.fileId,
+        contractorSlug: confirmedSlug || ensuredSlug,
       });
 
-      const portalUrl = buildContractorPortalLink(uploadRes.fileId, ensuredAuditId);
+      const portalUrl = buildContractorPortalLink({
+        slug: confirmedSlug,
+        fileId: uploadRes.fileId,
+        auditId: ensuredAuditId,
+      });
       const projectLabel = data.clientProjectName || 'Asansör Projesi';
       const serialLabel = data.serialNumber || '-';
       const whatsAppText =
@@ -1166,6 +1280,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
         url: portalUrl,
         fileName: uploadRes.fileName,
         whatsAppText,
+        needsScriptV21Upgrade: !confirmedSlug,
       });
     } catch (err: any) {
       setContractorError(
@@ -1440,6 +1555,10 @@ export const ReportView: React.FC<ReportViewProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      if (isReadOnlyMonitoringMode) {
+                        openWindowsAuthModal('login', 'Denetim süresini düzenlemek için giriş yapmalısınız.');
+                        return;
+                      }
                       setTempStartTime(data.startTime || '');
                       setTempEndTime(data.endTime || '');
                       setTempDuration(data.totalDurationFormatted || '');
@@ -1843,6 +1962,59 @@ export const ReportView: React.FC<ReportViewProps> = ({
           </div>
         )}
 
+        {/* Section: WINDOWS DEĞİŞİKLİK & İŞLEM KAYDI */}
+        {data.changeLogs && data.changeLogs.length > 0 && (
+          <div className="pt-4 border-t-2 border-slate-300 space-y-2">
+            <div className="flex items-center justify-between pb-1 border-b-2 border-[#0A2647]">
+              <div className="flex items-center gap-1.5">
+                <History className="w-4 h-4 text-[#0A2647]" />
+                <h3 className="text-xs sm:text-sm font-black uppercase text-slate-900 tracking-wider">
+                  WINDOWS DEĞİŞİKLİK &amp; İŞLEM KAYDI
+                </h3>
+              </div>
+              <span className="text-[11px] font-bold text-slate-500">
+                {data.changeLogs.length} Kayıt
+              </span>
+            </div>
+            <div className="border-2 border-slate-300 rounded-xl overflow-hidden">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-200 border-b-2 border-slate-300 text-slate-900 font-black uppercase text-[10px]">
+                  <tr>
+                    <th className="p-2 border-r border-slate-300 w-10 text-center">#</th>
+                    <th className="p-2 border-r border-slate-300 w-32">Tarih / Saat</th>
+                    <th className="p-2 border-r border-slate-300 w-44">Personel Adı</th>
+                    <th className="p-2 border-r border-slate-300 w-28 text-center">Kullanıcı ID</th>
+                    <th className="p-2">Yapılan İşlem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-300">
+                  {data.changeLogs.map((log, index) => (
+                    <tr key={log.id || index} className="hover:bg-slate-50">
+                      <td className="p-2 border-r border-slate-300 text-center font-bold text-slate-700">
+                        {index + 1}
+                      </td>
+                      <td className="p-2 border-r border-slate-300 font-mono text-[11px] text-slate-700">
+                        {log.timestamp}
+                      </td>
+                      <td className="p-2 border-r border-slate-300 font-black text-slate-950">
+                        {log.userName}
+                      </td>
+                      <td className="p-2 border-r border-slate-300 text-center">
+                        <span className="inline-block px-2 py-0.5 bg-blue-100 border border-blue-300 text-blue-950 font-mono font-black text-[11px] rounded">
+                          {log.userId}
+                        </span>
+                      </td>
+                      <td className="p-2 text-slate-800 font-medium">
+                        {log.actionSummary}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* Footer Note */}
         <div className="mt-6 pt-3 border-t-2 border-slate-300 text-center text-[11px] font-bold text-slate-600 footer-text">
           Beta Asansör Kalite Kontrol Sistemi • Cihaz Donanım No: {deviceProfile.hardwareId} (Kurulum ID: #{deviceProfile.installationId}) • Bu belge resmi denetim kaydıdır.
@@ -1856,7 +2028,11 @@ export const ReportView: React.FC<ReportViewProps> = ({
           onClose={() => setIsReAuditModalOpen(false)}
           data={data}
           onSaveReAudit={(updated) => {
-            onUpdateData?.(updated);
+            const finalUpdated =
+              isWindowsDesktop && windowsUser
+                ? appendWindowsChangeLog(updated, windowsUser, '2. Kontrol / Eksik kapatma güncellendi')
+                : updated;
+            onUpdateData?.(finalUpdated);
           }}
         />
       )}
@@ -1869,7 +2045,6 @@ export const ReportView: React.FC<ReportViewProps> = ({
           currentAuditData={data}
           onLoadAuditFromDrive={(loadedAudit) => {
             onUpdateData?.(loadedAudit);
-            alert(`"${loadedAudit.serialNumber || loadedAudit.clientProjectName}" projesi Drive üzerinden başarıyla yüklendi!`);
           }}
         />
       )}
@@ -1950,12 +2125,20 @@ export const ReportView: React.FC<ReportViewProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  onUpdateData?.({
+                  if (isReadOnlyMonitoringMode) {
+                    openWindowsAuthModal('login', 'Denetim süresini kaydetmek için giriş yapmalısınız.');
+                    return;
+                  }
+                  let nextAudit: AuditFormData = {
                     ...data,
                     startTime: tempStartTime.trim() || data.startTime,
                     endTime: tempEndTime.trim() || data.endTime,
                     totalDurationFormatted: tempDuration.trim() || data.totalDurationFormatted,
-                  });
+                  };
+                  if (isWindowsDesktop && windowsUser) {
+                    nextAudit = appendWindowsChangeLog(nextAudit, windowsUser, 'Denetim süresi düzenlendi');
+                  }
+                  onUpdateData?.(nextAudit);
                   setIsEditDurationOpen(false);
                 }}
                 className="px-4 py-1.5 rounded text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm flex items-center gap-1"
@@ -2003,6 +2186,12 @@ export const ReportView: React.FC<ReportViewProps> = ({
                 Usta iOS veya Android telefonundan linke tıklayarak kurulumsuz açar, yaptıklarını işaretleyip not yazar ve doğrudan Drive dosyasına kaydeder.
               </p>
             </div>
+
+            {contractorShareData.needsScriptV21Upgrade && (
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 text-[11px] text-amber-900 dark:text-amber-200">
+                <strong>Not:</strong> Seri No + Referanslı kısa link için Google Apps Script kodunuzu <strong>v2.1</strong> sürümüne güncelleyin (şu an çalışan standart link üretildi).
+              </div>
+            )}
 
             {/* Link Kutusu */}
             <div className="space-y-1.5">

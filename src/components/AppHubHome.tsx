@@ -19,6 +19,7 @@ import { FontSizeControl } from './FontSizeControl';
 import { HubSettingsModal } from './HubSettingsModal';
 import { useTheme } from '../context/ThemeContext';
 import { loadActiveDraft } from '../utils/storage';
+import { WindowsModeBanner } from './WindowsModeBanner';
 
 interface AppHubHomeProps {
   onSelectModule: (module: ActiveAppModule) => void;
@@ -124,6 +125,8 @@ export const AppHubHome: React.FC<AppHubHomeProps> = ({ onSelectModule }) => {
           </div>
         </div>
       </header>
+
+      <WindowsModeBanner />
 
       {/* Ana Liste Alanı - Tek Ekrana Sığacak Şekilde Kompakt */}
       <main className="flex-1 max-w-4xl mx-auto w-full px-3 sm:px-4 py-3 sm:py-5 flex flex-col justify-center">

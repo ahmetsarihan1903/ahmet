@@ -26,6 +26,11 @@ export const AdminUserSettingsSection: React.FC = () => {
     loginAdmin,
     logoutAdmin,
     updateAdminPassword,
+    isWindowsDesktop,
+    windowsUser,
+    windowsAccounts,
+    openWindowsAuthModal,
+    logoutWindowsUser,
   } = useUser();
 
   // Admin login states
@@ -412,6 +417,89 @@ export const AdminUserSettingsSection: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* 3. Windows Masaüstü Kullanıcı Şifreleri & Arka Plan ID Yönetimi (Sadece Windows Uygulamasında Görünür) */}
+      {isWindowsDesktop && (
+        <div
+          className={`p-3.5 rounded-xl border space-y-2.5 ${
+            isDark ? 'bg-slate-950 border-amber-500/40' : 'bg-amber-50/70 border-amber-300'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${
+                isDark ? 'text-amber-300' : 'text-amber-950'
+              }`}
+            >
+              <KeyRound className="w-3.5 h-3.5 text-amber-400" />
+              Windows Kullanıcı Şifreleri &amp; ID Sistemi
+            </span>
+            <span
+              className={`text-[10px] font-black px-2 py-0.5 rounded border ${
+                windowsUser
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+              }`}
+            >
+              {windowsUser ? `Açık: ${windowsUser.userId}` : 'İzleme Modu'}
+            </span>
+          </div>
+
+          <p className={`text-[11px] leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-700'}`}>
+            Windows uygulaması varsayılan olarak <strong>İzleme Modu</strong>ndadır. Değişiklik yapacak her kişi kendine şifre oluşturur ve sistem aynı isimdeki kişileri ayırmak için arka planda benzersiz bir <strong>ID numarası</strong> verir.
+          </p>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => openWindowsAuthModal('register')}
+              className="py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase cursor-pointer"
+            >
+              + Şifre Oluştur
+            </button>
+            {windowsUser ? (
+              <button
+                type="button"
+                onClick={logoutWindowsUser}
+                className="py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 text-xs font-bold uppercase cursor-pointer"
+              >
+                İzleme Moduna Dön
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => openWindowsAuthModal('login')}
+                className="py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black uppercase cursor-pointer"
+              >
+                Giriş Yap
+              </button>
+            )}
+          </div>
+
+          {windowsAccounts.length > 0 && (
+            <div className={`pt-2 border-t ${isDark ? 'border-slate-800' : 'border-amber-200'} space-y-1.5`}>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Kayıtlı Kullanıcılar ({windowsAccounts.length}):
+              </span>
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {windowsAccounts.map((acc) => (
+                  <div
+                    key={acc.userId}
+                    className={`px-2.5 py-1.5 rounded-lg border flex items-center justify-between text-xs ${
+                      isDark ? 'bg-slate-900 border-slate-800 text-slate-200' : 'bg-white border-amber-200 text-slate-900'
+                    }`}
+                  >
+                    <span className="font-bold truncate">{acc.name}</span>
+                    <span className="font-mono font-black text-[11px] text-emerald-400 shrink-0">
+                      {acc.userId}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

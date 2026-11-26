@@ -177,6 +177,8 @@ import { SyncModal } from '../../components/SyncModal';
 import { SettingsModal } from '../../components/SettingsModal';
 import { DriveSyncModal } from '../../components/DriveSyncModal';
 import { loadSyncedItemsFromStorage } from '../../services/dataSyncService';
+import { WindowsModeBanner } from '../../components/WindowsModeBanner';
+import { appendWindowsChangeLog } from '../../utils/windowsAuth';
 
 interface QualityControlModuleProps {
   onBackToMainMenu?: () => void;
@@ -184,16 +186,30 @@ interface QualityControlModuleProps {
 
 export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleProps) {
   const { isDark } = useTheme();
-  const { userName, isNameRegistered } = useUser();
+  const {
+    userName,
+    isWindowsDesktop,
+    windowsUser,
+    isReadOnlyMonitoringMode,
+    openWindowsAuthModal,
+  } = useUser();
   const [initialLoadedDraft] = useState<AuditFormData | null>(() => loadActiveDraft());
   const shouldPromptResumeOnMount = Boolean(
-    initialLoadedDraft &&
+    !isReadOnlyMonitoringMode &&
+      initialLoadedDraft &&
       initialLoadedDraft.currentStep === 'audit' &&
       initialLoadedDraft.startTimestamp &&
       !initialLoadedDraft.endTimestamp
   );
 
-  const [isTimerPaused, setIsTimerPaused] = useState<boolean>(shouldPromptResumeOnMount);
+  const [isTimerPaused, setIsTimerPaused] = useState<boolean>(
+    Boolean(
+      initialLoadedDraft &&
+        initialLoadedDraft.currentStep === 'audit' &&
+        initialLoadedDraft.startTimestamp &&
+        !initialLoadedDraft.endTimestamp
+    )
+  );
   const [showResumeTimerPrompt, setShowResumeTimerPrompt] = useState<boolean>(shouldPromptResumeOnMount);
 
   const [formData, setFormData] = useState<AuditFormData>(() => {
@@ -276,25 +292,54 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
   // Keep synchronous references to latest formData & timer pause state for background/unload handlers
   const formDataRef = useRef<AuditFormData>(formData);
   const isTimerPausedRef = useRef<boolean>(isTimerPaused);
+  const isReadOnlyRef = useRef<boolean>(isReadOnlyMonitoringMode);
+  const windowsUserRef = useRef(windowsUser);
   useEffect(() => {
     formDataRef.current = formData;
   }, [formData]);
   useEffect(() => {
     isTimerPausedRef.current = isTimerPaused;
   }, [isTimerPaused]);
-
-  // Auto-save active draft whenever formData or pause state changes (offline local storage & history snapshot)
   useEffect(() => {
+    isReadOnlyRef.current = isReadOnlyMonitoringMode;
+  }, [isReadOnlyMonitoringMode]);
+  useEffect(() => {
+    windowsUserRef.current = windowsUser;
+  }, [windowsUser]);
+
+  const guardWindowsWrite = useCallback(
+    (reason = 'Değişiklik yapmak için adınız ve şifrenizle giriş yapın.') => {
+      if (isReadOnlyRef.current) {
+        openWindowsAuthModal('login', reason);
+        return false;
+      }
+      return true;
+    },
+    [openWindowsAuthModal]
+  );
+
+  const withWindowsLog = useCallback(
+    (audit: AuditFormData, actionSummary: string): AuditFormData => {
+      if (!isWindowsDesktop || !windowsUserRef.current) return audit;
+      return appendWindowsChangeLog(audit, windowsUserRef.current, actionSummary);
+    },
+    [isWindowsDesktop]
+  );
+
+  // Auto-save active draft whenever formData or pause state changes (skipped in Windows read-only mode)
+  useEffect(() => {
+    if (isReadOnlyMonitoringMode) return;
     const persisted = buildPersistedAuditSnapshot(formData, isTimerPaused);
     saveActiveDraft(persisted);
     if (persisted.clientProjectName || persisted.serialNumber || persisted.startTimestamp) {
       saveManualAuditSnapshot(persisted);
     }
-  }, [formData, isTimerPaused]);
+  }, [formData, isTimerPaused, isReadOnlyMonitoringMode]);
 
   // Periodic auto-save draft & active duration checkpoint every 10 seconds
   useEffect(() => {
     const interval = setInterval(() => {
+      if (isReadOnlyRef.current) return;
       if (formDataRef.current) {
         const persisted = buildPersistedAuditSnapshot(formDataRef.current, isTimerPausedRef.current);
         saveActiveDraft(persisted);
@@ -303,10 +348,10 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
     return () => clearInterval(interval);
   }, []);
 
-  // Comprehensive Mobile & Desktop Lifecycle Listeners:
-  // Saves current state & active duration immediately when switching tabs, minimizing app, locking screen, or closing window
+  // Comprehensive Mobile & Desktop Lifecycle Listeners
   useEffect(() => {
     const handleImmediatePersist = () => {
+      if (isReadOnlyRef.current) return;
       if (formDataRef.current) {
         const persisted = buildPersistedAuditSnapshot(formDataRef.current, isTimerPausedRef.current);
         saveActiveDraft(persisted);
@@ -345,6 +390,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
   // Auto-sync queued offline saves whenever connection is restored
   useEffect(() => {
     const handleOnline = async () => {
+      if (isReadOnlyRef.current) return;
       const queuedData = getQueuedAuditForCloudSync();
       const hasCloud = isCloudConfigured();
       if (queuedData && hasCloud) {
@@ -364,8 +410,15 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
 
   // Manual save triggered by Save button in header or settings
   const handleManualSave = useCallback(async () => {
+    if (!guardWindowsWrite('Kayıt ve bulut yedekleme işlemi için giriş yapmalısınız.')) return;
+
+    const dataToSave = withWindowsLog(formData, 'Windows üzerinden kayıt / Drive güncelleme yapıldı');
+    if (dataToSave !== formData) {
+      setFormData(dataToSave);
+    }
+
     // 1. Always save locally immediately
-    saveManualAuditSnapshot(formData);
+    saveManualAuditSnapshot(dataToSave);
     setIsSaveSuccess(true);
 
     const isOnline = typeof navigator === 'undefined' || navigator.onLine;
@@ -375,23 +428,23 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
     if (isOnline && hasCloud) {
       setSaveToastMessage('Yerel kaydedildi. Drive bulutuna senkronize ediliyor...');
       try {
-        const res = await uploadAuditJsonToDrive(formData, undefined, { silent: true });
+        const res = await uploadAuditJsonToDrive(dataToSave, undefined, { silent: true });
         if (res.isUpdated) {
           setSaveToastMessage('Yerel kaydedildi & Drive referans dosyasının üzerine güncellendi ✓');
         } else {
           setSaveToastMessage('Yerel kaydedildi & Drive bulutuna başarıyla yüklendi ✓');
         }
       } catch (err: any) {
-        queueAuditForCloudSync(formData);
+        queueAuditForCloudSync(dataToSave);
         setSaveToastMessage('Yerel kaydedildi. Bulut yüklemesi sıraya alındı (internet geldiğinde yüklenecek)');
       }
     } else if (!isOnline) {
       // 3. If offline, queue for when connection is restored
-      queueAuditForCloudSync(formData);
+      queueAuditForCloudSync(dataToSave);
       setSaveToastMessage('Cihaz çevrimdışı: Yerel kaydedildi (İnternet gelince Drive\'a yüklenecek) ✓');
     } else {
       // Online but no drive cloud configured yet
-      queueAuditForCloudSync(formData);
+      queueAuditForCloudSync(dataToSave);
       setSaveToastMessage('Denetim taslağı başarıyla yerel olarak kaydedildi ✓');
     }
 
@@ -401,45 +454,67 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
     setTimeout(() => {
       setSaveToastMessage(null);
     }, 3500);
-  }, [formData]);
+  }, [formData, guardWindowsWrite, withWindowsLog]);
 
   // Sync Motor Chassis items when elevator type changes in Step 2
   const handleTypeChange = (newType: ElevatorType) => {
+    if (!guardWindowsWrite('Asansör tipini değiştirmek için giriş yapmalısınız.')) return;
     const customSynced = loadSyncedItemsFromStorage();
-    setFormData((prev) => ({
-      ...prev,
-      elevatorType: newType,
-      motorChassisItems: JSON.parse(JSON.stringify(resolveMotorChassisItems(newType, customSynced))),
-    }));
+    setFormData((prev) =>
+      withWindowsLog(
+        {
+          ...prev,
+          elevatorType: newType,
+          motorChassisItems: JSON.parse(JSON.stringify(resolveMotorChassisItems(newType, customSynced))),
+        },
+        'Asansör teknik özellikleri güncellendi'
+      )
+    );
   };
 
   // Sync Door items when stop count or floor start changes (preserving custom door items)
   const handleStopCountChange = (count: number) => {
+    if (!guardWindowsWrite('Durak sayısını değiştirmek için giriş yapmalısınız.')) return;
     setFormData((prev) => {
       const generatedDoors = generateDoorInspectionItems(count, prev.floorStart);
       const customDoors = (prev.doorsItems || []).filter((it) => it.isCustom);
-      return {
-        ...prev,
-        stopCount: count,
-        doorsItems: [...generatedDoors, ...customDoors],
-      };
+      return withWindowsLog(
+        {
+          ...prev,
+          stopCount: count,
+          doorsItems: [...generatedDoors, ...customDoors],
+        },
+        'Asansör teknik özellikleri güncellendi'
+      );
     });
   };
 
   const handleFloorStartChange = (start: number) => {
+    if (!guardWindowsWrite('Kat başlangıcını değiştirmek için giriş yapmalısınız.')) return;
     setFormData((prev) => {
       const generatedDoors = generateDoorInspectionItems(prev.stopCount, start);
       const customDoors = (prev.doorsItems || []).filter((it) => it.isCustom);
-      return {
-        ...prev,
-        floorStart: start,
-        doorsItems: [...generatedDoors, ...customDoors],
-      };
+      return withWindowsLog(
+        {
+          ...prev,
+          floorStart: start,
+          doorsItems: [...generatedDoors, ...customDoors],
+        },
+        'Asansör teknik özellikleri güncellendi'
+      );
     });
   };
 
   // Start Audit Trigger (ADIM 2 -> ADIM 3)
   const handleStartAudit = () => {
+    if (isReadOnlyMonitoringMode) {
+      if (formData.startTimestamp) {
+        setFormData((prev) => ({ ...prev, currentStep: 'audit' }));
+        return;
+      }
+      openWindowsAuthModal('login', 'Denetimi başlatmak veya değiştirmek için giriş yapmalısınız.');
+      return;
+    }
     const now = new Date();
     const timeFormatted = getCurrentTimeFormatted();
     const timestamp = now.getTime();
@@ -447,19 +522,25 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
     setIsTimerPaused(false);
     setShowResumeTimerPrompt(false);
 
-    setFormData((prev) => ({
-      ...prev,
-      startTime: prev.startTime || timeFormatted,
-      startTimestamp: prev.startTimestamp || timestamp,
-      accumulatedElapsedSeconds: prev.accumulatedElapsedSeconds ?? 0,
-      lastTimerAnchorTimestamp: timestamp,
-      currentStep: 'audit',
-    }));
+    setFormData((prev) =>
+      withWindowsLog(
+        {
+          ...prev,
+          startTime: prev.startTime || timeFormatted,
+          startTimestamp: prev.startTimestamp || timestamp,
+          accumulatedElapsedSeconds: prev.accumulatedElapsedSeconds ?? 0,
+          lastTimerAnchorTimestamp: timestamp,
+          currentStep: 'audit',
+        },
+        'Denetim başlatıldı / güncellendi'
+      )
+    );
   };
 
   // Timer choice handler when reopening an unfinished audit after app close
   const handleResumeTimerChoice = (shouldStart: boolean) => {
     setShowResumeTimerPrompt(false);
+    if (isReadOnlyRef.current) return;
     if (shouldStart) {
       setIsTimerPaused(false);
       setFormData((prev) => ({
@@ -477,6 +558,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
 
   // Manual toggle in Header (Pause / Resume active timer)
   const handleToggleTimerPause = useCallback(() => {
+    if (!guardWindowsWrite('Denetim süresini değiştirmek için giriş yapmalısınız.')) return;
     if (formDataRef.current.endTimestamp) return;
     if (isTimerPausedRef.current) {
       setIsTimerPaused(false);
@@ -493,188 +575,271 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
         lastTimerAnchorTimestamp: null,
       }));
     }
-  }, []);
+  }, [guardWindowsWrite]);
 
   // Toggle UD (Uygun Değil) status on an inspection item
-  const handleToggleUD = useCallback((categoryKey: string, id: string) => {
-    setFormData((prev) => {
-      const updateList = (list: InspectionItem[]) =>
-        list.map((item) => {
-          if (item.id === id) {
-            const nextUD = !item.isNonCompliant;
-            return {
-              ...item,
-              isNonCompliant: nextUD,
-              isPassed: nextUD ? false : item.isPassed,
-            };
-          }
-          return item;
-        });
+  const handleToggleUD = useCallback(
+    (categoryKey: string, id: string) => {
+      if (!guardWindowsWrite('Denetim maddesi durumunu değiştirmek için giriş yapmalısınız.')) return;
+      setFormData((prev) => {
+        const updateList = (list: InspectionItem[]) =>
+          list.map((item) => {
+            if (item.id === id) {
+              const nextUD = !item.isNonCompliant;
+              return {
+                ...item,
+                isNonCompliant: nextUD,
+                isPassed: nextUD ? false : item.isPassed,
+              };
+            }
+            return item;
+          });
 
-      switch (categoryKey) {
-        case 'controlPanel':
-          return { ...prev, controlPanelItems: updateList(prev.controlPanelItems) };
-        case 'motorChassis':
-          return { ...prev, motorChassisItems: updateList(prev.motorChassisItems) };
-        case 'cabinTop':
-          return { ...prev, cabinTopItems: updateList(prev.cabinTopItems) };
-        case 'counterweight':
-          return { ...prev, counterweightItems: updateList(prev.counterweightItems) };
-        case 'shaftAndPit':
-          return { ...prev, shaftAndPitItems: updateList(prev.shaftAndPitItems) };
-        case 'cabinAndButtons':
-          return { ...prev, cabinAndFloorButtonsItems: updateList(prev.cabinAndFloorButtonsItems) };
-        case 'doors':
-          return { ...prev, doorsItems: updateList(prev.doorsItems) };
-        default:
-          return prev;
-      }
-    });
-  }, []);
+        let nextState = prev;
+        switch (categoryKey) {
+          case 'controlPanel':
+            nextState = { ...prev, controlPanelItems: updateList(prev.controlPanelItems) };
+            break;
+          case 'motorChassis':
+            nextState = { ...prev, motorChassisItems: updateList(prev.motorChassisItems) };
+            break;
+          case 'cabinTop':
+            nextState = { ...prev, cabinTopItems: updateList(prev.cabinTopItems) };
+            break;
+          case 'counterweight':
+            nextState = { ...prev, counterweightItems: updateList(prev.counterweightItems) };
+            break;
+          case 'shaftAndPit':
+            nextState = { ...prev, shaftAndPitItems: updateList(prev.shaftAndPitItems) };
+            break;
+          case 'cabinAndButtons':
+            nextState = { ...prev, cabinAndFloorButtonsItems: updateList(prev.cabinAndFloorButtonsItems) };
+            break;
+          case 'doors':
+            nextState = { ...prev, doorsItems: updateList(prev.doorsItems) };
+            break;
+          default:
+            return prev;
+        }
+        return withWindowsLog(nextState, 'Denetim maddesi (UD) durumu değiştirildi');
+      });
+    },
+    [guardWindowsWrite, withWindowsLog]
+  );
 
   // Toggle Passed/Verified status (when long-pressed for 2s on tabs 1-6)
-  const handleTogglePassed = useCallback((categoryKey: string, id: string) => {
-    setFormData((prev) => {
-      const updateList = (list: InspectionItem[]) =>
-        list.map((item) => {
-          if (item.id === id) {
-            const nextPassed = !item.isPassed;
-            return {
-              ...item,
-              isPassed: nextPassed,
-              isNonCompliant: nextPassed ? false : item.isNonCompliant,
-            };
-          }
-          return item;
-        });
+  const handleTogglePassed = useCallback(
+    (categoryKey: string, id: string) => {
+      if (!guardWindowsWrite('Denetim maddesi onay durumunu değiştirmek için giriş yapmalısınız.')) return;
+      setFormData((prev) => {
+        const updateList = (list: InspectionItem[]) =>
+          list.map((item) => {
+            if (item.id === id) {
+              const nextPassed = !item.isPassed;
+              return {
+                ...item,
+                isPassed: nextPassed,
+                isNonCompliant: nextPassed ? false : item.isNonCompliant,
+              };
+            }
+            return item;
+          });
 
-      switch (categoryKey) {
-        case 'controlPanel':
-          return { ...prev, controlPanelItems: updateList(prev.controlPanelItems) };
-        case 'motorChassis':
-          return { ...prev, motorChassisItems: updateList(prev.motorChassisItems) };
-        case 'cabinTop':
-          return { ...prev, cabinTopItems: updateList(prev.cabinTopItems) };
-        case 'counterweight':
-          return { ...prev, counterweightItems: updateList(prev.counterweightItems) };
-        case 'shaftAndPit':
-          return { ...prev, shaftAndPitItems: updateList(prev.shaftAndPitItems) };
-        case 'cabinAndButtons':
-          return { ...prev, cabinAndFloorButtonsItems: updateList(prev.cabinAndFloorButtonsItems) };
-        case 'doors':
-          return { ...prev, doorsItems: updateList(prev.doorsItems) };
-        default:
-          return prev;
-      }
-    });
-  }, []);
+        let nextState = prev;
+        switch (categoryKey) {
+          case 'controlPanel':
+            nextState = { ...prev, controlPanelItems: updateList(prev.controlPanelItems) };
+            break;
+          case 'motorChassis':
+            nextState = { ...prev, motorChassisItems: updateList(prev.motorChassisItems) };
+            break;
+          case 'cabinTop':
+            nextState = { ...prev, cabinTopItems: updateList(prev.cabinTopItems) };
+            break;
+          case 'counterweight':
+            nextState = { ...prev, counterweightItems: updateList(prev.counterweightItems) };
+            break;
+          case 'shaftAndPit':
+            nextState = { ...prev, shaftAndPitItems: updateList(prev.shaftAndPitItems) };
+            break;
+          case 'cabinAndButtons':
+            nextState = { ...prev, cabinAndFloorButtonsItems: updateList(prev.cabinAndFloorButtonsItems) };
+            break;
+          case 'doors':
+            nextState = { ...prev, doorsItems: updateList(prev.doorsItems) };
+            break;
+          default:
+            return prev;
+        }
+        return withWindowsLog(nextState, 'Denetim maddesi uygunluk durumu değiştirildi');
+      });
+    },
+    [guardWindowsWrite, withWindowsLog]
+  );
 
   // Update item description
-  const handleDescriptionChange = useCallback((categoryKey: string, id: string, desc: string) => {
-    setFormData((prev) => {
-      const updateList = (list: InspectionItem[]) =>
-        list.map((item) => (item.id === id ? { ...item, description: desc } : item));
+  const handleDescriptionChange = useCallback(
+    (categoryKey: string, id: string, desc: string) => {
+      if (!guardWindowsWrite('Madde açıklaması düzenlemek için giriş yapmalısınız.')) return;
+      setFormData((prev) => {
+        const updateList = (list: InspectionItem[]) =>
+          list.map((item) => (item.id === id ? { ...item, description: desc } : item));
 
-      switch (categoryKey) {
-        case 'controlPanel':
-          return { ...prev, controlPanelItems: updateList(prev.controlPanelItems) };
-        case 'motorChassis':
-          return { ...prev, motorChassisItems: updateList(prev.motorChassisItems) };
-        case 'cabinTop':
-          return { ...prev, cabinTopItems: updateList(prev.cabinTopItems) };
-        case 'counterweight':
-          return { ...prev, counterweightItems: updateList(prev.counterweightItems) };
-        case 'shaftAndPit':
-          return { ...prev, shaftAndPitItems: updateList(prev.shaftAndPitItems) };
-        case 'cabinAndButtons':
-          return { ...prev, cabinAndFloorButtonsItems: updateList(prev.cabinAndFloorButtonsItems) };
-        case 'doors':
-          return { ...prev, doorsItems: updateList(prev.doorsItems) };
-        default:
-          return prev;
-      }
-    });
-  }, []);
+        let nextState = prev;
+        switch (categoryKey) {
+          case 'controlPanel':
+            nextState = { ...prev, controlPanelItems: updateList(prev.controlPanelItems) };
+            break;
+          case 'motorChassis':
+            nextState = { ...prev, motorChassisItems: updateList(prev.motorChassisItems) };
+            break;
+          case 'cabinTop':
+            nextState = { ...prev, cabinTopItems: updateList(prev.cabinTopItems) };
+            break;
+          case 'counterweight':
+            nextState = { ...prev, counterweightItems: updateList(prev.counterweightItems) };
+            break;
+          case 'shaftAndPit':
+            nextState = { ...prev, shaftAndPitItems: updateList(prev.shaftAndPitItems) };
+            break;
+          case 'cabinAndButtons':
+            nextState = { ...prev, cabinAndFloorButtonsItems: updateList(prev.cabinAndFloorButtonsItems) };
+            break;
+          case 'doors':
+            nextState = { ...prev, doorsItems: updateList(prev.doorsItems) };
+            break;
+          default:
+            return prev;
+        }
+        return withWindowsLog(nextState, 'Madde açıklaması düzenlendi');
+      });
+    },
+    [guardWindowsWrite, withWindowsLog]
+  );
 
   // Add Extra Item (allowed on Pages 1, 2, 4, 5, 6, 7)
-  const handleAddExtraItem = useCallback((categoryKey: string, title: string) => {
-    setFormData((prev) => {
-      const newItem: InspectionItem = {
-        id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        title,
-        isNonCompliant: true,
-        description: '',
-        isCustom: true,
-        category: categoryKey,
-      };
+  const handleAddExtraItem = useCallback(
+    (categoryKey: string, title: string) => {
+      if (!guardWindowsWrite('Ekstra madde eklemek için giriş yapmalısınız.')) return;
+      setFormData((prev) => {
+        const newItem: InspectionItem = {
+          id: `custom_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          title,
+          isNonCompliant: true,
+          description: '',
+          isCustom: true,
+          category: categoryKey,
+        };
 
-      switch (categoryKey) {
-        case 'controlPanel':
-          return { ...prev, controlPanelItems: [...prev.controlPanelItems, newItem] };
-        case 'motorChassis':
-          return { ...prev, motorChassisItems: [...prev.motorChassisItems, newItem] };
-        case 'cabinTop':
-          return { ...prev, cabinTopItems: [...prev.cabinTopItems, newItem] };
-        case 'counterweight':
-          return { ...prev, counterweightItems: [...prev.counterweightItems, newItem] };
-        case 'shaftAndPit':
-          return { ...prev, shaftAndPitItems: [...prev.shaftAndPitItems, newItem] };
-        case 'cabinAndButtons':
-          return { ...prev, cabinAndFloorButtonsItems: [...prev.cabinAndFloorButtonsItems, newItem] };
-        case 'doors':
-          return { ...prev, doorsItems: [...prev.doorsItems, newItem] };
-        default:
-          return prev;
-      }
-    });
-  }, []);
+        let nextState = prev;
+        switch (categoryKey) {
+          case 'controlPanel':
+            nextState = { ...prev, controlPanelItems: [...prev.controlPanelItems, newItem] };
+            break;
+          case 'motorChassis':
+            nextState = { ...prev, motorChassisItems: [...prev.motorChassisItems, newItem] };
+            break;
+          case 'cabinTop':
+            nextState = { ...prev, cabinTopItems: [...prev.cabinTopItems, newItem] };
+            break;
+          case 'counterweight':
+            nextState = { ...prev, counterweightItems: [...prev.counterweightItems, newItem] };
+            break;
+          case 'shaftAndPit':
+            nextState = { ...prev, shaftAndPitItems: [...prev.shaftAndPitItems, newItem] };
+            break;
+          case 'cabinAndButtons':
+            nextState = { ...prev, cabinAndFloorButtonsItems: [...prev.cabinAndFloorButtonsItems, newItem] };
+            break;
+          case 'doors':
+            nextState = { ...prev, doorsItems: [...prev.doorsItems, newItem] };
+            break;
+          default:
+            return prev;
+        }
+        return withWindowsLog(nextState, `Ekstra madde eklendi (${title})`);
+      });
+    },
+    [guardWindowsWrite, withWindowsLog]
+  );
 
   // Delete Custom Extra Item
-  const handleDeleteCustomItem = useCallback((categoryKey: string, id: string) => {
-    setFormData((prev) => {
-      const filterList = (list: InspectionItem[]) => list.filter((item) => item.id !== id);
+  const handleDeleteCustomItem = useCallback(
+    (categoryKey: string, id: string) => {
+      if (!guardWindowsWrite('Özel madde silmek için giriş yapmalısınız.')) return;
+      setFormData((prev) => {
+        const filterList = (list: InspectionItem[]) => list.filter((item) => item.id !== id);
 
-      switch (categoryKey) {
-        case 'controlPanel':
-          return { ...prev, controlPanelItems: filterList(prev.controlPanelItems) };
-        case 'motorChassis':
-          return { ...prev, motorChassisItems: filterList(prev.motorChassisItems) };
-        case 'cabinTop':
-          return { ...prev, cabinTopItems: filterList(prev.cabinTopItems) };
-        case 'counterweight':
-          return { ...prev, counterweightItems: filterList(prev.counterweightItems) };
-        case 'shaftAndPit':
-          return { ...prev, shaftAndPitItems: filterList(prev.shaftAndPitItems) };
-        case 'cabinAndButtons':
-          return { ...prev, cabinAndFloorButtonsItems: filterList(prev.cabinAndFloorButtonsItems) };
-        case 'doors':
-          return { ...prev, doorsItems: filterList(prev.doorsItems) };
-        default:
-          return prev;
-      }
-    });
-  }, []);
+        let nextState = prev;
+        switch (categoryKey) {
+          case 'controlPanel':
+            nextState = { ...prev, controlPanelItems: filterList(prev.controlPanelItems) };
+            break;
+          case 'motorChassis':
+            nextState = { ...prev, motorChassisItems: filterList(prev.motorChassisItems) };
+            break;
+          case 'cabinTop':
+            nextState = { ...prev, cabinTopItems: filterList(prev.cabinTopItems) };
+            break;
+          case 'counterweight':
+            nextState = { ...prev, counterweightItems: filterList(prev.counterweightItems) };
+            break;
+          case 'shaftAndPit':
+            nextState = { ...prev, shaftAndPitItems: filterList(prev.shaftAndPitItems) };
+            break;
+          case 'cabinAndButtons':
+            nextState = { ...prev, cabinAndFloorButtonsItems: filterList(prev.cabinAndFloorButtonsItems) };
+            break;
+          case 'doors':
+            nextState = { ...prev, doorsItems: filterList(prev.doorsItems) };
+            break;
+          default:
+            return prev;
+        }
+        return withWindowsLog(nextState, 'Özel madde silindi');
+      });
+    },
+    [guardWindowsWrite, withWindowsLog]
+  );
 
   // Measure Management
   const handleAddMeasure = (measure: MeasureItem) => {
-    setFormData((prev) => ({
-      ...prev,
-      measures: [...prev.measures, measure],
-    }));
+    if (!guardWindowsWrite('Saha ölçüsü eklemek için giriş yapmalısınız.')) return;
+    setFormData((prev) =>
+      withWindowsLog(
+        {
+          ...prev,
+          measures: [...prev.measures, measure],
+        },
+        'Saha ölçü değerleri güncellendi'
+      )
+    );
   };
 
   const handleUpdateMeasure = (id: string, updated: Partial<MeasureItem>) => {
-    setFormData((prev) => ({
-      ...prev,
-      measures: prev.measures.map((m) => (m.id === id ? { ...m, ...updated } : m)),
-    }));
+    if (!guardWindowsWrite('Saha ölçüsü düzenlemek için giriş yapmalısınız.')) return;
+    setFormData((prev) =>
+      withWindowsLog(
+        {
+          ...prev,
+          measures: prev.measures.map((m) => (m.id === id ? { ...m, ...updated } : m)),
+        },
+        'Saha ölçü değerleri güncellendi'
+      )
+    );
   };
 
   const handleDeleteMeasure = (id: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      measures: prev.measures.filter((m) => m.id !== id),
-    }));
+    if (!guardWindowsWrite('Saha ölçüsü silmek için giriş yapmalısınız.')) return;
+    setFormData((prev) =>
+      withWindowsLog(
+        {
+          ...prev,
+          measures: prev.measures.filter((m) => m.id !== id),
+        },
+        'Saha ölçü değerleri güncellendi'
+      )
+    );
   };
 
   // Calculate total UD items count for badges & headers
@@ -694,13 +859,20 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
 
   // Finish Audit -> Open Final Comfort Modal (ADIM 4)
   const handleFinishAuditClick = () => {
+    if (isReadOnlyMonitoringMode) {
+      if (formData.endTime && formData.totalDurationFormatted) {
+        setFormData((p) => ({ ...p, currentStep: 'report' }));
+        return;
+      }
+      openWindowsAuthModal('login', 'Denetimi tamamlamak ve rapor oluşturmak için giriş yapmalısınız.');
+      return;
+    }
     setIsComfortModalOpen(true);
   };
 
   // Generate Report & Calculate Elapsed Duration (ADIM 4 -> Report)
   const handleGenerateReport = () => {
-    // 1. Kontrol süresi zaten hesaplanıp kilitlenmişse (önceden tamamlandıysa veya buluttan yüklendiyse)
-    // aradan geçen günleri ESKİ sürenin üzerine EKLEME, mevcut kilitli süreyi aynen koru!
+    if (!guardWindowsWrite('Rapor oluşturmak ve kaydetmek için giriş yapmalısınız.')) return;
     const isAlreadyFinalized = Boolean(formData.totalDurationFormatted && formData.endTime);
 
     let endTimeFormatted = formData.endTime;
@@ -726,26 +898,29 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
     setIsTimerPaused(false);
     setShowResumeTimerPrompt(false);
 
-    const finalizedData: AuditFormData = {
-      ...formData,
-      endTime: endTimeFormatted || getCurrentTimeFormatted(),
-      endTimestamp: endTimestamp || Date.now(),
-      accumulatedElapsedSeconds: activeSeconds,
-      lastTimerAnchorTimestamp: null,
-      totalDurationFormatted: durationFormatted || '30 dk',
-      currentStep: 'report',
-    };
+    const finalizedData: AuditFormData = withWindowsLog(
+      {
+        ...formData,
+        endTime: endTimeFormatted || getCurrentTimeFormatted(),
+        endTimestamp: endTimestamp || Date.now(),
+        accumulatedElapsedSeconds: activeSeconds,
+        lastTimerAnchorTimestamp: null,
+        totalDurationFormatted: durationFormatted || '30 dk',
+        currentStep: 'report',
+      },
+      'Denetim tamamlandı / Rapor oluşturuldu'
+    );
 
     setFormData(finalizedData);
     setIsComfortModalOpen(false);
 
-    // Save completed audit to history AND keep active draft so user resumes at report unless "Yeni Denetim" is clicked
     saveCompletedAuditToHistory(finalizedData);
     saveActiveDraft(finalizedData);
   };
 
   // Start fresh new inspection
   const handleNewInspection = () => {
+    if (!guardWindowsWrite('Yeni denetim başlatmak için giriş yapmalısınız.')) return;
     clearActiveDraft();
     setIsTimerPaused(false);
     setShowResumeTimerPrompt(false);
@@ -757,7 +932,7 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
       auditId: `audit_${Date.now()}`,
       date: new Date().toISOString(),
       dateDisplay: getCurrentDateFormatted(),
-      inspectorName: userName || '',
+      inspectorName: windowsUser?.name || userName || '',
       clientProjectName: '',
       elevatorType: 'MR',
       serialNumber: '',
@@ -801,27 +976,39 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
 
   // Handle Dynamic Sync from Google Sheets
   const handleApplySyncedData = (synced: Record<string, InspectionItem[]>) => {
-    setFormData((prev) => ({
-      ...prev,
-      controlPanelItems: synced.controlPanel?.length ? JSON.parse(JSON.stringify(synced.controlPanel)) : prev.controlPanelItems,
-      motorChassisItems: JSON.parse(JSON.stringify(resolveMotorChassisItems(prev.elevatorType || 'MR', synced))),
-      cabinTopItems: synced.cabinTop?.length ? JSON.parse(JSON.stringify(synced.cabinTop)) : prev.cabinTopItems,
-      counterweightItems: synced.counterweight?.length ? JSON.parse(JSON.stringify(synced.counterweight)) : prev.counterweightItems,
-      shaftAndPitItems: synced.shaftAndPit?.length ? JSON.parse(JSON.stringify(synced.shaftAndPit)) : prev.shaftAndPitItems,
-      cabinAndFloorButtonsItems: synced.cabinAndButtons?.length ? JSON.parse(JSON.stringify(synced.cabinAndButtons)) : prev.cabinAndFloorButtonsItems,
-    }));
+    if (!guardWindowsWrite('E-Tablo maddelerini uygulamak için giriş yapmalısınız.')) return;
+    setFormData((prev) =>
+      withWindowsLog(
+        {
+          ...prev,
+          controlPanelItems: synced.controlPanel?.length ? JSON.parse(JSON.stringify(synced.controlPanel)) : prev.controlPanelItems,
+          motorChassisItems: JSON.parse(JSON.stringify(resolveMotorChassisItems(prev.elevatorType || 'MR', synced))),
+          cabinTopItems: synced.cabinTop?.length ? JSON.parse(JSON.stringify(synced.cabinTop)) : prev.cabinTopItems,
+          counterweightItems: synced.counterweight?.length ? JSON.parse(JSON.stringify(synced.counterweight)) : prev.counterweightItems,
+          shaftAndPitItems: synced.shaftAndPit?.length ? JSON.parse(JSON.stringify(synced.shaftAndPit)) : prev.shaftAndPitItems,
+          cabinAndFloorButtonsItems: synced.cabinAndButtons?.length ? JSON.parse(JSON.stringify(synced.cabinAndButtons)) : prev.cabinAndFloorButtonsItems,
+        },
+        'E-Tablo maddeleri güncellendi'
+      )
+    );
   };
 
   const handleResetToDefault = () => {
-    setFormData((prev) => ({
-      ...prev,
-      controlPanelItems: JSON.parse(JSON.stringify(CONTROL_PANEL_ITEMS)),
-      motorChassisItems: JSON.parse(JSON.stringify(getMotorChassisItems(prev.elevatorType || 'MR'))),
-      cabinTopItems: JSON.parse(JSON.stringify(CABIN_TOP_ITEMS)),
-      counterweightItems: JSON.parse(JSON.stringify(COUNTERWEIGHT_ITEMS)),
-      shaftAndPitItems: JSON.parse(JSON.stringify(SHAFT_AND_PIT_ITEMS)),
-      cabinAndFloorButtonsItems: JSON.parse(JSON.stringify(CABIN_AND_BUTTONS_ITEMS)),
-    }));
+    if (!guardWindowsWrite('Varsayılan maddelere sıfırlamak için giriş yapmalısınız.')) return;
+    setFormData((prev) =>
+      withWindowsLog(
+        {
+          ...prev,
+          controlPanelItems: JSON.parse(JSON.stringify(CONTROL_PANEL_ITEMS)),
+          motorChassisItems: JSON.parse(JSON.stringify(getMotorChassisItems(prev.elevatorType || 'MR'))),
+          cabinTopItems: JSON.parse(JSON.stringify(CABIN_TOP_ITEMS)),
+          counterweightItems: JSON.parse(JSON.stringify(COUNTERWEIGHT_ITEMS)),
+          shaftAndPitItems: JSON.parse(JSON.stringify(SHAFT_AND_PIT_ITEMS)),
+          cabinAndFloorButtonsItems: JSON.parse(JSON.stringify(CABIN_AND_BUTTONS_ITEMS)),
+        },
+        'Kontrol listesi varsayılan şablona döndürüldü'
+      )
+    );
   };
 
   return (
@@ -848,6 +1035,8 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
         onBackToMainMenu={onBackToMainMenu}
       />
 
+      <WindowsModeBanner />
+
       {/* Save Toast Notification */}
       {saveToastMessage && (
         <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-xl border border-emerald-400 flex items-center gap-1.5 animate-fadeIn pointer-events-none">
@@ -863,8 +1052,14 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
             dateDisplay={formData.dateDisplay}
             inspectorName={formData.inspectorName}
             clientProjectName={formData.clientProjectName}
-            onInspectorChange={(val) => setFormData((p) => ({ ...p, inspectorName: val }))}
-            onClientProjectChange={(val) => setFormData((p) => ({ ...p, clientProjectName: val }))}
+            onInspectorChange={(val) => {
+              if (!guardWindowsWrite('Denetçi adını değiştirmek için giriş yapmalısınız.')) return;
+              setFormData((p) => withWindowsLog({ ...p, inspectorName: val }, 'Proje / denetçi bilgisi düzenlendi'));
+            }}
+            onClientProjectChange={(val) => {
+              if (!guardWindowsWrite('Proje adını değiştirmek için giriş yapmalısınız.')) return;
+              setFormData((p) => withWindowsLog({ ...p, clientProjectName: val }, 'Proje / şantiye adı düzenlendi'));
+            }}
             onProceed={() => setFormData((p) => ({ ...p, currentStep: 'specs' }))}
           />
         )}
@@ -880,17 +1075,28 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
             isDateTimeConfirmed={formData.isDateTimeConfirmed}
             isHardwareMatched={formData.isHardwareMatched}
             onTypeChange={handleTypeChange}
-            onSerialChange={(val) => setFormData((p) => ({ ...p, serialNumber: val }))}
-            onCapacityChange={(val) => setFormData((p) => ({ ...p, capacityKg: val }))}
+            onSerialChange={(val) => {
+              if (!guardWindowsWrite('Seri numarasını değiştirmek için giriş yapmalısınız.')) return;
+              setFormData((p) => withWindowsLog({ ...p, serialNumber: val }, 'Asansör seri numarası düzenlendi'));
+            }}
+            onCapacityChange={(val) => {
+              if (!guardWindowsWrite('Kapasite bilgisini değiştirmek için giriş yapmalısınız.')) return;
+              setFormData((p) => withWindowsLog({ ...p, capacityKg: val }, 'Asansör kapasitesi düzenlendi'));
+            }}
             onStopCountChange={handleStopCountChange}
             onFloorStartChange={handleFloorStartChange}
-            onMaintenanceDateChange={(val) => setFormData((p) => ({ ...p, maintenanceDate: val }))}
-            onDateTimeConfirmToggle={() =>
-              setFormData((p) => ({ ...p, isDateTimeConfirmed: !p.isDateTimeConfirmed }))
-            }
-            onHardwareMatchToggle={() =>
-              setFormData((p) => ({ ...p, isHardwareMatched: !p.isHardwareMatched }))
-            }
+            onMaintenanceDateChange={(val) => {
+              if (!guardWindowsWrite('Bakım tarihini değiştirmek için giriş yapmalısınız.')) return;
+              setFormData((p) => withWindowsLog({ ...p, maintenanceDate: val }, 'Bakım günü tarihi düzenlendi'));
+            }}
+            onDateTimeConfirmToggle={() => {
+              if (!guardWindowsWrite('Başlangıç onaylarını değiştirmek için giriş yapmalısınız.')) return;
+              setFormData((p) => withWindowsLog({ ...p, isDateTimeConfirmed: !p.isDateTimeConfirmed }, 'Başlangıç onayları güncellendi'));
+            }}
+            onHardwareMatchToggle={() => {
+              if (!guardWindowsWrite('Donanım onayını değiştirmek için giriş yapmalısınız.')) return;
+              setFormData((p) => withWindowsLog({ ...p, isHardwareMatched: !p.isHardwareMatched }, 'Başlangıç onayları güncellendi'));
+            }}
             onBack={() => setFormData((p) => ({ ...p, currentStep: 'welcome' }))}
             onStartAudit={handleStartAudit}
             isAlreadyStarted={!!formData.startTimestamp}
@@ -925,9 +1131,13 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
         {formData.currentStep === 'report' && (
           <ReportView
             data={formData}
-            onEditAudit={() => setFormData((p) => ({ ...p, currentStep: 'audit' }))}
+            onEditAudit={() => {
+              if (!guardWindowsWrite('Rapor maddelerini düzenlemek için adınız ve şifrenizle giriş yapın.')) return;
+              setFormData((p) => ({ ...p, currentStep: 'audit' }));
+            }}
             onNewInspection={handleNewInspection}
             onUpdateData={(updated) => {
+              if (!guardWindowsWrite('Rapor üzerinde değişiklik yapmak için giriş yapmalısınız.')) return;
               setFormData(updated);
               saveActiveDraft(updated);
               saveManualAuditSnapshot(updated);
@@ -940,15 +1150,21 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
       <SettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
-        onOpenSyncModal={() => setIsSyncModalOpen(true)}
+        onOpenSyncModal={() => {
+          if (!guardWindowsWrite('E-Tablo senkronizasyonu için giriş yapmalısınız.')) return;
+          setIsSyncModalOpen(true);
+        }}
         onOpenDriveModal={() => setIsDriveModalOpen(true)}
         onOpenHistoryModal={() => setIsHistoryModalOpen(true)}
         onManualSave={handleManualSave}
-        onEditInspectionInfo={() => setFormData((p) => ({ ...p, currentStep: 'welcome' }))}
+        onEditInspectionInfo={() => {
+          if (!guardWindowsWrite('Proje bilgilerini düzenlemek için giriş yapmalısınız.')) return;
+          setFormData((p) => ({ ...p, currentStep: 'welcome' }));
+        }}
         onNewInspection={handleNewInspection}
         onRestoreDraftOrAudit={(audit) => {
           setFormData(audit);
-          setSaveToastMessage('Taslak / Rapor başarıyla geri yüklendi');
+          setSaveToastMessage('Taslak / Rapor görüntülendi');
           setTimeout(() => setSaveToastMessage(null), 2500);
         }}
         lastSavedFeedback={isSaveSuccess}
@@ -961,8 +1177,10 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
         currentAuditData={formData}
         onLoadAuditFromDrive={(loadedAudit) => {
           setFormData(loadedAudit);
-          saveActiveDraft(loadedAudit);
-          saveManualAuditSnapshot(loadedAudit);
+          if (!isReadOnlyRef.current) {
+            saveActiveDraft(loadedAudit);
+            saveManualAuditSnapshot(loadedAudit);
+          }
           setSaveToastMessage(`"${loadedAudit.serialNumber || loadedAudit.clientProjectName}" Drive'dan başarıyla yüklendi`);
           setTimeout(() => setSaveToastMessage(null), 3000);
         }}
@@ -975,15 +1193,24 @@ export function QualityControlModule({ onBackToMainMenu }: QualityControlModuleP
         totalUDCount={totalUDCount}
         rideComfortNonCompliant={formData.rideComfortNonCompliant}
         rideComfortNotes={formData.rideComfortNotes}
-        onToggleRideComfortUD={() =>
-          setFormData((p) => ({
-            ...p,
-            rideComfortNonCompliant: !p.rideComfortNonCompliant,
-          }))
-        }
-        onRideComfortNotesChange={(notes) =>
-          setFormData((p) => ({ ...p, rideComfortNotes: notes }))
-        }
+        onToggleRideComfortUD={() => {
+          if (!guardWindowsWrite('Konfor durumunu değiştirmek için giriş yapmalısınız.')) return;
+          setFormData((p) =>
+            withWindowsLog(
+              {
+                ...p,
+                rideComfortNonCompliant: !p.rideComfortNonCompliant,
+              },
+              'Seyir ve konfor değerlendirmesi güncellendi'
+            )
+          );
+        }}
+        onRideComfortNotesChange={(notes) => {
+          if (!guardWindowsWrite('Konfor notunu düzenlemek için giriş yapmalısınız.')) return;
+          setFormData((p) =>
+            withWindowsLog({ ...p, rideComfortNotes: notes }, 'Seyir ve konfor notu düzenlendi')
+          );
+        }}
         onGenerateReport={handleGenerateReport}
       />
 

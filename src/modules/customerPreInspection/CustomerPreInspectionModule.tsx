@@ -24,6 +24,8 @@ import { CustomerSettingsModal } from './CustomerSettingsModal';
 import { CustomerSyncModal } from './CustomerSyncModal';
 import { CustomerInspectionItemCard } from './CustomerInspectionItemCard';
 import { useTheme } from '../../context/ThemeContext';
+import { useUser } from '../../context/UserContext';
+import { WindowsModeBanner } from '../../components/WindowsModeBanner';
 
 interface CustomerPreInspectionModuleProps {
   onBackToMainMenu: () => void;
@@ -36,6 +38,19 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
   onBackToMainMenu,
 }) => {
   const { theme, setTheme, isDark } = useTheme();
+  const { isReadOnlyMonitoringMode, openWindowsAuthModal } = useUser();
+  const isReadOnlyRef = React.useRef(isReadOnlyMonitoringMode);
+  useEffect(() => {
+    isReadOnlyRef.current = isReadOnlyMonitoringMode;
+  }, [isReadOnlyMonitoringMode]);
+
+  const guardWindowsWrite = (reason = 'Değişiklik yapmak için adınız ve şifrenizle giriş yapın.') => {
+    if (isReadOnlyRef.current) {
+      openWindowsAuthModal('login', reason);
+      return false;
+    }
+    return true;
+  };
 
   const handleSelectTheme = (mode: CustomerThemeMode) => {
     setTheme(mode);
@@ -100,8 +115,9 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
   const [newCustomTitle, setNewCustomTitle] = useState('');
   const [filterMode, setFilterMode] = useState<'ALL' | 'DEFECTIVE' | 'COMPLIANT'>('ALL');
 
-  // Auto-save active inspection to localStorage
+  // Auto-save active inspection to localStorage (skipped in Windows read-only mode)
   useEffect(() => {
+    if (isReadOnlyMonitoringMode) return;
     if (metadata && items.length > 0) {
       const activeState = {
         metadata,
@@ -110,19 +126,21 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
       };
       localStorage.setItem(STORAGE_KEY_ACTIVE, JSON.stringify(activeState));
     }
-  }, [metadata, items]);
+  }, [metadata, items, isReadOnlyMonitoringMode]);
 
-  // Save history to localStorage
+  // Save history to localStorage (skipped in Windows read-only mode)
   useEffect(() => {
+    if (isReadOnlyMonitoringMode) return;
     try {
       localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
     } catch (e) {
       console.error('Failed to save history to storage', e);
     }
-  }, [history]);
+  }, [history, isReadOnlyMonitoringMode]);
 
   // Toggle Defective state (Kırmızı / Yeşil)
   const handleToggleDefective = (id: string) => {
+    if (!guardWindowsWrite('Madde durumunu değiştirmek için giriş yapmalısınız.')) return;
     setItems((prevItems) =>
       prevItems.map((item) => {
         if (item.id === id) {
@@ -140,6 +158,7 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
 
   // Toggle Passed/Verified state (2 sn basılı tutunca yeşil & uygun)
   const handleTogglePassed = (id: string) => {
+    if (!guardWindowsWrite('Madde onay durumunu değiştirmek için giriş yapmalısınız.')) return;
     setItems((prevItems) =>
       prevItems.map((item) => {
         if (item.id === id) {
@@ -157,6 +176,7 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
 
   // Update item notes - automatically marks item as defective (uygunsuz/eksik) when note is added
   const handleUpdateNotes = (id: string, notes: string) => {
+    if (!guardWindowsWrite('Madde notunu düzenlemek için giriş yapmalısınız.')) return;
     setItems((prevItems) =>
       prevItems.map((item) => {
         if (item.id === id) {
@@ -176,6 +196,7 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
 
   // Add custom item
   const handleAddCustomItem = () => {
+    if (!guardWindowsWrite('Ekstra madde eklemek için giriş yapmalısınız.')) return;
     if (!newCustomTitle.trim()) return;
     const nextNumber = items.reduce((max, item) => Math.max(max, item.itemNumber), 0) + 1;
     const newItem: CustomerInspectionItem = {
@@ -193,24 +214,13 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
 
   // Delete custom item
   const handleDeleteItem = (id: string) => {
+    if (!guardWindowsWrite('Madde silmek için giriş yapmalısınız.')) return;
     setItems((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  // Reset/sync to latest template
-  const handleResetToTemplate = () => {
-    if (!metadata) return;
-    if (
-      window.confirm(
-        'Maddeler orijinal şablona getirilsin mi? (İşaretlediğiniz eksikler sıfırlanacaktır)'
-      )
-    ) {
-      const initialItems = generateInitialCustomerItems(metadata.elevatorType);
-      setItems(initialItems);
-    }
   };
 
   // Manual save trigger
   const handleManualSave = () => {
+    if (!guardWindowsWrite('Taslağı kaydetmek için giriş yapmalısınız.')) return;
     if (metadata && items.length > 0) {
       const activeState = {
         metadata,
@@ -240,29 +250,32 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
     }
   };
 
-  // Complete and save record
+  // Complete and save record (Windows İzleme Modu'nda geçmişe yazmadan sadece raporu açar)
   const handleCompleteAndGenerateReport = () => {
     if (!metadata) return;
 
-    const recordId = `rec-${Date.now()}`;
-    const newRecord: CustomerInspectionRecord = {
-      id: recordId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      metadata,
-      items,
-      status: 'completed',
-    };
+    if (!isReadOnlyMonitoringMode) {
+      const recordId = `rec-${Date.now()}`;
+      const newRecord: CustomerInspectionRecord = {
+        id: recordId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        metadata,
+        items,
+        status: 'completed',
+      };
 
-    setHistory((prev) => [
-      newRecord,
-      ...prev.filter((r) => r.metadata.serialNumber !== metadata.serialNumber),
-    ]);
+      setHistory((prev) => [
+        newRecord,
+        ...prev.filter((r) => r.metadata.serialNumber !== metadata.serialNumber),
+      ]);
+    }
     setIsReportModalOpen(true);
   };
 
   // Start fresh new inspection - seamlessly archives to history and goes directly to the info entry screen
   const handleNewInspection = () => {
+    if (!guardWindowsWrite('Yeni denetim başlatmak için giriş yapmalısınız.')) return;
     // Save current active inspection to history if metadata exists
     if (metadata && items.length > 0) {
       const recordId = `rec-${Date.now()}`;
@@ -396,6 +409,8 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
         </div>
       </header>
 
+      <WindowsModeBanner />
+
       {/* Main Container */}
       <main className="flex-1 max-w-5xl mx-auto w-full px-3 sm:px-4 py-4 sm:py-6 space-y-4">
         {!metadata || isEditingInfo ? (
@@ -404,6 +419,7 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
             themeMode={theme}
             onCancel={metadata ? () => setIsEditingInfo(false) : undefined}
             onSubmit={(newMeta) => {
+              if (!guardWindowsWrite('Denetim bilgilerini kaydetmek için giriş yapmalısınız.')) return;
               if (!metadata || metadata.elevatorType !== newMeta.elevatorType || items.length === 0) {
                 const initialItems = generateInitialCustomerItems(newMeta.elevatorType);
                 setItems(initialItems);
@@ -440,7 +456,10 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
                     </span>
                     <button
                       type="button"
-                      onClick={() => setIsEditingInfo(true)}
+                      onClick={() => {
+                        if (!guardWindowsWrite('Proje bilgilerini düzenlemek için giriş yapmalısınız.')) return;
+                        setIsEditingInfo(true);
+                      }}
                       title="Proje ve Asansör Bilgilerini Düzenle"
                       className={`px-2 py-0.5 text-[10px] font-bold rounded flex items-center gap-1 border transition-colors cursor-pointer ${
                         isDark
@@ -595,7 +614,10 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
             >
               <button
                 type="button"
-                onClick={() => setIsSyncModalOpen(true)}
+                onClick={() => {
+                  if (!guardWindowsWrite('E-Tablodan madde güncellemek için giriş yapmalısınız.')) return;
+                  setIsSyncModalOpen(true);
+                }}
                 className="hover:underline flex items-center gap-1 cursor-pointer text-emerald-400 font-bold"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
@@ -604,7 +626,10 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
 
               <button
                 type="button"
-                onClick={() => setMetadata(null)}
+                onClick={() => {
+                  if (!guardWindowsWrite('Proje bilgilerini düzenlemek için giriş yapmalısınız.')) return;
+                  setMetadata(null);
+                }}
                 className="hover:underline text-emerald-500 flex items-center gap-1 cursor-pointer font-semibold"
               >
                 <Edit3 className="w-3.5 h-3.5" />
@@ -629,7 +654,10 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
       <CustomerSettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
-        onOpenSyncModal={() => setIsSyncModalOpen(true)}
+        onOpenSyncModal={() => {
+          if (!guardWindowsWrite('E-Tablo güncellemesi için giriş yapmalısınız.')) return;
+          setIsSyncModalOpen(true);
+        }}
         themeMode={theme}
         onSelectTheme={handleSelectTheme}
         onManualSave={handleManualSave}
@@ -642,9 +670,11 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
           setItems(rec.items);
         }}
         onDeleteRecord={(id) => {
+          if (!guardWindowsWrite('Kayıt silmek için giriş yapmalısınız.')) return;
           setHistory((prev) => prev.filter((r) => r.id !== id));
         }}
         onClearAllHistory={() => {
+          if (!guardWindowsWrite('Geçmiş kayıtları temizlemek için giriş yapmalısınız.')) return;
           if (window.confirm('Tüm kayıtlı geçmişi silmek istediğinizden emin misiniz?')) {
             setHistory([]);
             localStorage.removeItem(STORAGE_KEY_HISTORY);
@@ -658,11 +688,13 @@ export const CustomerPreInspectionModule: React.FC<CustomerPreInspectionModulePr
         isOpen={isSyncModalOpen}
         onClose={() => setIsSyncModalOpen(false)}
         onApplySyncedData={() => {
+          if (!guardWindowsWrite('E-Tablo maddelerini uygulamak için giriş yapmalısınız.')) return;
           if (metadata) {
             setItems(generateInitialCustomerItems(metadata.elevatorType));
           }
         }}
         onResetToDefault={() => {
+          if (!guardWindowsWrite('Varsayılan maddelere sıfırlamak için giriş yapmalısınız.')) return;
           if (metadata) {
             setItems(generateInitialCustomerItems(metadata.elevatorType));
           }

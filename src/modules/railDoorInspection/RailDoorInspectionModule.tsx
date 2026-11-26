@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { getCurrentDateFormatted } from '../../utils/textUtils';
 import { autoSyncLocalDrawings, syncDrawingsToServer } from './utils/drawingSync';
+import { useUser } from '../../context/UserContext';
+import { WindowsModeBanner } from '../../components/WindowsModeBanner';
 
 interface RailDoorInspectionModuleProps {
   onBackToMainMenu: () => void;
@@ -32,6 +34,19 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
   onBackToMainMenu,
 }) => {
   const { isDark } = useTheme();
+  const { isReadOnlyMonitoringMode, openWindowsAuthModal } = useUser();
+  const isReadOnlyRef = React.useRef(isReadOnlyMonitoringMode);
+  useEffect(() => {
+    isReadOnlyRef.current = isReadOnlyMonitoringMode;
+  }, [isReadOnlyMonitoringMode]);
+
+  const guardWindowsWrite = (reason = 'Değişiklik yapmak için adınız ve şifrenizle giriş yapın.') => {
+    if (isReadOnlyRef.current) {
+      openWindowsAuthModal('login', reason);
+      return false;
+    }
+    return true;
+  };
 
   const [currentStep, setCurrentStep] = useState<'setup' | 'inspection'>(() => {
     try {
@@ -155,9 +170,18 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
     focusedCellKey && formData.flaggedAbnormalCells?.[focusedCellKey]
   );
 
+  const guardedSetFormData: React.Dispatch<React.SetStateAction<RailDoorInspectionFullData>> = (
+    updater
+  ) => {
+    if (!guardWindowsWrite('Ray ve kapı ölçümlerini düzenlemek için giriş yapmalısınız.')) {
+      return;
+    }
+    setFormData(updater);
+  };
+
   const handleToggleSelectedCellFlag = () => {
+    if (!guardWindowsWrite('Hücre işaretlemesi yapmak için giriş yapmalısınız.')) return;
     if (!focusedCellKey) {
-      alert('Lütfen önce tablodan siyah zemin / beyaz yazı yapmak istediğiniz bir hücreye dokunun.');
       return;
     }
 
@@ -175,14 +199,15 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
     });
   };
 
-  // Otomatik Yerel Kayıt
+  // Otomatik Yerel Kayıt (Windows İzleme Modu'nda kapalı)
   useEffect(() => {
+    if (isReadOnlyMonitoringMode) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
     } catch (e) {
       console.error('LocalStorage save error', e);
     }
-  }, [formData]);
+  }, [formData, isReadOnlyMonitoringMode]);
 
   // Çizimleri otomatik olarak sunucu/APK dosya sistemine sabitle
   useEffect(() => {
@@ -204,6 +229,7 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
   }, [formData.chassisImages]);
 
   const handleManualSave = () => {
+    if (!guardWindowsWrite('Taslağı kaydetmek için giriş yapmalısınız.')) return;
     try {
       const now = new Date();
       const timeStr = `${now.toLocaleDateString('tr-TR')} ${now.toLocaleTimeString('tr-TR', {
@@ -243,6 +269,7 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
   };
 
   const handleResetForm = () => {
+    if (!guardWindowsWrite('Yeni boş form başlatmak için giriş yapmalısınız.')) return;
     // Current form save to history before reset
     try {
       const histRaw = localStorage.getItem(HISTORY_KEY);
@@ -359,18 +386,20 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
         </div>
       </header>
 
+      <WindowsModeBanner />
+
       {/* Main Body */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-4 py-4 sm:py-6">
         {currentStep === 'setup' ? (
           <RailDoorSetupScreen
             data={formData}
-            onChange={setFormData}
+            onChange={guardedSetFormData}
             onStartInspection={handleStartInspection}
           />
         ) : (
           <RailDoorInspectionScreen
             data={formData}
-            onChange={setFormData}
+            onChange={guardedSetFormData}
             onBackToSetup={() => setStepWithPersistence('setup')}
             onViewReport={() => setShowReportModal(true)}
             onSaveDraft={handleManualSave}
@@ -386,7 +415,7 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
         <RailDoorReportModal
           data={formData}
           onClose={() => setShowReportModal(false)}
-          onUpdateData={setFormData}
+          onUpdateData={guardedSetFormData}
         />
       )}
 
@@ -398,6 +427,7 @@ export const RailDoorInspectionModule: React.FC<RailDoorInspectionModuleProps> =
         onManualSave={handleManualSave}
         onRestoreData={handleRestoreData}
         onEditInspectionInfo={() => {
+          if (!guardWindowsWrite('Proje bilgilerini düzenlemek için giriş yapmalısınız.')) return;
           setStepWithPersistence('setup');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}

@@ -8,29 +8,49 @@ import { UnderConstructionModule } from './components/UnderConstructionModule';
 import { InitialUserSetupModal } from './components/InitialUserSetupModal';
 import { useTheme } from './context/ThemeContext';
 import { ContractorPortalView } from './modules/contractorPortal/ContractorPortalView';
+import { WindowsAccessModal } from './components/WindowsAccessModal';
 
 export default function App() {
   const [activeModule, setActiveModule] = useState<ActiveAppModule>('hub');
   const { isDark } = useTheme();
 
-  // Taşeron (Usta) Web Linki Tespiti: ?taseron=1&f=<FILE_ID>&k=<AUDIT_ID>
+  // Taşeron (Usta) Web Linki Tespiti:
+  // 1) Temiz seri no + referans linki: ?23-056-akkomur-a2 (veya ?is=... / ?p=...)
+  // 2) Eski format geriye dönük uyumluluk: ?taseron=1&f=<FILE_ID>&k=<AUDIT_ID>
   const contractorParams = React.useMemo(() => {
     if (typeof window === 'undefined') return null;
     const params = new URLSearchParams(window.location.search);
+    const scriptUrlOverride = (params.get('w') || '').trim() || undefined;
+
     if (params.get('taseron') === '1') {
       const fileId = (params.get('f') || '').trim();
       const auditKey = (params.get('k') || '').trim();
-      const scriptUrlOverride = (params.get('w') || '').trim() || undefined;
       if (fileId && auditKey) {
         return { fileId, auditKey, scriptUrlOverride };
       }
     }
+
+    const explicitSlug = (params.get('is') || params.get('p') || '').trim();
+    if (explicitSlug) {
+      return { slug: explicitSlug.toLowerCase(), scriptUrlOverride };
+    }
+
+    const ignoredKeys = new Set(['fbclid', 'gclid', 'w', 'code', 'state', 'error', 'taseron', 'f', 'k', 'winapp']);
+    for (const [key, val] of params.entries()) {
+      const lowerKey = key.trim().toLowerCase();
+      if (!lowerKey || ignoredKeys.has(lowerKey) || lowerKey.startsWith('utm_')) continue;
+      if (val === '' && /^[a-z0-9][a-z0-9-]{1,80}$/.test(lowerKey)) {
+        return { slug: lowerKey, scriptUrlOverride };
+      }
+    }
+
     return null;
   }, []);
 
   if (contractorParams) {
     return (
       <ContractorPortalView
+        slug={contractorParams.slug}
         fileId={contractorParams.fileId}
         auditKey={contractorParams.auditKey}
         scriptUrlOverride={contractorParams.scriptUrlOverride}
@@ -67,8 +87,11 @@ export default function App() {
         isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'
       }`}
     >
-      {/* İlk Kurulum / Kullanıcı Kayıt Zorunlu Modalı */}
+      {/* İlk Kurulum / Kullanıcı Kayıt Zorunlu Modalı (APK / Mobil için) */}
       <InitialUserSetupModal />
+
+      {/* Windows Masaüstü Şifreli Düzenleme Yetkisi Modalı */}
+      <WindowsAccessModal />
 
       {/* 0. ANA GİRİŞ HUB PORTALI */}
       {activeModule === 'hub' && (

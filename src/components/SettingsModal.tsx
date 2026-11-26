@@ -26,6 +26,7 @@ import { getLastSavedTime, loadActiveDraft, getAuditHistory } from '../utils/sto
 import { AuditFormData } from '../types';
 import { FontSizeControl } from './FontSizeControl';
 import { AdminUserSettingsSection } from './AdminUserSettingsSection';
+import { useUser } from '../context/UserContext';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -53,6 +54,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   lastSavedFeedback,
 }) => {
   const { theme, setTheme, isDark } = useTheme();
+  const { isReadOnlyMonitoringMode, openWindowsAuthModal } = useUser();
   const [activeTab, setActiveTab] = useState<'general' | 'saved_data'>('general');
   const [isConfirmingNewInspection, setIsConfirmingNewInspection] = useState(false);
 
@@ -239,7 +241,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </p>
                 <button
                   type="button"
-                  onClick={onManualSave}
+                  onClick={() => {
+                    if (isReadOnlyMonitoringMode) {
+                      openWindowsAuthModal('login', 'Taslak kaydetmek için giriş yapmalısınız.');
+                      return;
+                    }
+                    onManualSave();
+                  }}
                   className={`w-full py-2 px-3 rounded-lg border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                     lastSavedFeedback
                       ? 'bg-emerald-600 text-white border-emerald-400 shadow-md'
@@ -281,6 +289,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      if (isReadOnlyMonitoringMode) {
+                        openWindowsAuthModal('login', 'Proje bilgilerini düzenlemek için giriş yapmalısınız.');
+                        return;
+                      }
                       onClose();
                       onEditInspectionInfo();
                     }}
@@ -346,7 +358,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       type="button"
                       id="btn-settings-new-inspection"
-                      onClick={() => setIsConfirmingNewInspection(true)}
+                      onClick={() => {
+                        if (isReadOnlyMonitoringMode) {
+                          openWindowsAuthModal('login', 'Yeni denetim başlatmak için giriş yapmalısınız.');
+                          return;
+                        }
+                        setIsConfirmingNewInspection(true);
+                      }}
                       className="w-full py-2.5 px-3 bg-blue-600 hover:bg-blue-500 active:scale-98 text-white rounded-lg border border-blue-500 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
                     >
                       <PlusCircle className="w-4 h-4" />
@@ -404,6 +422,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    if (isReadOnlyMonitoringMode) {
+                      openWindowsAuthModal('login', 'E-Tablodan madde güncellemek için giriş yapmalısınız.');
+                      return;
+                    }
                     onClose();
                     onOpenSyncModal();
                   }}

@@ -21,14 +21,15 @@ export const Step1Welcome: React.FC<Step1WelcomeProps> = ({
   onClientProjectChange,
   onProceed,
 }) => {
-  const { userName, isNameRegistered } = useUser();
+  const { userName, isNameRegistered, isWindowsDesktop } = useUser();
 
-  // If user profile is set, auto-fill inspectorName
+  // If user profile is set (APK/Mobile), auto-fill inspectorName
   useEffect(() => {
+    if (isWindowsDesktop) return;
     if (userName && (!inspectorName || inspectorName !== userName)) {
       onInspectorChange(userName);
     }
-  }, [userName, inspectorName, onInspectorChange]);
+  }, [userName, inspectorName, onInspectorChange, isWindowsDesktop]);
 
   const effectiveInspector = isNameRegistered && userName ? userName : inspectorName;
   const isFormValid = effectiveInspector.trim().length > 0 && clientProjectName.trim().length > 0;

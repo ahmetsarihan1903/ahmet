@@ -14,18 +14,21 @@ import {
   ShieldCheck,
   MessageSquare,
   PhoneCall,
+  X,
 } from 'lucide-react';
 import { BetaLogo } from '../../components/BetaLogo';
 import {
   ContractorTaskPayload,
   ContractorSubmissionItem,
+  ContractorTaskItem,
   fetchContractorTaskFromDrive,
   submitContractorUpdatesToDrive,
 } from '../../services/googleDriveService';
 
 interface ContractorPortalViewProps {
-  fileId: string;
-  auditKey: string;
+  slug?: string;
+  fileId?: string;
+  auditKey?: string;
   scriptUrlOverride?: string;
 }
 
@@ -37,6 +40,7 @@ interface LocalItemDraft {
 }
 
 export const ContractorPortalView: React.FC<ContractorPortalViewProps> = ({
+  slug,
   fileId,
   auditKey,
   scriptUrlOverride,
@@ -54,6 +58,11 @@ export const ContractorPortalView: React.FC<ContractorPortalViewProps> = ({
   });
 
   const [drafts, setDrafts] = useState<Record<string, LocalItemDraft>>({});
+  const [autoFilledNoteIds, setAutoFilledNoteIds] = useState<Record<string, boolean>>({});
+  const [confirmNoNoteItem, setConfirmNoNoteItem] = useState<{
+    item: ContractorTaskItem;
+    index: number;
+  } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<{
@@ -67,8 +76,19 @@ export const ContractorPortalView: React.FC<ContractorPortalViewProps> = ({
     setLoadError(null);
     setSubmitError(null);
     try {
-      const payload = await fetchContractorTaskFromDrive(fileId, auditKey, scriptUrlOverride);
+      const payload = await fetchContractorTaskFromDrive({
+        slug,
+        fileId,
+        auditKey,
+        scriptUrlOverride,
+      });
       setTask(payload);
+
+      if (payload.contractorSlug && typeof window !== 'undefined' && window.location.search.includes('taseron=1')) {
+        try {
+          window.history.replaceState({}, '', `${window.location.pathname}?${encodeURIComponent(payload.contractorSlug)}`);
+        } catch {}
+      }
 
       const initialDrafts: Record<string, LocalItemDraft> = {};
       let firstExistingName = '';
@@ -91,7 +111,7 @@ export const ContractorPortalView: React.FC<ContractorPortalViewProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [fileId, auditKey, scriptUrlOverride]);
+  }, [slug, fileId, auditKey, scriptUrlOverride]);
 
   useEffect(() => {
     loadTask();
@@ -106,24 +126,80 @@ export const ContractorPortalView: React.FC<ContractorPortalViewProps> = ({
     }
   };
 
-  const handleToggleDone = (itemId: string) => {
+  const handleToggleDone = (item: ContractorTaskItem, index: number) => {
     setSubmitSuccess(null);
     setSubmitError(null);
+    const current = drafts[item.id] || {
+      contractorDone: !!item.contractorDone,
+      contractorNote: item.contractorNote || '',
+    };
+
+    // Şu an işaretli değilse -> "Yapıldı" yapılmak isteniyor
+    if (!current.contractorDone) {
+      const hasExplanation = current.contractorNote.trim().length > 0;
+      if (hasExplanation) {
+        // Açıklama yazılmış -> doğrudan Yapıldı olarak işaretle
+        setDrafts((prev) => ({
+          ...prev,
+          [item.id]: {
+            ...current,
+            contractorDone: true,
+          },
+        }));
+      } else {
+        // Açıklama yazılmamış -> 2. onay modalını aç
+        setConfirmNoNoteItem({ item, index });
+      }
+      return;
+    }
+
+    // Zaten "Yapıldı" ise geri al (eğer otomatik "YAPILDI" yazıldıysa notu da temizle)
+    const shouldClearAutoNote =
+      !!autoFilledNoteIds[item.id] && current.contractorNote.trim().toUpperCase() === 'YAPILDI';
+
+    setDrafts((prev) => ({
+      ...prev,
+      [item.id]: {
+        contractorDone: false,
+        contractorNote: shouldClearAutoNote ? '' : current.contractorNote,
+      },
+    }));
+    if (shouldClearAutoNote) {
+      setAutoFilledNoteIds((prev) => {
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+    }
+  };
+
+  const handleConfirmNoNoteDone = () => {
+    if (!confirmNoNoteItem) return;
+    const targetId = confirmNoNoteItem.item.id;
     setDrafts((prev) => {
-      const current = prev[itemId] || { contractorDone: false, contractorNote: '' };
+      const current = prev[targetId] || { contractorDone: false, contractorNote: '' };
       return {
         ...prev,
-        [itemId]: {
+        [targetId]: {
           ...current,
-          contractorDone: !current.contractorDone,
+          contractorDone: true,
+          contractorNote: current.contractorNote.trim() ? current.contractorNote : 'YAPILDI',
         },
       };
     });
+    setAutoFilledNoteIds((prev) => ({ ...prev, [targetId]: true }));
+    setConfirmNoNoteItem(null);
   };
 
   const handleNoteChange = (itemId: string, note: string) => {
     setSubmitSuccess(null);
     setSubmitError(null);
+    setAutoFilledNoteIds((prev) => {
+      if (!prev[itemId]) return prev;
+      const next = { ...prev };
+      delete next[itemId];
+      return next;
+    });
     setDrafts((prev) => {
       const current = prev[itemId] || { contractorDone: false, contractorNote: '' };
       return {
@@ -158,8 +234,8 @@ export const ContractorPortalView: React.FC<ContractorPortalViewProps> = ({
       });
 
       const res = await submitContractorUpdatesToDrive({
-        fileId,
-        auditKey,
+        fileId: task.fileId,
+        auditKey: task.auditId,
         contractorName: contractorName.trim(),
         updates,
         scriptUrlOverride,
@@ -454,7 +530,7 @@ export const ContractorPortalView: React.FC<ContractorPortalViewProps> = ({
                         <div className="mt-3 space-y-2.5">
                           <button
                             type="button"
-                            onClick={() => handleToggleDone(item.id)}
+                            onClick={() => handleToggleDone(item, idx)}
                             className={`w-full min-h-[46px] px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 border-2 transition-all cursor-pointer active:scale-[0.99] ${
                               isDone
                                 ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700 shadow-md'
@@ -523,6 +599,74 @@ export const ContractorPortalView: React.FC<ContractorPortalViewProps> = ({
                   : "Yaptıklarımı Kaydet ve Drive'a Gönder"}
               </span>
             </button>
+          </div>
+        </div>
+      )}
+      {/* Açıklamasız "Yaptım" İşareti İçin 2. Onay Modalı */}
+      {confirmNoNoteItem && (
+        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="w-full max-w-md bg-white rounded-2xl border-2 border-amber-400 shadow-2xl overflow-hidden text-slate-900">
+            <div className="bg-[#0A2647] text-white px-4 py-3 flex items-center justify-between border-b-2 border-amber-400">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+                <h3 className="text-sm sm:text-base font-black uppercase tracking-tight">
+                  Açıklamasız Onay (2. Onay)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmNoNoteItem(null)}
+                className="p-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 cursor-pointer"
+                aria-label="Kapat"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-xs">
+                <span className="font-black text-[#0A2647] block">
+                  #{confirmNoNoteItem.index + 1} • {confirmNoNoteItem.item.category}
+                  {confirmNoNoteItem.item.floorLabel ? ` (${confirmNoNoteItem.item.floorLabel})` : ''}
+                </span>
+                <span className="font-bold text-slate-800 block mt-0.5">
+                  {confirmNoNoteItem.item.title}
+                </span>
+              </div>
+
+              <p className="text-xs sm:text-sm font-bold text-slate-800 leading-relaxed">
+                Bu madde için herhangi bir açıklama / not yazmadan{' '}
+                <span className="text-emerald-700 underline">Yaptım</span> olarak işaretlemek
+                istediğinize emin misiniz?
+              </p>
+
+              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950">
+                Onaylarsanız madde <strong>Yapıldı</strong> olarak işaretlenecek ve açıklama alanına otomatik olarak{' '}
+                <strong className="px-1.5 py-0.5 rounded bg-emerald-600 text-white font-mono">
+                  YAPILDI
+                </strong>{' '}
+                yazılacaktır.
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setConfirmNoNoteItem(null)}
+                  className="py-2.5 px-3 rounded-xl border-2 border-slate-300 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs uppercase cursor-pointer transition-colors"
+                >
+                  Vazgeç / Açıklama Yaz
+                </button>
+                <button
+                  type="button"
+                  id="btn-confirm-no-note-done"
+                  onClick={handleConfirmNoNoteDone}
+                  className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all"
+                >
+                  <Check className="w-4 h-4 stroke-[3]" />
+                  <span>Evet, Yapıldı İşaretle</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

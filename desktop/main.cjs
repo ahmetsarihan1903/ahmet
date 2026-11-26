@@ -243,7 +243,7 @@ function createWindow(port) {
     mainWindow = null;
   });
 
-  mainWindow.loadURL(`http://localhost:${port}/`);
+  mainWindow.loadURL(`http://localhost:${port}/?winapp=1`);
 }
 
 app.whenReady().then(async () => {

@@ -62,11 +62,12 @@ export function setContractorPortalUrl(url: string): void {
 }
 
 export const GOOGLE_APPS_SCRIPT_TEMPLATE = `// =======================================================
-// BETA ASANSÖR - GOOGLE DRIVE BULUT KÖPRÜSÜ (v2.0 - Taşeron Destekli)
+// BETA ASANSÖR - GOOGLE DRIVE BULUT KÖPRÜSÜ (v2.1 - Kısa Seri No + Referans Linki)
 // Yetkili Hesap: ahmetsarihan1903@gmail.com
 // =======================================================
 var DEFAULT_FOLDER_ID = "1GAUJoTIEtCpSRepZqHNkzq_dx64JRQ_4";
 var FOLDER_NAME = "KALITEKONTROL ARSIV";
+var CONTRACTOR_INDEX_FILE = "_taseron_link_index.json";
 
 function getTargetFolder(folderId) {
   if (folderId) {
@@ -81,6 +82,44 @@ function getTargetFolder(folderId) {
     return folders.next();
   }
   return DriveApp.createFolder(FOLDER_NAME);
+}
+
+function slugifyTr(input) {
+  var s = (input || '').toString();
+  s = s.replace(/İ/g, 'i').replace(/I/g, 'i').replace(/ı/g, 'i')
+       .replace(/Ğ/g, 'g').replace(/ğ/g, 'g')
+       .replace(/Ü/g, 'u').replace(/ü/g, 'u')
+       .replace(/Ş/g, 's').replace(/ş/g, 's')
+       .replace(/Ö/g, 'o').replace(/ö/g, 'o')
+       .replace(/Ç/g, 'c').replace(/ç/g, 'c')
+       .toLowerCase()
+       .replace(/[^a-z0-9]+/g, '-')
+       .replace(/^-+|-+$/g, '');
+  if (s.length > 52) {
+    s = s.slice(0, 52).replace(/-+$/g, '');
+  }
+  return s;
+}
+
+function readContractorIndex(folder) {
+  try {
+    var it = folder.getFilesByName(CONTRACTOR_INDEX_FILE);
+    if (it.hasNext()) {
+      var parsed = JSON.parse(it.next().getBlob().getDataAsString());
+      if (parsed && typeof parsed === 'object') return parsed;
+    }
+  } catch (e) {}
+  return {};
+}
+
+function writeContractorIndex(folder, indexObj) {
+  var jsonStr = JSON.stringify(indexObj, null, 2);
+  var it = folder.getFilesByName(CONTRACTOR_INDEX_FILE);
+  if (it.hasNext()) {
+    it.next().setContent(jsonStr);
+  } else {
+    folder.createFile(CONTRACTOR_INDEX_FILE, jsonStr, 'application/json');
+  }
 }
 
 function collectContractorItems(audit) {
@@ -132,15 +171,82 @@ function collectContractorItems(audit) {
   return items;
 }
 
+function buildTaskPayload(fileId, auditObj, fallbackKey, slugUsed) {
+  var openItems = collectContractorItems(auditObj);
+  var defaultSlug = slugifyTr((auditObj.serialNumber || '') + ' ' + (auditObj.clientProjectName || ''));
+  return {
+    success: true,
+    task: {
+      fileId: fileId,
+      auditId: auditObj.auditId || fallbackKey || '',
+      contractorSlug: slugUsed || auditObj.contractorSlug || defaultSlug,
+      projectName: auditObj.clientProjectName || '-',
+      serialNumber: auditObj.serialNumber || '-',
+      elevatorType: auditObj.elevatorType || '-',
+      stopCount: auditObj.stopCount || '-',
+      dateDisplay: auditObj.dateDisplay || '-',
+      items: openItems
+    }
+  };
+}
+
 function doGet(e) {
   try {
     var action = (e && e.parameter && e.parameter.action) || 'list';
     var folderId = (e && e.parameter && e.parameter.folderId) || DEFAULT_FOLDER_ID;
 
-    // 1. Taşeron Görev Verisi Çekme (Sadece Açık Eksikler & Doğrulama Anahtarı Kontrollü)
+    // 1. Taşeron Görev Verisi Çekme (SeriNo+Referans Slug veya FileId+Key)
     if (action === 'contractorGet') {
-      var cFileId = e.parameter.fileId;
+      var cSlug = (e.parameter.slug || '').trim().toLowerCase();
+      var cFileId = (e.parameter.fileId || '').trim();
       var cKey = (e.parameter.key || '').trim();
+
+      if (cSlug) {
+        var idxFolder = getTargetFolder(folderId);
+        var idx = readContractorIndex(idxFolder);
+        var idxEntry = idx[cSlug];
+        if (idxEntry && idxEntry.fileId) {
+          try {
+            var idxFile = DriveApp.getFileById(idxEntry.fileId);
+            if (!idxFile.isTrashed()) {
+              var rawIdx = JSON.parse(idxFile.getBlob().getDataAsString());
+              var auditIdx = rawIdx.auditData ? rawIdx.auditData : rawIdx;
+              if (auditIdx) {
+                return ContentService.createTextOutput(JSON.stringify(
+                  buildTaskPayload(idxEntry.fileId, auditIdx, idxEntry.auditId || auditIdx.auditId, cSlug)
+                )).setMimeType(ContentService.MimeType.JSON);
+              }
+            }
+          } catch (idxErr) {}
+        }
+
+        // İndekste yoksa klasörde ara ve indekse kaydet
+        var scanFiles = idxFolder.getFiles();
+        while (scanFiles.hasNext()) {
+          var sf = scanFiles.next();
+          var sName = sf.getName();
+          if (!sName || sName === CONTRACTOR_INDEX_FILE || !sName.toLowerCase().endsWith('.json')) continue;
+          try {
+            var sRaw = JSON.parse(sf.getBlob().getDataAsString());
+            var sAudit = sRaw.auditData ? sRaw.auditData : sRaw;
+            if (!sAudit) continue;
+            var candidate = slugifyTr((sAudit.serialNumber || '') + ' ' + (sAudit.clientProjectName || ''));
+            if ((sAudit.contractorSlug && sAudit.contractorSlug.toLowerCase() === cSlug) || candidate === cSlug) {
+              idx[cSlug] = { fileId: sf.getId(), auditId: sAudit.auditId || '' };
+              try { writeContractorIndex(idxFolder, idx); } catch (wErr) {}
+              return ContentService.createTextOutput(JSON.stringify(
+                buildTaskPayload(sf.getId(), sAudit, sAudit.auditId || '', cSlug)
+              )).setMimeType(ContentService.MimeType.JSON);
+            }
+          } catch (scanErr) {}
+        }
+
+        return ContentService.createTextOutput(JSON.stringify({
+          success: false,
+          error: 'Bu proje referansı için kayıtlı açık görev bulunamadı.'
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
       if (!cFileId || !cKey) {
         return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Eksik görev bağlantısı veya güvenlik kodu.' }))
           .setMimeType(ContentService.MimeType.JSON);
@@ -152,20 +258,9 @@ function doGet(e) {
         return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Bu görev bağlantısı geçersiz veya süresi dolmuş.' }))
           .setMimeType(ContentService.MimeType.JSON);
       }
-      var openItems = collectContractorItems(auditObj);
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        task: {
-          fileId: cFileId,
-          auditId: auditObj.auditId || cKey,
-          projectName: auditObj.clientProjectName || '-',
-          serialNumber: auditObj.serialNumber || '-',
-          elevatorType: auditObj.elevatorType || '-',
-          stopCount: auditObj.stopCount || '-',
-          dateDisplay: auditObj.dateDisplay || '-',
-          items: openItems
-        }
-      })).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify(
+        buildTaskPayload(cFileId, auditObj, cKey, auditObj.contractorSlug || '')
+      )).setMimeType(ContentService.MimeType.JSON);
     }
 
     // 2. Dosya İndirme (JSON Proje Verisi)
@@ -182,6 +277,7 @@ function doGet(e) {
     var list = [];
     while (files.hasNext()) {
       var f = files.next();
+      if (f.getName() === CONTRACTOR_INDEX_FILE) continue;
       list.push({
         id: f.getId(),
         name: f.getName(),
@@ -310,60 +406,103 @@ function doPost(e) {
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
-    // 3. JSON Denetim Dosyası Yükleme (Mevcut referans varsa üzerine yazar, eski taşeron notlarını korur)
+    // 3. JSON Denetim Dosyası Yükleme (Mevcut referans varsa üzerine yazar, taşeron notlarını korur, kısa link indeksini günceller)
     var content = typeof data.content === 'string' ? data.content : JSON.stringify(data.content, null, 2);
     var existingFiles = folder.getFilesByName(fileName);
-    var targetFile;
-    var isUpdated = false;
+    var targetFile = existingFiles.hasNext() ? existingFiles.next() : null;
+    var existingId = targetFile ? targetFile.getId() : '';
+    var isUpdated = !!targetFile;
+    var finalSlug = '';
+    var auditIdForIndex = '';
 
-    if (existingFiles.hasNext()) {
-      targetFile = existingFiles.next();
-      try {
-        var oldWrapper = JSON.parse(targetFile.getBlob().getDataAsString());
-        var newWrapper = JSON.parse(content);
-        var oldAudit = oldWrapper.auditData ? oldWrapper.auditData : oldWrapper;
-        var newAudit = newWrapper.auditData ? newWrapper.auditData : newWrapper;
-        if (oldAudit && newAudit) {
-          var lKeys = ['controlPanelItems', 'motorChassisItems', 'cabinTopItems', 'counterweightItems', 'shaftAndPitItems', 'cabinAndFloorButtonsItems', 'doorsItems'];
-          for (var a = 0; a < lKeys.length; a++) {
-            var oldArr = oldAudit[lKeys[a]];
-            var newArr = newAudit[lKeys[a]];
-            if (Array.isArray(oldArr) && Array.isArray(newArr)) {
-              var oldMap = {};
-              for (var m = 0; m < oldArr.length; m++) {
-                if (oldArr[m] && oldArr[m].id) oldMap[oldArr[m].id] = oldArr[m];
-              }
-              for (var n = 0; n < newArr.length; n++) {
-                var ni = newArr[n];
-                var oi = ni && oldMap[ni.id];
-                if (oi && oi.contractorUpdatedAt && !ni.contractorUpdatedAt) {
-                  ni.contractorDone = oi.contractorDone;
-                  ni.contractorNote = oi.contractorNote;
-                  ni.contractorUpdatedAt = oi.contractorUpdatedAt;
-                  ni.contractorName = oi.contractorName;
-                }
+    try {
+      var newWrapper = JSON.parse(content);
+      var newAudit = newWrapper.auditData ? newWrapper.auditData : newWrapper;
+      var oldAudit = null;
+
+      if (targetFile) {
+        try {
+          var oldWrapper = JSON.parse(targetFile.getBlob().getDataAsString());
+          oldAudit = oldWrapper.auditData ? oldWrapper.auditData : oldWrapper;
+        } catch (oldParseErr) {}
+      }
+
+      if (oldAudit && newAudit) {
+        var lKeys = ['controlPanelItems', 'motorChassisItems', 'cabinTopItems', 'counterweightItems', 'shaftAndPitItems', 'cabinAndFloorButtonsItems', 'doorsItems'];
+        for (var a = 0; a < lKeys.length; a++) {
+          var oldArr = oldAudit[lKeys[a]];
+          var newArr = newAudit[lKeys[a]];
+          if (Array.isArray(oldArr) && Array.isArray(newArr)) {
+            var oldMap = {};
+            for (var m = 0; m < oldArr.length; m++) {
+              if (oldArr[m] && oldArr[m].id) oldMap[oldArr[m].id] = oldArr[m];
+            }
+            for (var n = 0; n < newArr.length; n++) {
+              var ni = newArr[n];
+              var oi = ni && oldMap[ni.id];
+              if (oi && oi.contractorUpdatedAt && !ni.contractorUpdatedAt) {
+                ni.contractorDone = oi.contractorDone;
+                ni.contractorNote = oi.contractorNote;
+                ni.contractorUpdatedAt = oi.contractorUpdatedAt;
+                ni.contractorName = oi.contractorName;
               }
             }
           }
-          if (oldAudit.rideComfortContractorUpdatedAt && !newAudit.rideComfortContractorUpdatedAt) {
-            newAudit.rideComfortContractorDone = oldAudit.rideComfortContractorDone;
-            newAudit.rideComfortContractorNote = oldAudit.rideComfortContractorNote;
-            newAudit.rideComfortContractorUpdatedAt = oldAudit.rideComfortContractorUpdatedAt;
-            newAudit.rideComfortContractorName = oldAudit.rideComfortContractorName;
-          }
-          content = JSON.stringify(newWrapper, null, 2);
         }
-      } catch (mergeErr) {}
+        if (oldAudit.rideComfortContractorUpdatedAt && !newAudit.rideComfortContractorUpdatedAt) {
+          newAudit.rideComfortContractorDone = oldAudit.rideComfortContractorDone;
+          newAudit.rideComfortContractorNote = oldAudit.rideComfortContractorNote;
+          newAudit.rideComfortContractorUpdatedAt = oldAudit.rideComfortContractorUpdatedAt;
+          newAudit.rideComfortContractorName = oldAudit.rideComfortContractorName;
+        }
+      }
+
+      if (newAudit) {
+        auditIdForIndex = newAudit.auditId || '';
+        var desiredRaw = data.contractorSlug || newAudit.contractorSlug || (oldAudit && oldAudit.contractorSlug) || ((newAudit.serialNumber || '') + ' ' + (newAudit.clientProjectName || ''));
+        var baseSlug = slugifyTr(desiredRaw) || ('asansor-' + (new Date().getTime().toString(36)));
+        var indexObj = readContractorIndex(folder);
+        var candidateSlug = baseSlug;
+        var suffix = 2;
+        while (indexObj[candidateSlug] && indexObj[candidateSlug].fileId && existingId && indexObj[candidateSlug].fileId !== existingId) {
+          candidateSlug = baseSlug + '-' + suffix;
+          suffix++;
+        }
+        while (!existingId && indexObj[candidateSlug] && indexObj[candidateSlug].fileId) {
+          candidateSlug = baseSlug + '-' + suffix;
+          suffix++;
+        }
+        finalSlug = candidateSlug;
+        newAudit.contractorSlug = finalSlug;
+        content = JSON.stringify(newWrapper, null, 2);
+      }
+    } catch (mergeErr) {}
+
+    if (targetFile) {
       targetFile.setContent(content);
-      isUpdated = true;
     } else {
       targetFile = folder.createFile(fileName, content, 'application/json');
+    }
+
+    if (finalSlug) {
+      try {
+        var idxNow = readContractorIndex(folder);
+        var prev = idxNow[finalSlug];
+        if (!prev || prev.fileId !== targetFile.getId() || prev.auditId !== auditIdForIndex) {
+          idxNow[finalSlug] = {
+            fileId: targetFile.getId(),
+            auditId: auditIdForIndex
+          };
+          writeContractorIndex(folder, idxNow);
+        }
+      } catch (idxWriteErr) {}
     }
 
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       fileId: targetFile.getId(),
       fileName: targetFile.getName(),
+      contractorSlug: finalSlug || undefined,
       webViewLink: targetFile.getUrl(),
       folderUrl: folder.getUrl(),
       isUpdated: isUpdated
@@ -632,10 +771,12 @@ export async function listDriveFolderFiles(targetFolderId = getSavedDriveFolderI
     if (data.folderUrl) {
       setSavedDriveFolderUrl(data.folderUrl);
     }
-    return (data.files || []).map((f: any) => ({
-      ...f,
-      isAuditData: f.name.toLowerCase().endsWith('.json'),
-    }));
+    return (data.files || [])
+      .filter((f: any) => f.name !== '_taseron_link_index.json')
+      .map((f: any) => ({
+        ...f,
+        isAuditData: f.name.toLowerCase().endsWith('.json'),
+      }));
   }
 
   const token = await requestDriveAccessToken();
@@ -710,7 +851,13 @@ export async function uploadAuditJsonToDrive(
   auditData: AuditFormData,
   targetFolderId = getSavedDriveFolderId(),
   options: { silent?: boolean } = {}
-): Promise<{ fileId: string; fileName: string; webViewLink?: string; isUpdated?: boolean }> {
+): Promise<{
+  fileId: string;
+  fileName: string;
+  contractorSlug?: string;
+  webViewLink?: string;
+  isUpdated?: boolean;
+}> {
   // If not online, queue for sync when internet is back
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     queueAuditForCloudSync(auditData);
@@ -722,11 +869,18 @@ export async function uploadAuditJsonToDrive(
   const cleanProject = (auditData.clientProjectName || 'Referans-Yok').trim().replace(/[/\\:*?"<>|]/g, '-').replace(/\s+/g, ' ');
   const fileName = `${cleanSerial}_${cleanProject}.json`;
 
+  const desiredSlug =
+    (auditData.contractorSlug || '').trim() ||
+    buildContractorSlug(auditData.serialNumber, auditData.clientProjectName);
+
   const jsonPayload = JSON.stringify(
     {
-      version: '2.0',
+      version: '2.1',
       exportedAt: new Date().toISOString(),
-      auditData,
+      auditData: {
+        ...auditData,
+        contractorSlug: desiredSlug || auditData.contractorSlug,
+      },
     },
     null,
     2
@@ -743,6 +897,7 @@ export async function uploadAuditJsonToDrive(
         body: JSON.stringify({
           action: 'uploadJson',
           fileName,
+          contractorSlug: desiredSlug,
           content: jsonPayload,
           folderId: targetFolderId,
         }),
@@ -761,6 +916,7 @@ export async function uploadAuditJsonToDrive(
       return {
         fileId: resJson.fileId || 'webhook-file',
         fileName,
+        contractorSlug: resJson.contractorSlug || undefined,
         webViewLink: resJson.webViewLink,
         isUpdated: !!resJson.isUpdated,
       };
@@ -1063,6 +1219,7 @@ export interface ContractorTaskItem {
 export interface ContractorTaskPayload {
   fileId: string;
   auditId: string;
+  contractorSlug?: string;
   projectName: string;
   serialNumber: string;
   elevatorType: string;
@@ -1077,35 +1234,75 @@ export interface ContractorSubmissionItem {
   contractorNote: string;
 }
 
-export function buildContractorPortalLink(
-  fileId: string,
-  auditId: string,
-  customScriptUrl?: string
+export function buildContractorSlug(
+  serialNumber?: string,
+  clientProjectName?: string
 ): string {
-  const baseUrl = getContractorPortalUrl().replace(/\/+$/, '') + '/';
-  const params = new URLSearchParams();
-  params.set('taseron', '1');
-  params.set('f', fileId);
-  params.set('k', auditId);
+  const combined = `${serialNumber || ''} ${clientProjectName || ''}`
+    .replace(/İ/g, 'i')
+    .replace(/I/g, 'i')
+    .replace(/ı/g, 'i')
+    .replace(/Ğ/g, 'g')
+    .replace(/ğ/g, 'g')
+    .replace(/Ü/g, 'u')
+    .replace(/ü/g, 'u')
+    .replace(/Ş/g, 's')
+    .replace(/ş/g, 's')
+    .replace(/Ö/g, 'o')
+    .replace(/ö/g, 'o')
+    .replace(/Ç/g, 'c')
+    .replace(/ç/g, 'c')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 
-  const activeScript = (customScriptUrl || getSavedDriveScriptUrl() || '').trim();
-  if (activeScript && activeScript !== DEFAULT_SCRIPT_WEBHOOK_URL) {
-    params.set('w', activeScript);
-  }
-  return `${baseUrl}?${params.toString()}`;
+  if (!combined) return 'asansor-eksik';
+  if (combined.length <= 52) return combined;
+  return combined.slice(0, 52).replace(/-+$/g, '') || 'asansor-eksik';
 }
 
-export async function fetchContractorTaskFromDrive(
-  fileId: string,
-  auditKey: string,
-  scriptUrlOverride?: string
-): Promise<ContractorTaskPayload> {
-  const scriptUrl = (scriptUrlOverride || getSavedDriveScriptUrl() || DEFAULT_SCRIPT_WEBHOOK_URL).trim();
+export function buildContractorPortalLink(params: {
+  slug?: string;
+  fileId: string;
+  auditId: string;
+  customScriptUrl?: string;
+}): string {
+  const baseUrl = getContractorPortalUrl().replace(/\/+$/, '') + '/';
+  const activeScript = (params.customScriptUrl || getSavedDriveScriptUrl() || '').trim();
+  const hasCustomScript = !!activeScript && activeScript !== DEFAULT_SCRIPT_WEBHOOK_URL;
+
+  if (params.slug && params.slug.trim()) {
+    const cleanSlug = encodeURIComponent(params.slug.trim());
+    return hasCustomScript
+      ? `${baseUrl}?${cleanSlug}&w=${encodeURIComponent(activeScript)}`
+      : `${baseUrl}?${cleanSlug}`;
+  }
+
+  const query = new URLSearchParams();
+  query.set('taseron', '1');
+  query.set('f', params.fileId);
+  query.set('k', params.auditId);
+  if (hasCustomScript) {
+    query.set('w', activeScript);
+  }
+  return `${baseUrl}?${query.toString()}`;
+}
+
+export async function fetchContractorTaskFromDrive(params: {
+  slug?: string;
+  fileId?: string;
+  auditKey?: string;
+  scriptUrlOverride?: string;
+}): Promise<ContractorTaskPayload> {
+  const scriptUrl = (params.scriptUrlOverride || getSavedDriveScriptUrl() || DEFAULT_SCRIPT_WEBHOOK_URL).trim();
   if (!scriptUrl) {
     throw new Error('Google Drive Bulut Köprüsü yapılandırılmamış.');
   }
   const separator = scriptUrl.includes('?') ? '&' : '?';
-  const url = `${scriptUrl}${separator}action=contractorGet&fileId=${encodeURIComponent(fileId)}&key=${encodeURIComponent(auditKey)}`;
+  const url = params.slug
+    ? `${scriptUrl}${separator}action=contractorGet&slug=${encodeURIComponent(params.slug)}`
+    : `${scriptUrl}${separator}action=contractorGet&fileId=${encodeURIComponent(params.fileId || '')}&key=${encodeURIComponent(params.auditKey || '')}`;
+
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Bulut sunucusuna ulaşılamadı (${res.status})`);
@@ -1113,7 +1310,7 @@ export async function fetchContractorTaskFromDrive(
   const data = await res.json();
   if (data && Array.isArray(data.files) && !data.task) {
     throw new Error(
-      'Google Drive Köprüsü (Apps Script) henüz Taşeron (v2) sürümüne güncellenmemiş. Kontrol ekibinin Ayarlar > Drive Köprüsü üzerinden script kodunu güncellemesi gerekmektedir.'
+      'Google Drive Köprüsü (Apps Script) henüz güncellenmemiş. Kontrol ekibinin Ayarlar > Drive Köprüsü üzerinden v2.1 kodunu güncellemesi gerekmektedir.'
     );
   }
   if (!data || !data.success || !data.task) {

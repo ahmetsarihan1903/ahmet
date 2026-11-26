@@ -5,13 +5,13 @@ import { BetaLogo } from './BetaLogo';
 import { UserCheck, Shield, Sparkles, ArrowRight } from 'lucide-react';
 
 export const InitialUserSetupModal: React.FC = () => {
-  const { userName, isNameRegistered, setUserName } = useUser();
+  const { isNameRegistered, setUserName, isWindowsDesktop } = useUser();
   const { isDark } = useTheme();
   const [nameInput, setNameInput] = useState('');
   const [error, setError] = useState('');
 
-  // If name is already registered, do not show this modal
-  if (isNameRegistered) {
+  // Windows masaüstü izleme modunda başlangıçta zorunlu isim ekranı gösterilmez
+  if (isWindowsDesktop || isNameRegistered) {
     return null;
   }
 

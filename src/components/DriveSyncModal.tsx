@@ -33,6 +33,7 @@ import {
   GOOGLE_APPS_SCRIPT_TEMPLATE,
 } from '../services/googleDriveService';
 import { AuditFormData } from '../types';
+import { useUser } from '../context/UserContext';
 
 interface DriveSyncModalProps {
   isOpen: boolean;
@@ -47,6 +48,7 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
   currentAuditData,
   onLoadAuditFromDrive,
 }) => {
+  const { isReadOnlyMonitoringMode, openWindowsAuthModal } = useUser();
   const [folderId] = useState(getSavedDriveFolderId());
   const [scriptUrl, setScriptUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -57,6 +59,7 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
   const [showGuide, setShowGuide] = useState(false);
   const [showConfigEdit, setShowConfigEdit] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [pendingLoadFile, setPendingLoadFile] = useState<DriveProjectFile | null>(null);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error' | 'info' | null; text: string }>({
     type: null,
     text: '',
@@ -114,6 +117,10 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
   };
 
   const handleSaveWebhook = async () => {
+    if (isReadOnlyMonitoringMode) {
+      openWindowsAuthModal('login', 'Drive köprü ayarlarını değiştirmek için giriş yapmalısınız.');
+      return;
+    }
     const trimmed = scriptUrl.trim();
     if (!trimmed) {
       setStatusMsg({ type: 'error', text: 'Lütfen geçerli bir Google Apps Script Webhook URL adresi giriniz.' });
@@ -153,6 +160,10 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
   };
 
   const handleDisconnect = () => {
+    if (isReadOnlyMonitoringMode) {
+      openWindowsAuthModal('login', 'Drive bağlantısını kaldırmak için giriş yapmalısınız.');
+      return;
+    }
     setSavedDriveScriptUrl('');
     clearCachedDriveToken();
     setScriptUrl('');
@@ -163,6 +174,10 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
   };
 
   const handleUploadCurrentAudit = async () => {
+    if (isReadOnlyMonitoringMode) {
+      openWindowsAuthModal('login', 'Drive üzerine proje yüklemek / güncellemek için giriş yapmalısınız.');
+      return;
+    }
     if (!currentAuditData) {
       setStatusMsg({ type: 'error', text: 'Yüklenecek aktif bir denetim verisi bulunamadı.' });
       return;
@@ -189,19 +204,8 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
     }
   };
 
-  const handleDownloadAndApply = async (file: DriveProjectFile) => {
-    if (!file.isAuditData) {
-      if (file.webViewLink) {
-        window.open(file.webViewLink, '_blank');
-      }
-      return;
-    }
-
-    const confirmLoad = window.confirm(
-      `"${file.name}" isimli denetim projesi tablete yüklenecektir. Mevcut ekrandaki veriniz bu projenin içeriğiyle güncellenecektir. Devam edilsin mi?`
-    );
-    if (!confirmLoad) return;
-
+  const executeDownloadAndApply = async (file: DriveProjectFile) => {
+    setPendingLoadFile(null);
     setIsLoading(true);
     setStatusMsg({ type: 'info', text: 'Proje verisi Drive üzerinden çekiliyor...' });
     try {
@@ -220,6 +224,13 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDownloadAndApply = async (file: DriveProjectFile) => {
+    if (!file.isAuditData) {
+      return;
+    }
+    setPendingLoadFile(file);
   };
 
   const handleCopyCode = async () => {
@@ -344,11 +355,11 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
               {showGuide && (
                 <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 space-y-2 text-xs text-slate-300 animate-fadeIn">
                   <p className="font-bold text-slate-100 border-b border-slate-800 pb-1">
-                    📌 1 Dakikalık Kurulum &amp; Güncelleme Adımları (v2.0 - Taşeron Linki + Eşzamanlı Kilit):
+                    📌 1 Dakikalık Kurulum &amp; Güncelleme Adımları (v2.1 - Seri No Kısa Link + Taşeron):
                   </p>
                   <div className="p-2 rounded bg-amber-950/40 border border-amber-500/40 text-[11px] text-amber-200 leading-snug">
-                    <strong>Mevcut Script Güncellemesi:</strong> Daha önce kurulu bir scriptiniz varsa eski kodu silip aşağıdaki yeni <strong>v2.0</strong> kodu yapıştırın, ardından sağ üstten{' '}
-                    <strong>Dağıt &gt; Dağıtımları Yönet &gt; Kalem (Düzenle) &gt; Sürüm: Yeni sürüm &gt; Dağıt</strong> seçin. Böylece link değişmeden taşeron sistemi ve 20+ ekip eşzamanlı yazma kilidi aktif olur.
+                    <strong>Mevcut Script Güncellemesi:</strong> Daha önce kurulu bir scriptiniz varsa eski kodu silip aşağıdaki yeni <strong>v2.1</strong> kodu yapıştırın, ardından sağ üstten{' '}
+                    <strong>Dağıt &gt; Dağıtımları Yönet &gt; Kalem (Düzenle) &gt; Sürüm: Yeni sürüm &gt; Dağıt</strong> seçin. Böylece link değişmeden Seri No + Referanslı kısa link sistemi aktif olur.
                   </div>
                   <ol className="list-decimal list-inside space-y-1.5 text-[11px] leading-relaxed text-slate-300">
                     <li>
@@ -364,7 +375,7 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
                       adresine girip mevcut projenizi veya <strong>Yeni Proje</strong> açın.
                     </li>
                     <li>
-                      Açılan ekrandaki kodu silin ve aşağıdaki <strong>Hazır Kodu (v2.0)</strong> yapıştırın.
+                      Açılan ekrandaki kodu silin ve aşağıdaki <strong>Hazır Kodu (v2.1)</strong> yapıştırın.
                     </li>
                     <li>
                       İlk kurulumda sağ üstteki mavi <strong>Dağıt (Deploy) &gt; Yeni Dağıtım</strong> butonuna basın (güncellemede <strong>Dağıtımları Yönet &gt; Yeni sürüm</strong>).
@@ -389,7 +400,7 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
                       className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold flex items-center justify-center gap-1.5 shadow cursor-pointer transition-colors"
                     >
                       {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedCode ? 'v2.0 Kod Panoya Kopyalandı! ✓' : 'Google Apps Script (v2.0) Kodunu Kopyala'}</span>
+                      <span>{copiedCode ? 'v2.1 Kod Panoya Kopyalandı! ✓' : 'Google Apps Script (v2.1) Kodunu Kopyala'}</span>
                     </button>
                   </div>
                 </div>
@@ -498,6 +509,31 @@ export const DriveSyncModal: React.FC<DriveSyncModalProps> = ({
                 <RefreshCw className="w-4 h-4 text-blue-400 shrink-0 mt-0.5 animate-spin" />
               )}
               <span className="leading-snug">{statusMsg.text}</span>
+            </div>
+          )}
+
+          {/* Proje Yükleme Onay Şeridi */}
+          {pendingLoadFile && (
+            <div className="p-3 rounded-xl bg-blue-950/90 border-2 border-blue-400 text-xs space-y-2">
+              <p className="font-bold text-white leading-snug">
+                &quot;{pendingLoadFile.name}&quot; projesi ekrana yüklensin mi? Mevcut ekrandaki veriler bu proje ile değiştirilecektir.
+              </p>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPendingLoadFile(null)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold cursor-pointer"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="button"
+                  onClick={() => executeDownloadAndApply(pendingLoadFile)}
+                  className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-black uppercase cursor-pointer"
+                >
+                  Evet, Yükle
+                </button>
+              </div>
             </div>
           )}
 

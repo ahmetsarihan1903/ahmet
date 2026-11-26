@@ -23,6 +23,7 @@ import { useTheme } from '../../../context/ThemeContext';
 import { RailDoorInspectionFullData } from '../types';
 import { FontSizeControl } from '../../../components/FontSizeControl';
 import { AdminUserSettingsSection } from '../../../components/AdminUserSettingsSection';
+import { useUser } from '../../../context/UserContext';
 
 interface RailDoorSettingsModalProps {
   isOpen: boolean;
@@ -50,6 +51,7 @@ export const RailDoorSettingsModal: React.FC<RailDoorSettingsModalProps> = ({
   lastSavedFeedback,
 }) => {
   const { theme, setTheme, isDark } = useTheme();
+  const { isReadOnlyMonitoringMode, openWindowsAuthModal } = useUser();
   const [activeTab, setActiveTab] = useState<'general' | 'saved_data'>('general');
   const [historyList, setHistoryList] = useState<RailDoorInspectionFullData[]>([]);
   const [lastSavedTime, setLastSavedTime] = useState<string>('');
@@ -110,6 +112,10 @@ export const RailDoorSettingsModal: React.FC<RailDoorSettingsModalProps> = ({
 
   const handleDeleteHistoryItem = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isReadOnlyMonitoringMode) {
+      openWindowsAuthModal('login', 'Geçmiş kaydı silmek için giriş yapmalısınız.');
+      return;
+    }
     try {
       const updated = historyList.filter((item) => item.id !== id);
       setHistoryList(updated);

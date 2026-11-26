@@ -39,15 +39,25 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
   onSaveReAudit,
 }) => {
   const { isDark } = useTheme();
-  const { userName, isNameRegistered } = useUser();
+  const {
+    userName,
+    isNameRegistered,
+    isWindowsDesktop,
+    windowsUser,
+    isReadOnlyMonitoringMode,
+    openWindowsAuthModal,
+  } = useUser();
 
   // Working state copy of entire formData
   const [workingData, setWorkingData] = useState<AuditFormData>(() =>
     JSON.parse(JSON.stringify(data))
   );
 
-  // Re-audit inspector is the current device user if available, otherwise previous reAuditInspector or data.inspectorName
+  // Re-audit inspector is the current device user if available, otherwise Windows user or previous reAuditInspector
   const [inspectorName, setInspectorName] = useState<string>(() => {
+    if (isWindowsDesktop && windowsUser?.name) {
+      return `${windowsUser.name} (${windowsUser.userId})`;
+    }
     if (userName && isNameRegistered) return userName;
     return data.reAuditInspector || data.inspectorName || '';
   });
@@ -73,8 +83,9 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setWorkingData(JSON.parse(JSON.stringify(data)));
-      // If active user is registered on this device, they are the one conducting the re-audit
-      if (userName && isNameRegistered) {
+      if (isWindowsDesktop && windowsUser?.name) {
+        setInspectorName(`${windowsUser.name} (${windowsUser.userId})`);
+      } else if (userName && isNameRegistered) {
         setInspectorName(userName);
       } else {
         setInspectorName(data.reAuditInspector || data.inspectorName || '');
@@ -91,7 +102,7 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
         setReAuditDate(data.reAuditDate);
       }
     }
-  }, [isOpen, data, userName, isNameRegistered]);
+  }, [isOpen, data, userName, isNameRegistered, isWindowsDesktop, windowsUser]);
 
   useEffect(() => {
     if (isOpen) {
@@ -140,6 +151,10 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
     itemId: string,
     type: 'YAPILDI' | 'BETA' | 'KALDI'
   ) => {
+    if (isReadOnlyMonitoringMode) {
+      openWindowsAuthModal('login', '2. Kontrol durumunu değiştirmek için adınız ve şifrenizle giriş yapın.');
+      return;
+    }
     const isResolved = type === 'YAPILDI' || type === 'BETA';
     setWorkingData((prev) => {
       const copy = { ...prev };
@@ -164,6 +179,10 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
 
   // Update item resolution note
   const handleResolutionNoteChange = (listKey: keyof AuditFormData, itemId: string, note: string) => {
+    if (isReadOnlyMonitoringMode) {
+      openWindowsAuthModal('login', '2. Kontrol notu yazmak için giriş yapmalısınız.');
+      return;
+    }
     setWorkingData((prev) => {
       const copy = { ...prev };
       const list = copy[listKey] as InspectionItem[];
@@ -184,6 +203,10 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
 
   // Toggle Comfort Resolution with 3 modes: 'YAPILDI' | 'BETA' | 'KALDI'
   const handleToggleComfortResolved = (type: 'YAPILDI' | 'BETA' | 'KALDI') => {
+    if (isReadOnlyMonitoringMode) {
+      openWindowsAuthModal('login', 'Konfor durumunu değiştirmek için giriş yapmalısınız.');
+      return;
+    }
     const isResolved = type === 'YAPILDI' || type === 'BETA';
     setWorkingData((prev) => ({
       ...prev,
@@ -195,6 +218,10 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
 
   // Pull subcontractor completion marks and notes from Google Drive
   const handlePullContractorUpdates = async () => {
+    if (isReadOnlyMonitoringMode) {
+      openWindowsAuthModal('login', 'Taşeron güncellemesini denetime işlemek için giriş yapmalısınız.');
+      return;
+    }
     if (isPullingContractor) return;
     setIsPullingContractor(true);
     setContractorPullMsg(null);
@@ -225,6 +252,10 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
 
   // Save changes
   const handleSave = () => {
+    if (isReadOnlyMonitoringMode) {
+      openWindowsAuthModal('login', '2. Kontrol değişikliklerini kaydetmek için giriş yapmalısınız.');
+      return;
+    }
     const finalData: AuditFormData = {
       ...workingData,
       reAuditDate: reAuditDate.trim(),
@@ -693,12 +724,16 @@ export const ReAuditModal: React.FC<ReAuditModalProps> = ({
                   <input
                     type="text"
                     value={workingData.rideComfortResolutionNote || ''}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      if (isReadOnlyMonitoringMode) {
+                        openWindowsAuthModal('login', '2. Kontrol notu yazmak için giriş yapmalısınız.');
+                        return;
+                      }
                       setWorkingData((p) => ({
                         ...p,
                         rideComfortResolutionNote: e.target.value,
-                      }))
-                    }
+                      }));
+                    }}
                     placeholder="Konfor kapatma veya durum açıklaması yazın..."
                     className={`flex-1 w-full px-2.5 py-1 rounded text-xs border ${
                       isDark

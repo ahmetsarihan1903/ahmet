@@ -40,10 +40,21 @@ export interface MeasureItem {
   isFixed?: boolean;
 }
 
+export interface AuditChangeLogEntry {
+  id: string;
+  userId: string;
+  userName: string;
+  timestamp: string;
+  platform: 'WINDOWS';
+  actionSummary: string;
+}
+
 export interface AuditFormData {
   // Unique Audit Session ID (persists across saves of the same audit)
   auditId?: string;
   driveFileId?: string;
+  contractorSlug?: string;
+  changeLogs?: AuditChangeLogEntry[];
 
   // Step 1: Welcome / Basic Info
   date: string; // ISO date or localized string
